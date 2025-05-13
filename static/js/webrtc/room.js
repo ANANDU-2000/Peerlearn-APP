@@ -62,28 +62,58 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             // Set up WebRTC
             async setupWebRTC() {
                 try {
+                    console.log("Setting up WebRTC room...");
+                    
                     // Connect to WebSocket
                     this.connectWebSocket(roomCode);
                     
-                    // Request media permissions
-                    await this.requestUserMedia();
+                    // Wait a moment for the WebSocket to connect before requesting media
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Check if WebSocket is connected
+                    if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+                        console.warn("WebSocket not connected when trying to access media. Attempting to proceed anyway.");
+                    }
+                    
+                    console.log("Requesting user media permissions...");
+                    
+                    // Request media permissions - this is a critical step
+                    const mediaSuccess = await this.requestUserMedia();
+                    
+                    if (!mediaSuccess) {
+                        throw new Error("Failed to get user media");
+                    }
                     
                     // Update UI
                     this.connectionStatus = "Connected";
                     this.connectionStatusClass = "connected";
                     this.sessionStatus = "live";
                     
+                    console.log("WebRTC setup completed successfully");
+                    
                     // If mentor, update session status to live
                     if (userRole === 'mentor') {
+                        console.log("Updating session status to live (mentor role)");
                         this.updateSessionStatus('live');
                     }
+                    
+                    // Show success message
+                    showToast('success', 'Connected', 'You have joined the session successfully.');
                 } catch (error) {
                     console.error("Error setting up WebRTC:", error);
                     this.connectionStatus = "Error";
                     this.connectionStatusClass = "error";
                     
-                    // Show error toast
-                    showToast('error', 'Connection Error', 'Failed to connect to the session. Please try refreshing the page.');
+                    // Handle specific errors
+                    if (error.name === 'NotAllowedError') {
+                        showToast('error', 'Permission Denied', 'You need to grant camera and microphone permissions to join the session. Please check your browser settings and try again.');
+                    } else if (error.name === 'NotFoundError') {
+                        showToast('error', 'Device Not Found', 'Camera or microphone not found. Please check your device connections and try again.');
+                    } else if (error.name === 'NotReadableError' || error.name === 'AbortError') {
+                        showToast('error', 'Device Error', 'Cannot access your camera or microphone. The device might be in use by another application.');
+                    } else {
+                        showToast('error', 'Connection Error', `Failed to connect to the session: ${error.message}. Please try refreshing the page.`);
+                    }
                 }
             },
             
@@ -432,27 +462,67 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         throw new Error("getUserMedia is not supported in this browser");
                     }
                     
-                    // Try with ideal constraints first
-                    try {
-                        this.localStream = await navigator.mediaDevices.getUserMedia({
+                    // Try multiple fallbacks in case of issues
+                    let stream = null;
+                    const fallbackOptions = [
+                        // Option 1: Ideal HD constraints
+                        {
                             audio: true,
                             video: {
                                 width: { ideal: 1280 },
                                 height: { ideal: 720 },
                                 facingMode: 'user'
                             }
-                        });
-                        console.log("Successfully obtained media stream with ideal constraints");
-                    } catch (constraintError) {
-                        console.warn("Failed with ideal constraints:", constraintError.message);
-                        
-                        // Fall back to basic constraints
-                        console.log("Trying with basic video constraints...");
-                        this.localStream = await navigator.mediaDevices.getUserMedia({
+                        },
+                        // Option 2: Basic video/audio
+                        {
                             audio: true,
                             video: true
-                        });
-                        console.log("Successfully obtained media stream with basic constraints");
+                        },
+                        // Option 3: Low resolution video
+                        {
+                            audio: true,
+                            video: {
+                                width: { ideal: 640 },
+                                height: { ideal: 480 }
+                            }
+                        },
+                        // Option 4: Audio only with video placeholder
+                        {
+                            audio: true,
+                            video: false
+                        }
+                    ];
+                    
+                    // Try each option until one works
+                    let lastError = null;
+                    for (let i = 0; i < fallbackOptions.length; i++) {
+                        try {
+                            console.log(`Trying media constraints option ${i+1}:`, fallbackOptions[i]);
+                            stream = await navigator.mediaDevices.getUserMedia(fallbackOptions[i]);
+                            console.log(`Successfully obtained media stream with option ${i+1}`);
+                            
+                            // If we got here, we have a working stream
+                            this.localStream = stream;
+                            
+                            // Set video enabled flag based on whether we have video
+                            this.videoEnabled = fallbackOptions[i].video !== false;
+                            
+                            break;
+                        } catch (error) {
+                            lastError = error;
+                            console.warn(`Failed with option ${i+1}:`, error.message);
+                            
+                            // If this is a permission error, no need to try other options
+                            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                                throw error;
+                            }
+                        }
+                    }
+                    
+                    // If we couldn't get a stream with any options
+                    if (!this.localStream) {
+                        throw lastError || new Error("Could not acquire media stream with any constraints");
                     }
                     
                     // Log tracks for debugging
@@ -462,6 +532,16 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     
                     if (videoTracks.length > 0) {
                         console.log("Video track:", videoTracks[0].label, "enabled:", videoTracks[0].enabled);
+                    } else {
+                        // If no video tracks but we're in a video call, create a placeholder
+                        console.log("No video tracks available, using placeholder");
+                        this.videoEnabled = false;
+                        
+                        // Show placeholder image/message in UI
+                        const placeholderElement = document.querySelector('.video-placeholder');
+                        if (placeholderElement) {
+                            placeholderElement.classList.remove('hidden');
+                        }
                     }
                     
                     // Set local video
@@ -501,21 +581,23 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     this.updatePeerConnections();
                     
                     console.log("Local media stream acquired and set up successfully");
-                    return this.localStream;
+                    return true;
                 } catch (error) {
                     console.error("Error requesting user media:", error);
                     
-                    if (error.name === 'NotAllowedError') {
-                        showToast('error', 'Permission Denied', 'You need to grant camera and microphone permissions to join the session.');
+                    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                        showToast('error', 'Permission Denied', 'You need to grant camera and microphone permissions to join the session. Please check your browser settings and try again.');
                     } else if (error.name === 'NotFoundError') {
-                        showToast('error', 'Device Not Found', 'Camera or microphone not found. Please check your device connections.');
-                    } else if (error.name === 'NotReadableError') {
-                        showToast('error', 'Device In Use', 'Camera or microphone is already in use by another application.');
+                        showToast('error', 'Device Not Found', 'Camera or microphone not found. Please check your device connections and try again.');
+                    } else if (error.name === 'NotReadableError' || error.name === 'AbortError') {
+                        showToast('error', 'Device In Use', 'Camera or microphone is already in use by another application or not accessible.');
+                    } else if (error.name === 'OverconstrainedError') {
+                        showToast('error', 'Device Constraints Error', 'Your camera does not support the required resolution. Try with different settings.');
                     } else {
                         showToast('error', 'Media Error', `Could not access media devices: ${error.message}`);
                     }
                     
-                    throw error;
+                    return false;
                 }
             },
             
