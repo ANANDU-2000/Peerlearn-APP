@@ -103,9 +103,17 @@ function onDashboardSocketMessage(event) {
         case 'dashboard_data':
             handleDashboardData(data);
             break;
+        case 'connection_established':
+        case 'joined_group':
+            // Just log these messages, no action needed
+            console.log(`Dashboard WebSocket: ${data.type}`);
+            break;
         case 'ping':
             // Respond with pong to keep connection alive
             sendDashboardMessage({ type: 'pong' });
+            break;
+        case 'error':
+            console.error('Dashboard WebSocket error:', data.message || 'Unknown error');
             break;
         default:
             console.warn('Unknown dashboard message type:', data.type);
