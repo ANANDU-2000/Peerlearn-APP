@@ -17,6 +17,9 @@ urlpatterns = [
     path('signup/learner/', views.learner_signup, name='learner_signup'),
     path('signup/mentor/', views.mentor_signup, name='mentor_signup'),
     
+    # API Endpoints
+    path('api/check-email/', views.check_email_exists, name='check_email_exists'),
+    
     # User profiles
     path('mentors/', views.MentorListView.as_view(), name='mentor_list'),
     path('mentors/<int:pk>/', views.MentorDetailView.as_view(), name='mentor_detail'),

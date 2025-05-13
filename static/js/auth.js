@@ -2,6 +2,44 @@
  * Authentication and registration form handling for PeerLearn
  */
 
+// Popular domains for autocomplete suggestions
+const popularDomains = [
+  'Web Development', 'Mobile App Development', 'Software Engineering', 'Data Science',
+  'Machine Learning', 'Artificial Intelligence', 'DevOps', 'Cloud Computing',
+  'Cybersecurity', 'Blockchain', 'Game Development', 'UX/UI Design',
+  'Digital Marketing', 'Product Management', 'Mathematics', 'Physics',
+  'Chemistry', 'Biology', 'English Literature', 'History', 'Philosophy',
+  'Business Management', 'Finance', 'Economics', 'Law', 'Medicine',
+  'Psychology', 'Sociology', 'Foreign Languages', 'Music', 'Art'
+];
+
+// Skills for autocomplete suggestions
+const allSkills = [
+  // Programming Languages
+  'Python', 'JavaScript', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Swift', 'Go', 'Rust', 'TypeScript',
+  // Web Technologies
+  'HTML', 'CSS', 'React', 'Angular', 'Vue.js', 'Node.js', 'Express.js', 'Django', 'Flask', 'Ruby on Rails',
+  'Bootstrap', 'Tailwind CSS', 'GraphQL', 'REST API', 'WordPress', 'Laravel', 'Spring Boot',
+  // Databases
+  'MySQL', 'PostgreSQL', 'MongoDB', 'SQLite', 'Oracle', 'Redis', 'Firebase', 'DynamoDB', 'Cassandra',
+  // Mobile Development
+  'Android', 'iOS', 'React Native', 'Flutter', 'Kotlin', 'SwiftUI', 'Xamarin', 'Ionic',
+  // Data Science & ML
+  'TensorFlow', 'PyTorch', 'Scikit-learn', 'Pandas', 'NumPy', 'R', 'MATLAB', 'Tableau', 'Power BI',
+  'Data Analysis', 'Data Visualization', 'Natural Language Processing', 'Computer Vision',
+  // DevOps & Cloud
+  'Docker', 'Kubernetes', 'AWS', 'Azure', 'Google Cloud', 'Jenkins', 'Git', 'GitHub Actions',
+  'Terraform', 'Ansible', 'Linux', 'Bash Scripting', 'CI/CD',
+  // Design
+  'Figma', 'Adobe Photoshop', 'Adobe Illustrator', 'Sketch', 'InVision', 'UI Design', 'UX Research',
+  'Wireframing', 'Prototyping',
+  // Soft Skills
+  'Project Management', 'Agile', 'Scrum', 'Communication', 'Team Leadership', 'Problem Solving',
+  // Other Technologies
+  'Blockchain', 'Ethereum', 'Smart Contracts', 'Unity', 'Unreal Engine', 'AR/VR',
+  'Embedded Systems', 'IoT'
+];
+
 document.addEventListener('DOMContentLoaded', function() {
   // Learner signup form functionality
   window.signupForm = function() {
@@ -116,10 +154,10 @@ document.addEventListener('DOMContentLoaded', function() {
       isStepValid: false,
       previewUrl: null,
       showPassword: false,
-      showSuggestions: false,
-      showSkillSuggestions: false,
-      searchTerm: '',
-      skillSearchTerm: '',
+      emailExists: false,
+      emailValid: true,
+      emailChecking: false,
+      emailMessage: '',
       resumeFromLocal: false,
       formData: {
         username: '',
@@ -134,24 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
         bio: '',
         intro_video: ''
       },
-      popularDomains: [
-        'Programming', 'Web Development', 'Data Science', 'Design', 'Business', 
-        'Marketing', 'Mathematics', 'Science', 'Languages', 'Music'
-      ],
-      allSkills: [
-        // Programming
-        'JavaScript', 'Python', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Swift', 'TypeScript', 'Kotlin', 'Go',
-        // Web Development
-        'React', 'Angular', 'Vue.js', 'Node.js', 'Express', 'Django', 'Laravel', 'Ruby on Rails', 'ASP.NET',
-        // Data Science
-        'TensorFlow', 'PyTorch', 'Scikit-learn', 'Pandas', 'NumPy', 'R', 'SQL', 'Tableau', 'Power BI',
-        // Design
-        'Photoshop', 'Illustrator', 'Figma', 'Sketch', 'InDesign', 'UI/UX', 'Animation', '3D Modeling',
-        // Business
-        'Marketing', 'SEO', 'Content Writing', 'Social Media', 'Project Management', 'Product Management',
-        // Other
-        'Teaching', 'Public Speaking', 'Writing', 'Translation', 'Video Editing', 'Audio Production'
-      ],
       
       get filteredDomains() {
         if (!this.searchTerm) return [];

@@ -9,7 +9,8 @@ from django.views.generic import ListView, DetailView, UpdateView
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
+import json
 
 from .models import CustomUser, UserRating
 from .forms import (
@@ -56,6 +57,23 @@ def mentor_signup(request):
         form = MentorSignUpForm()
     
     return render(request, 'auth/signup_mentor.html', {'form': form})
+
+def check_email_exists(request):
+    """API endpoint to check if an email already exists in the database."""
+    if request.method == 'GET':
+        email = request.GET.get('email', '')
+        exists = CustomUser.objects.filter(email=email).exists()
+        
+        # Also check if the email is valid with a simple format check
+        is_valid = '@' in email and '.' in email.split('@')[1] if '@' in email else False
+        
+        return JsonResponse({
+            'exists': exists,
+            'is_valid': is_valid,
+            'message': 'Email is already registered' if exists else '',
+        })
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 def login_view(request):
     """View for user login."""

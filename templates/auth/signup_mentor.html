@@ -147,12 +147,37 @@
                         Tell us about your areas of expertise so learners can find you for relevant topics.
                     </p>
                     
-                    <div class="relative">
+                    <div class="relative" x-data="{ 
+                        showSuggestions: false, 
+                        searchTerm: '',
+                        filteredDomains: [],
+                        updateDomainSuggestions(term) {
+                            if (!term) {
+                                this.filteredDomains = [];
+                                return;
+                            }
+                            // Filter from popular domains
+                            this.filteredDomains = popularDomains.filter(domain => 
+                                domain.toLowerCase().includes(term.toLowerCase())
+                            ).slice(0, 5); // Limit to 5 suggestions
+                        }
+                    }">
                         <label for="id_expertise" class="block text-sm font-medium text-gray-700">Areas of Expertise</label>
                         <input type="text" name="expertise" id="id_expertise" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. Python, Web Development, Machine Learning" 
                             x-model="formData.expertise" 
-                            @input="handleExpertiseInput($event)" 
-                            @focus="if(formData.expertise.trim()) { searchTerm = formData.expertise.split(',').pop().trim(); showSuggestions = true; }"
+                            @input="validateStep2();
+                                   const terms = $event.target.value.split(',');
+                                   const lastTerm = terms[terms.length - 1].trim();
+                                   searchTerm = lastTerm;
+                                   updateDomainSuggestions(lastTerm);
+                                   showSuggestions = lastTerm.length > 0;" 
+                            @focus="const terms = formData.expertise.split(',');
+                                   const lastTerm = terms[terms.length - 1].trim();
+                                   if(lastTerm) { 
+                                       searchTerm = lastTerm; 
+                                       updateDomainSuggestions(lastTerm);
+                                       showSuggestions = true; 
+                                   }"
                             @blur="setTimeout(() => showSuggestions = false, 200)">
                         <p class="mt-1 text-xs text-gray-500">Enter your expertise areas separated by commas</p>
                         
@@ -161,7 +186,20 @@
                              class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 max-h-60 overflow-auto">
                             <template x-for="domain in filteredDomains" :key="domain">
                                 <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm" 
-                                     @mousedown.prevent="addDomainSuggestion(domain)"
+                                     @mousedown.prevent="
+                                        const domains = formData.expertise.split(',').map(d => d.trim()).filter(d => d !== '');
+                                        const lastIndex = domains.length - 1;
+                                        
+                                        if (lastIndex >= 0) {
+                                            domains[lastIndex] = domain;
+                                        } else {
+                                            domains.push(domain);
+                                        }
+                                        
+                                        formData.expertise = domains.join(', ');
+                                        validateStep2();
+                                        showSuggestions = false;
+                                     "
                                      x-text="domain">
                                 </div>
                             </template>
@@ -191,13 +229,38 @@
                         List your specific skills, tools, and any professional certifications you have.
                     </p>
                     
-                    <div class="relative">
+                    <div class="relative" x-data="{ 
+                        showSkillSuggestions: false, 
+                        skillSearchTerm: '',
+                        filteredSkills: [],
+                        updateSkillSuggestions(term) {
+                            if (!term) {
+                                this.filteredSkills = [];
+                                return;
+                            }
+                            // Filter from the main skills list
+                            this.filteredSkills = allSkills.filter(skill => 
+                                skill.toLowerCase().includes(term.toLowerCase())
+                            ).slice(0, 5); // Limit to 5 suggestions
+                        }
+                    }">
                         <label for="id_skills" class="block text-sm font-medium text-gray-700">Skills</label>
                         <input type="text" name="skills" id="id_skills" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" 
                             placeholder="e.g. Django, React, TensorFlow" 
                             x-model="formData.skills" 
-                            @input="handleSkillsInput($event)" 
-                            @focus="if(formData.skills.trim()) { skillSearchTerm = formData.skills.split(',').pop().trim(); showSkillSuggestions = true; }"
+                            @input="validateStep3(); 
+                                    const terms = $event.target.value.split(',');
+                                    const lastTerm = terms[terms.length - 1].trim();
+                                    skillSearchTerm = lastTerm;
+                                    updateSkillSuggestions(lastTerm);
+                                    showSkillSuggestions = lastTerm.length > 0;" 
+                            @focus="const terms = formData.skills.split(',');
+                                    const lastTerm = terms[terms.length - 1].trim();
+                                    if(lastTerm) { 
+                                        skillSearchTerm = lastTerm; 
+                                        updateSkillSuggestions(lastTerm);
+                                        showSkillSuggestions = true; 
+                                    }"
                             @blur="setTimeout(() => showSkillSuggestions = false, 200)">
                         <p class="mt-1 text-xs text-gray-500">Enter specific skills separated by commas</p>
                         
@@ -206,7 +269,20 @@
                              class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 max-h-60 overflow-auto">
                             <template x-for="skill in filteredSkills" :key="skill">
                                 <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm" 
-                                     @mousedown.prevent="addSkillSuggestion(skill)"
+                                     @mousedown.prevent="
+                                        const skills = formData.skills.split(',').map(s => s.trim()).filter(s => s !== '');
+                                        const lastIndex = skills.length - 1;
+                                        
+                                        if (lastIndex >= 0) {
+                                            skills[lastIndex] = skill;
+                                        } else {
+                                            skills.push(skill);
+                                        }
+                                        
+                                        formData.skills = skills.join(', ');
+                                        validateStep3();
+                                        showSkillSuggestions = false;
+                                     "
                                      x-text="skill">
                                 </div>
                             </template>
