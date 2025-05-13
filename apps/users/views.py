@@ -230,7 +230,7 @@ def learner_dashboard(request):
     # Check if user is authenticated first
     if not request.user.is_authenticated:
         messages.error(request, 'You must be logged in to access the dashboard.')
-        return redirect('login')
+        return redirect('users:login')
         
     # Then check if user is a learner
     if not request.user.is_learner:
