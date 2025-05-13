@@ -168,9 +168,11 @@
         });
     </script>
     
-    <!-- Notification JS -->
+    <!-- Core JS libraries -->
     {% if user.is_authenticated %}
-    <script src="/static/js/notifications.js"></script>
+    <script src="{% static 'js/toasts.js' %}"></script>
+    <script src="{% static 'js/notifications.js' %}"></script>
+    <script src="{% static 'js/dashboard-ws.js' %}"></script>
     {% endif %}
     
     {% block extra_js %}{% endblock %}
