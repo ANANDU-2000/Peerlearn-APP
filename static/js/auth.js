@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
       currentStep: 1,
       isStepValid: false,
       previewUrl: null,
+      showPassword: false,
       showSuggestions: false,
       showSkillSuggestions: false,
       searchTerm: '',
