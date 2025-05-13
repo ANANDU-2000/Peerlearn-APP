@@ -182,10 +182,10 @@
                     <p class="text-gray-600 max-w-md mx-auto">
                         You haven't booked any sessions or made any requests yet. Explore recommended sessions to get started.
                     </p>
-                    <button @click="activeTab = 'recommended'" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <a href="{% url 'users:learner_dashboard' %}?tab=home" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         <i data-feather="compass" class="w-4 h-4 mr-1"></i>
                         Browse Sessions
-                    </button>
+                    </a>
                 </div>
             {% endif %}
             </div>
@@ -496,10 +496,10 @@
                     <p class="text-gray-600 max-w-md mx-auto">
                         You haven't booked any sessions yet. Explore recommended sessions to find something that interests you.
                     </p>
-                    <button @click="activeTab = 'recommended'" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <a href="{% url 'users:learner_dashboard' %}?tab=home" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         <i data-feather="compass" class="w-4 h-4 mr-1"></i>
                         Browse Sessions
-                    </button>
+                    </a>
                 </div>
             {% endif %}
         </div>
