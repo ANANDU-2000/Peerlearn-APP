@@ -797,6 +797,53 @@ def mentor_create_session(request):
     # Always redirect to the advanced session creation page
     return redirect('users:mentor_create_advanced_session')
 
+
+@login_required
+def mentor_session_edit(request, session_id):
+    """View for editing an existing session with enhanced UX."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.models import Session
+    from apps.learning_sessions.forms import SessionForm
+    
+    # Get the session
+    session = get_object_or_404(Session, id=session_id, mentor=request.user)
+    
+    # Check if session is editable
+    if session.status in [Session.LIVE, Session.COMPLETED, Session.CANCELLED]:
+        messages.error(request, f'Sessions that are {session.get_status_display().lower()} cannot be edited.')
+        return redirect('users:mentor_session_detail', session_id=session.id)
+        
+    if request.method == 'POST':
+        form = SessionForm(request.POST, instance=session)
+        if form.is_valid():
+            # Save the form but don't commit yet
+            updated_session = form.save(commit=False)
+            
+            # Any additional processing or validation can go here
+            
+            # Save the session
+            updated_session.save()
+            
+            # For many-to-many fields like topics
+            form.save_m2m()
+            
+            messages.success(request, 'Session updated successfully.')
+            return redirect('users:mentor_session_detail', session_id=session.id)
+    else:
+        form = SessionForm(instance=session)
+    
+    context = {
+        'active_tab': 'sessions',
+        'form': form,
+        'session': session,
+        'is_edit_mode': True
+    }
+    
+    return render(request, 'mentors_dash/session_edit.html', context)
+
 @login_required
 def mentor_create_advanced_session(request):
     """View for advanced mentor create session page with step-by-step UI."""

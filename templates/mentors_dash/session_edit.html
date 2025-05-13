@@ -1,0 +1,338 @@
+{% extends 'mentors_dash/base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<style>
+    .invalid-feedback {
+        display: block;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 80%;
+        color: #dc3545;
+    }
+    .requiredField {
+        font-weight: bold;
+    }
+    .requiredField:after {
+        content: "*";
+        color: red;
+    }
+    .form-section {
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        background-color: white;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-section h3 {
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        color: #1a56db;
+    }
+    .btn-next, .btn-prev {
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        border-radius: 0.375rem;
+        transition: all 0.15s ease-in-out;
+    }
+    .btn-next {
+        background-color: #1a56db;
+        color: white;
+    }
+    .btn-next:hover {
+        background-color: #1e429f;
+    }
+    .btn-prev {
+        background-color: #f3f4f6;
+        color: #4b5563;
+    }
+    .btn-prev:hover {
+        background-color: #e5e7eb;
+    }
+    .progress-step {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+    .step-active {
+        background-color: #1a56db;
+        color: white;
+    }
+    .step-completed {
+        background-color: #16a34a;
+        color: white;
+    }
+    .step-inactive {
+        background-color: #e5e7eb;
+        color: #6b7280;
+    }
+    .step-line {
+        flex-grow: 1;
+        height: 2px;
+        background-color: #e5e7eb;
+    }
+    .step-line-completed {
+        background-color: #16a34a;
+    }
+</style>
+{% endblock %}
+
+{% block dash_content %}
+<div class="p-4 sm:p-6" x-data="sessionForm()">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-semibold text-gray-900">Edit Session</h1>
+        <a href="{% url 'users:mentor_session_detail' session_id=session.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            Back to Session Details
+        </a>
+    </div>
+
+    <!-- Progress steps -->
+    <div class="mb-8">
+        <div class="flex items-center">
+            <div class="progress-step" :class="{'step-active': step === 1, 'step-completed': step > 1, 'step-inactive': step < 1}">
+                <template x-if="step > 1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </template>
+                <template x-if="step <= 1">1</template>
+            </div>
+            <div class="step-line" :class="{'step-line-completed': step > 1}"></div>
+            <div class="progress-step" :class="{'step-active': step === 2, 'step-completed': step > 2, 'step-inactive': step < 2}">
+                <template x-if="step > 2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </template>
+                <template x-if="step <= 2">2</template>
+            </div>
+            <div class="step-line" :class="{'step-line-completed': step > 2}"></div>
+            <div class="progress-step" :class="{'step-active': step === 3, 'step-completed': step > 3, 'step-inactive': step < 3}">
+                <template x-if="step > 3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </template>
+                <template x-if="step <= 3">3</template>
+            </div>
+        </div>
+        <div class="flex justify-between text-xs mt-2">
+            <div class="w-1/3 text-center" :class="{'text-primary-600 font-semibold': step === 1, 'text-green-600 font-semibold': step > 1}">Basic Details</div>
+            <div class="w-1/3 text-center" :class="{'text-primary-600 font-semibold': step === 2, 'text-green-600 font-semibold': step > 2, 'text-gray-500': step < 2}">Schedule & Pricing</div>
+            <div class="w-1/3 text-center" :class="{'text-primary-600 font-semibold': step === 3, 'text-green-600 font-semibold': step > 3, 'text-gray-500': step < 3}">Topics & Review</div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="POST" enctype="multipart/form-data" id="sessionEditForm" x-ref="form">
+        {% csrf_token %}
+        
+        <!-- Step 1: Basic Details -->
+        <div x-show="step === 1" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="form-section md:col-span-2">
+                <h3>Basic Session Information</h3>
+                <div class="grid grid-cols-1 gap-y-6">
+                    <div>
+                        <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Session Title</label>
+                        {{ form.title|as_crispy_field }}
+                    </div>
+                    <div>
+                        <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Description</label>
+                        {{ form.description|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">Describe what learners will gain from this session. Be specific about topics covered.</p>
+                    </div>
+                    <div>
+                        <label for="{{ form.max_participants.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Maximum Participants</label>
+                        {{ form.max_participants|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">Limit the number of learners who can join. Recommended: 1-5 for personalized sessions.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end mt-6 md:col-span-2">
+                <button type="button" class="btn-next" @click="validateAndNext(1)">Continue to Schedule & Pricing →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Schedule & Pricing -->
+        <div x-show="step === 2" class="grid grid-cols-1 md:grid-cols-2 gap-6" x-cloak>
+            <div class="form-section md:col-span-2">
+                <h3>Schedule & Pricing</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.schedule.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Session Date & Time</label>
+                        {{ form.schedule|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">Select a date and time that works for you. Sessions should be scheduled at least 60 minutes in advance.</p>
+                    </div>
+                    <div>
+                        <label for="{{ form.duration.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Duration (minutes)</label>
+                        {{ form.duration|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">How long will your session last? Common durations: 30, 45, 60, or 90 minutes.</p>
+                    </div>
+                    <div>
+                        <label for="{{ form.price.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Price (₹)</label>
+                        {{ form.price|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">Set a fair price based on your expertise and the session duration. Use 0 for free sessions.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-between mt-6 md:col-span-2">
+                <button type="button" class="btn-prev" @click="step = 1">← Back to Basics</button>
+                <button type="button" class="btn-next" @click="validateAndNext(2)">Continue to Topics & Review →</button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Topics & Review -->
+        <div x-show="step === 3" class="grid grid-cols-1 md:grid-cols-2 gap-6" x-cloak>
+            <div class="form-section md:col-span-2">
+                <h3>Topics & Categories</h3>
+                <div class="grid grid-cols-1 gap-y-6">
+                    <div>
+                        <label for="{{ form.topics.id_for_label }}" class="block text-sm font-medium text-gray-700 requiredField">Session Topics</label>
+                        {{ form.topics|as_crispy_field }}
+                        <p class="mt-1 text-sm text-gray-500">Select all topics that will be covered in your session. This helps learners find your session.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section md:col-span-2">
+                <h3>Session Review</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-700">Session Basics</h4>
+                        <dl class="mt-2 text-sm">
+                            <div class="flex py-1">
+                                <dt class="w-1/3 text-gray-500">Title:</dt>
+                                <dd class="w-2/3 text-gray-900" x-text="$refs.form.elements.title.value"></dd>
+                            </div>
+                            <div class="flex py-1">
+                                <dt class="w-1/3 text-gray-500">Max Participants:</dt>
+                                <dd class="w-2/3 text-gray-900" x-text="$refs.form.elements.max_participants.value"></dd>
+                            </div>
+                        </dl>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-700">Schedule & Pricing</h4>
+                        <dl class="mt-2 text-sm">
+                            <div class="flex py-1">
+                                <dt class="w-1/3 text-gray-500">Date & Time:</dt>
+                                <dd class="w-2/3 text-gray-900" x-text="$refs.form.elements.schedule.value"></dd>
+                            </div>
+                            <div class="flex py-1">
+                                <dt class="w-1/3 text-gray-500">Duration:</dt>
+                                <dd class="w-2/3 text-gray-900" x-text="$refs.form.elements.duration.value + ' minutes'"></dd>
+                            </div>
+                            <div class="flex py-1">
+                                <dt class="w-1/3 text-gray-500">Price:</dt>
+                                <dd class="w-2/3 text-gray-900" x-text="'₹' + $refs.form.elements.price.value"></dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h4 class="font-medium text-gray-700">Description</h4>
+                    <p class="mt-2 text-sm text-gray-900" x-text="$refs.form.elements.description.value"></p>
+                </div>
+            </div>
+            
+            <div class="flex justify-between mt-6 md:col-span-2">
+                <button type="button" class="btn-prev" @click="step = 2">← Back to Schedule & Pricing</button>
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('sessionForm', () => ({
+            step: 1,
+            errors: {},
+            
+            validateAndNext(currentStep) {
+                this.errors = {};
+                let valid = true;
+                const form = this.$refs.form;
+                
+                if (currentStep === 1) {
+                    // Validate step 1 fields
+                    if (!form.elements.title.value.trim()) {
+                        this.errors.title = 'Title is required';
+                        valid = false;
+                    }
+                    if (!form.elements.description.value.trim()) {
+                        this.errors.description = 'Description is required';
+                        valid = false;
+                    }
+                    if (!form.elements.max_participants.value || form.elements.max_participants.value < 1) {
+                        this.errors.max_participants = 'Maximum participants must be at least 1';
+                        valid = false;
+                    }
+                } else if (currentStep === 2) {
+                    // Validate step 2 fields
+                    if (!form.elements.schedule.value) {
+                        this.errors.schedule = 'Date and time is required';
+                        valid = false;
+                    }
+                    if (!form.elements.duration.value || form.elements.duration.value < 15) {
+                        this.errors.duration = 'Duration must be at least 15 minutes';
+                        valid = false;
+                    }
+                    if (form.elements.price.value < 0) {
+                        this.errors.price = 'Price cannot be negative';
+                        valid = false;
+                    }
+                }
+                
+                if (valid) {
+                    this.step = currentStep + 1;
+                    window.scrollTo(0, 0);
+                } else {
+                    // Display errors next to fields
+                    for (const [field, message] of Object.entries(this.errors)) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'invalid-feedback';
+                        errorDiv.textContent = message;
+                        
+                        const formGroup = form.elements[field].closest('.form-group');
+                        const existingError = formGroup.querySelector('.invalid-feedback');
+                        if (existingError) {
+                            formGroup.removeChild(existingError);
+                        }
+                        formGroup.appendChild(errorDiv);
+                    }
+                }
+            },
+            
+            init() {
+                // Initialize flatpickr for datetime picker
+                flatpickr("#id_schedule", {
+                    enableTime: true,
+                    dateFormat: "Y-m-d H:i",
+                    minDate: "today",
+                    defaultHour: 12,
+                    minuteIncrement: 15,
+                    time_24hr: true
+                });
+            }
+        }));
+    });
+</script>
+{% endblock %}
