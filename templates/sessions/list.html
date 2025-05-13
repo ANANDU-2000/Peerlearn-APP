@@ -1,0 +1,380 @@
+{% extends 'base.html' %}
+
+{% block title %}Browse Sessions - PeerLearn{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen py-8">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Browse Sessions</h1>
+            <p class="text-lg text-gray-600">Discover and join live sessions with expert mentors</p>
+        </div>
+        
+        <div class="flex flex-col lg:flex-row">
+            <!-- Filters Sidebar (Desktop) -->
+            <div class="hidden lg:block w-64 mr-8" x-data="sessionFilters()">
+                <div class="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+                    <h2 class="font-semibold text-lg mb-4">Filters</h2>
+                    
+                    <!-- Search -->
+                    <div class="mb-6">
+                        <label for="filter-search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                        <div class="relative">
+                            <input type="text" id="filter-search" name="search" placeholder="Search sessions..." 
+                                   class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                   value="{{ current_search }}"
+                                   @input="updateQueryParam('search', $event.target.value)">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Categories</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <input id="category-all" name="category" value="" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       {% if not current_category %}checked{% endif %}
+                                       @change="updateQueryParam('category', '')">
+                                <label for="category-all" class="ml-3 text-sm text-gray-700">All Categories</label>
+                            </div>
+                            
+                            {% for category in categories %}
+                            <div class="flex items-center">
+                                <input id="category-{{ category|slugify }}" name="category" value="{{ category }}" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       {% if current_category == category %}checked{% endif %}
+                                       @change="updateQueryParam('category', '{{ category }}')">
+                                <label for="category-{{ category|slugify }}" class="ml-3 text-sm text-gray-700">{{ category }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Price Filter -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Price</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <input id="price-all" name="price" value="all" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       checked
+                                       @change="updateQueryParam('price', '')">
+                                <label for="price-all" class="ml-3 text-sm text-gray-700">All Prices</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="price-free" name="price" value="free" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       @change="updateQueryParam('price', 'free')">
+                                <label for="price-free" class="ml-3 text-sm text-gray-700">Free Only</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="price-paid" name="price" value="paid" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       @change="updateQueryParam('price', 'paid')">
+                                <label for="price-paid" class="ml-3 text-sm text-gray-700">Paid Only</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Session Status Filter -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Status</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <input id="status-all" name="status" value="all" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       checked
+                                       @change="updateQueryParam('status', '')">
+                                <label for="status-all" class="ml-3 text-sm text-gray-700">All Sessions</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="status-live" name="status" value="live" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       @change="updateQueryParam('status', 'live')">
+                                <label for="status-live" class="ml-3 text-sm text-gray-700">Live Now</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="status-upcoming" name="status" value="upcoming" type="radio" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                       @change="updateQueryParam('status', 'upcoming')">
+                                <label for="status-upcoming" class="ml-3 text-sm text-gray-700">Upcoming</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Filters -->
+                    <button type="button" @click="resetFilters()" class="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                        Reset Filters
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Filter Accordion -->
+            <div class="lg:hidden w-full mb-6" x-data="{ showFilters: false }">
+                <button @click="showFilters = !showFilters" class="w-full flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-gray-500 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="font-medium">Filters</span>
+                    </div>
+                    <svg x-show="!showFilters" class="h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    <svg x-show="showFilters" class="h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="display: none;">
+                        <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                
+                <div x-show="showFilters" class="mt-2 bg-white rounded-lg shadow-sm p-4" style="display: none;" x-data="sessionFilters()">
+                    <!-- Mobile filters content (same as desktop but adapted for mobile) -->
+                    <!-- Search -->
+                    <div class="mb-6">
+                        <label for="mobile-filter-search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                        <div class="relative">
+                            <input type="text" id="mobile-filter-search" name="search" placeholder="Search sessions..." 
+                                   class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                   value="{{ current_search }}"
+                                   @input="updateQueryParam('search', $event.target.value)">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Category Filter (Mobile) -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Categories</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" 
+                                    class="py-1 px-2 text-xs font-medium rounded-full border"
+                                    :class="selectedCategory === '' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                                    @click="updateQueryParam('category', '')">
+                                All Categories
+                            </button>
+                            
+                            {% for category in categories %}
+                            <button type="button" 
+                                    class="py-1 px-2 text-xs font-medium rounded-full border"
+                                    :class="selectedCategory === '{{ category }}' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                                    @click="updateQueryParam('category', '{{ category }}')">
+                                {{ category }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Price and Status Filters (Mobile) -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Price</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input id="mobile-price-all" name="mobile-price" value="all" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           checked
+                                           @change="updateQueryParam('price', '')">
+                                    <label for="mobile-price-all" class="ml-3 text-sm text-gray-700">All Prices</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="mobile-price-free" name="mobile-price" value="free" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           @change="updateQueryParam('price', 'free')">
+                                    <label for="mobile-price-free" class="ml-3 text-sm text-gray-700">Free Only</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="mobile-price-paid" name="mobile-price" value="paid" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           @change="updateQueryParam('price', 'paid')">
+                                    <label for="mobile-price-paid" class="ml-3 text-sm text-gray-700">Paid Only</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Status</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input id="mobile-status-all" name="mobile-status" value="all" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           checked
+                                           @change="updateQueryParam('status', '')">
+                                    <label for="mobile-status-all" class="ml-3 text-sm text-gray-700">All Sessions</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="mobile-status-live" name="mobile-status" value="live" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           @change="updateQueryParam('status', 'live')">
+                                    <label for="mobile-status-live" class="ml-3 text-sm text-gray-700">Live Now</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="mobile-status-upcoming" name="mobile-status" value="upcoming" type="radio" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                           @change="updateQueryParam('status', 'upcoming')">
+                                    <label for="mobile-status-upcoming" class="ml-3 text-sm text-gray-700">Upcoming</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Apply & Reset Buttons (Mobile) -->
+                    <div class="flex space-x-3">
+                        <button type="button" @click="applyFilters()" class="flex-1 flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            Apply Filters
+                        </button>
+                        <button type="button" @click="resetFilters()" class="flex-1 flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sessions Grid -->
+            <div class="flex-1">
+                {% if sessions %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for session in sessions %}
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                        <div class="relative">
+                            {% if session.status == 'live' %}
+                            <!-- Live badge -->
+                            <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
+                                <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                                LIVE NOW
+                            </div>
+                            {% else %}
+                            <!-- Countdown -->
+                            <div class="absolute top-3 left-3 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                {{ session.schedule|date:"M d, h:i A" }}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="h-40 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                <span class="text-4xl">{{ session.topics.0|first|upper }}{% if session.topics.1 %}{{ session.topics.1|first|upper }}{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">{{ session.topics.0 }}</span>
+                                <span class="text-sm text-gray-600">{{ session.duration }} mins</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-1">{{ session.title }}</h3>
+                            <p class="text-sm text-gray-700 mb-3">{{ session.description|truncatewords:10 }}</p>
+                            <div class="flex items-center mb-3">
+                                <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">
+                                    {% if session.mentor.profile_picture %}
+                                    <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.get_full_name }}" class="h-full w-full rounded-full object-cover">
+                                    {% else %}
+                                    {{ session.mentor.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                                <span class="text-sm font-medium">{{ session.mentor.get_full_name|default:session.mentor.username }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-primary-600">
+                                    {% if session.is_free %}
+                                    Free
+                                    {% else %}
+                                    ${{ session.price }}
+                                    {% endif %}
+                                </span>
+                                <a href="{% url 'sessions:detail' pk=session.id %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                    Details →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Pagination -->
+                {% if sessions.has_other_pages %}
+                <div class="mt-8 flex justify-center">
+                    <nav class="flex items-center">
+                        {% if sessions.has_previous %}
+                        <a href="?page={{ sessions.previous_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_search %}&search={{ current_search }}{% endif %}" class="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                            Previous
+                        </a>
+                        {% else %}
+                        <span class="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-400 bg-gray-50 cursor-not-allowed">
+                            Previous
+                        </span>
+                        {% endif %}
+                        
+                        <span class="mx-4 text-sm text-gray-700">
+                            Page {{ sessions.number }} of {{ sessions.paginator.num_pages }}
+                        </span>
+                        
+                        {% if sessions.has_next %}
+                        <a href="?page={{ sessions.next_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_search %}&search={{ current_search }}{% endif %}" class="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                            Next
+                        </a>
+                        {% else %}
+                        <span class="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-400 bg-gray-50 cursor-not-allowed">
+                            Next
+                        </span>
+                        {% endif %}
+                    </nav>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <!-- No sessions found -->
+                <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-2 text-lg font-medium text-gray-900">No sessions found</h3>
+                    <p class="mt-1 text-gray-500">Try adjusting your filters or search terms.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'sessions:list' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Clear Filters
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function sessionFilters() {
+    return {
+        selectedCategory: '{{ current_category }}',
+        
+        updateQueryParam(param, value) {
+            let url = new URL(window.location);
+            if (value) {
+                url.searchParams.set(param, value);
+            } else {
+                url.searchParams.delete(param);
+            }
+            this.selectedCategory = value; // Update selected category for UI
+        },
+        
+        applyFilters() {
+            let url = new URL(window.location);
+            window.location = url.toString();
+        },
+        
+        resetFilters() {
+            window.location = '{% url "sessions:list" %}';
+        }
+    }
+}
+</script>
+{% endblock %}

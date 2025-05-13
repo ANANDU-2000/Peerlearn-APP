@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Join PeerLearn - Choose Your Role{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl w-full">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Join the PeerLearn Community</h1>
+            <p class="text-lg text-gray-600">Choose how you want to participate</p>
+        </div>
+        
+        <div class="flex flex-col md:flex-row gap-6 items-stretch">
+            <!-- Learner Card -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden w-full md:w-1/2 flex flex-col transition-transform hover:scale-[1.02] hover:shadow-lg">
+                <div class="h-40 bg-gradient-to-r from-blue-500 to-primary-600 flex items-center justify-center text-white">
+                    <div class="text-center">
+                        <span class="text-5xl">🧠</span>
+                        <h2 class="text-2xl font-bold mt-2">I want to Learn</h2>
+                    </div>
+                </div>
+                <div class="p-6 flex-grow">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Join as a Learner</h3>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Book public sessions with expert mentors</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Request personalized 1:1 live sessions</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Engage in interactive learning with video, chat, and whiteboard</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Get personalized recommendations based on your interests</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6 mt-auto">
+                    <a href="{% url 'users:learner_signup' %}" class="block w-full bg-primary-600 hover:bg-primary-700 text-white text-center py-3 rounded-lg font-semibold transition-colors">
+                        Sign Up as Learner →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mentor Card -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden w-full md:w-1/2 flex flex-col transition-transform hover:scale-[1.02] hover:shadow-lg">
+                <div class="h-40 bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center text-white">
+                    <div class="text-center">
+                        <span class="text-5xl">👨‍🏫</span>
+                        <h2 class="text-2xl font-bold mt-2">I want to Teach</h2>
+                    </div>
+                </div>
+                <div class="p-6 flex-grow">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Join as a Mentor</h3>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Create and host public live sessions</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Receive and respond to personalized session requests</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Use powerful tools like screen sharing and whiteboard</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Earn money sharing your knowledge and expertise</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="px-6 pb-6 mt-auto">
+                    <a href="{% url 'users:mentor_signup' %}" class="block w-full bg-green-600 hover:bg-green-700 text-white text-center py-3 rounded-lg font-semibold transition-colors">
+                        Sign Up as Mentor →
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center">
+            <p class="text-gray-600">
+                Already have an account? 
+                <a href="{% url 'users:login' %}" class="text-primary-600 hover:text-primary-800 font-medium">
+                    Log in here
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

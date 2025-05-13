@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ session.title }} - PeerLearn{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen py-8">
+    <div class="container mx-auto px-4">
+        <div class="max-w-5xl mx-auto">
+            <!-- Session Details Card -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <!-- Session Header -->
+                <div class="relative">
+                    <!-- Status Badge -->
+                    {% if session.status == 'live' %}
+                    <div class="absolute top-4 left-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full flex items-center z-10">
+                        <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                        LIVE NOW
+                    </div>
+                    {% else %}
+                    <div class="absolute top-4 left-4 bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full z-10">
+                        {{ session.schedule|date:"D, M d, h:i A" }}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Header Background -->
+                    <div class="h-48 bg-gradient-to-r from-primary-600 to-blue-400">
+                        <div class="h-full w-full flex items-center justify-center text-white">
+                            <div class="text-center">
+                                <div class="text-5xl mb-2">
+                                    {% for topic in session.topics %}
+                                        {% if forloop.first %}{{ topic|first|upper }}{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Session Content -->
+                <div class="p-6">
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        {% for topic in session.topics %}
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">{{ topic }}</span>
+                        {% endfor %}
+                        <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">{{ session.duration }} minutes</span>
+                    </div>
+                    
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{{ session.title }}</h1>
+                    
+                    <!-- Mentor Info -->
+                    <div class="flex items-center mb-6">
+                        <div class="h-10 w-10 rounded-full bg-gray-200 mr-3 flex-shrink-0">
+                            {% if session.mentor.profile_picture %}
+                            <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.get_full_name }}" class="h-full w-full rounded-full object-cover">
+                            {% else %}
+                            <div class="h-full w-full rounded-full flex items-center justify-center text-gray-500 font-semibold">
+                                {{ session.mentor.username|first|upper }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ session.mentor.get_full_name|default:session.mentor.username }}</h3>
+                            <p class="text-sm text-gray-600">
+                                <a href="{% url 'users:mentor_detail' pk=session.mentor.id %}" class="text-primary-600 hover:text-primary-800">
+                                    View Mentor Profile
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="mb-8">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-3">About This Session</h2>
+                        <div class="prose max-w-none text-gray-700">
+                            <p>{{ session.description|linebreaks }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Session Details -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900 mb-3">Session Details</h2>
+                            <ul class="space-y-3">
+                                <li class="flex items-start">
+                                    <svg class="h-6 w-6 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700">Date & Time</span>
+                                        <span class="block text-gray-600">{{ session.schedule|date:"F d, Y - h:i A" }}</span>
+                                    </div>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="h-6 w-6 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700">Duration</span>
+                                        <span class="block text-gray-600">{{ session.duration }} minutes</span>
+                                    </div>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="h-6 w-6 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                    </svg>
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700">Participants</span>
+                                        <span class="block text-gray-600">1:1 Session</span>
+                                    </div>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="h-6 w-6 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700">Price</span>
+                                        <span class="block text-gray-600">
+                                            {% if session.is_free %}
+                                            Free
+                                            {% else %}
+                                            ${{ session.price }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900 mb-3">What You'll Learn</h2>
+                            <ul class="space-y-2">
+                                {% for topic in session.topics %}
+                                <li class="flex items-start">
+                                    <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>{{ topic }}</span>
+                                </li>
+                                {% endfor %}
+                                <li class="flex items-start">
+                                    <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>Live interaction with personalized guidance</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>Access to chat and whiteboard features</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="border-t border-gray-200 pt-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center">
+                                <span class="text-3xl font-bold text-primary-600 mr-2">
+                                    {% if session.is_free %}
+                                    Free
+                                    {% else %}
+                                    ${{ session.price }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                {% if user.is_authenticated %}
+                                    {% if user == session.mentor %}
+                                        <!-- Mentor Options -->
+                                        {% if session.status == 'scheduled' %}
+                                        <a href="{% url 'sessions:update' pk=session.id %}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                            Edit Session
+                                        </a>
+                                        <form action="{% url 'sessions:room' room_code=session.room_code %}" method="get">
+                                            <button type="submit" class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                Go Live
+                                            </button>
+                                        </form>
+                                        {% elif session.status == 'live' %}
+                                        <form action="{% url 'sessions:room' room_code=session.room_code %}" method="get">
+                                            <button type="submit" class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                Join Live Session
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    {% elif user.is_learner %}
+                                        <!-- Learner Options -->
+                                        {% if booking %}
+                                            {% if booking.status == 'confirmed' and session.status == 'live' %}
+                                            <form action="{% url 'sessions:room' room_code=session.room_code %}" method="get">
+                                                <button type="submit" class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                    Join Live Session
+                                                </button>
+                                            </form>
+                                            {% elif booking.status == 'confirmed' and session.status == 'scheduled' %}
+                                            <span class="inline-flex justify-center items-center px-6 py-3 border border-green-500 rounded-md text-base font-medium text-green-700 bg-green-50">
+                                                <svg class="h-5 w-5 text-green-500 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                </svg>
+                                                Booked
+                                            </span>
+                                            <a href="{% url 'sessions:cancel_booking' booking_id=booking.id %}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                Cancel Booking
+                                            </a>
+                                            {% elif booking.status == 'pending' %}
+                                            <span class="inline-flex justify-center items-center px-6 py-3 border border-yellow-500 rounded-md text-base font-medium text-yellow-700 bg-yellow-50">
+                                                <svg class="h-5 w-5 text-yellow-500 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                                Payment Pending
+                                            </span>
+                                            <a href="{% url 'payments:payment_create' booking_id=booking.id %}" class="inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                Complete Payment
+                                            </a>
+                                            {% endif %}
+                                        {% else %}
+                                            <form action="{% url 'sessions:book' session_id=session.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                    {% if session.is_free %}
+                                                    Book Free Session
+                                                    {% else %}
+                                                    Book for ${{ session.price }}
+                                                    {% endif %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- Admin Options -->
+                                        <a href="#" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                            View Admin Details
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Not logged in -->
+                                    <a href="{% url 'users:login' %}?next={{ request.path }}" class="inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                        Log In to Book
+                                    </a>
+                                    <a href="{% url 'users:auth_selector' %}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                        Sign Up
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Related Sessions by this Mentor -->
+            <div class="mt-12">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">More Sessions by {{ session.mentor.get_full_name|default:session.mentor.username }}</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {% for session in mentor_sessions %}
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                        <div class="relative">
+                            {% if session.status == 'live' %}
+                            <!-- Live badge -->
+                            <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
+                                <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                                LIVE NOW
+                            </div>
+                            {% else %}
+                            <!-- Countdown -->
+                            <div class="absolute top-3 left-3 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                {{ session.schedule|date:"M d, h:i A" }}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="h-32 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                <span class="text-3xl">{{ session.topics.0|first|upper }}</span>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <h3 class="text-lg font-bold text-gray-900 mb-1">{{ session.title }}</h3>
+                            <p class="text-sm text-gray-700 mb-3 line-clamp-2">{{ session.description|truncatewords:10 }}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-primary-600">
+                                    {% if session.is_free %}
+                                    Free
+                                    {% else %}
+                                    ${{ session.price }}
+                                    {% endif %}
+                                </span>
+                                <a href="{% url 'sessions:detail' pk=session.id %}" class="bg-primary-600 text-white hover:bg-primary-700 px-3 py-1 rounded-lg text-sm font-semibold transition-colors">
+                                    Details →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-span-3 text-center py-8 text-gray-500">
+                        No other sessions by this mentor yet.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

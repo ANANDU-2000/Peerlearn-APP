@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up as Mentor - PeerLearn{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Join PeerLearn as a Mentor</h1>
+            <p class="mt-2 text-lg text-gray-600">Create your account and start sharing your expertise</p>
+        </div>
+        
+        <!-- Progress Steps -->
+        <div class="mb-8" x-data="{ currentStep: 1, totalSteps: 5 }">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium" x-text="`Step ${currentStep} of ${totalSteps}`"></span>
+                <span class="text-sm text-gray-500" x-text="`${Math.round((currentStep/totalSteps)*100)}% Complete`"></span>
+            </div>
+            <div class="overflow-hidden h-2 rounded-full bg-gray-200">
+                <div 
+                    class="h-full bg-primary-600 transition-all duration-300" 
+                    :style="`width: ${(currentStep/totalSteps)*100}%`"
+                ></div>
+            </div>
+        </div>
+        
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <form method="post" enctype="multipart/form-data" class="p-6 sm:p-8" action="{% url 'users:mentor_signup' %}" x-data="mentorSignupForm()" x-init="initForm()">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">
+                                There were errors with your submission
+                            </h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <ul class="list-disc pl-5 space-y-1">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ field|title }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Step 1: Basic Info -->
+                <div x-show="currentStep === 1">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+                    
+                    <div class="grid grid-cols-1 gap-6 mb-6">
+                        <div>
+                            <label for="id_username" class="block text-sm font-medium text-gray-700">Username</label>
+                            <input type="text" name="username" id="id_username" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required x-model="formData.username" @input="validateStep1()">
+                            <p class="mt-1 text-xs text-gray-500">Required. 150 characters or fewer. Letters, digits, and @/./+/-/_ only.</p>
+                        </div>
+                        
+                        <div>
+                            <label for="id_email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                            <input type="email" name="email" id="id_email" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required x-model="formData.email" @input="validateStep1()">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="id_first_name" class="block text-sm font-medium text-gray-700">First Name</label>
+                                <input type="text" name="first_name" id="id_first_name" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" x-model="formData.first_name">
+                            </div>
+                            <div>
+                                <label for="id_last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                                <input type="text" name="last_name" id="id_last_name" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" x-model="formData.last_name">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="id_password1" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input type="password" name="password1" id="id_password1" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required x-model="formData.password1" @input="validateStep1()">
+                            <p class="mt-1 text-xs text-gray-500">Your password must be at least 8 characters long and contain letters and numbers.</p>
+                        </div>
+                        
+                        <div>
+                            <label for="id_password2" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                            <input type="password" name="password2" id="id_password2" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required x-model="formData.password2" @input="validateStep1()">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Domain Expertise -->
+                <div x-show="currentStep === 2" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Your Expertise</h2>
+                    <p class="text-gray-600 mb-6">
+                        Tell us about your areas of expertise so learners can find you for relevant topics.
+                    </p>
+                    
+                    <div>
+                        <label for="id_expertise" class="block text-sm font-medium text-gray-700">Areas of Expertise</label>
+                        <input type="text" name="expertise" id="id_expertise" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. Python, Web Development, Machine Learning" x-model="formData.expertise" @input="validateStep2()">
+                        <p class="mt-1 text-xs text-gray-500">Enter your expertise areas separated by commas</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <p class="block text-sm font-medium text-gray-700 mb-2">Popular Domains</p>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="domain in popularDomains">
+                                <button 
+                                    type="button"
+                                    class="px-3 py-1 rounded-full text-sm font-medium transition-colors"
+                                    :class="isDomainSelected(domain) ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                    @click="toggleDomain(domain)"
+                                    x-text="domain"
+                                ></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Skills & Certifications -->
+                <div x-show="currentStep === 3" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Skills & Certifications</h2>
+                    <p class="text-gray-600 mb-6">
+                        List your specific skills, tools, and any professional certifications you have.
+                    </p>
+                    
+                    <div>
+                        <label for="id_skills" class="block text-sm font-medium text-gray-700">Skills</label>
+                        <input type="text" name="skills" id="id_skills" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. Django, React, TensorFlow" x-model="formData.skills" @input="validateStep3()">
+                        <p class="mt-1 text-xs text-gray-500">Enter specific skills separated by commas</p>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <label for="id_phone_number" class="block text-sm font-medium text-gray-700">Phone Number (Optional)</label>
+                        <input type="tel" name="phone_number" id="id_phone_number" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="+1 (555) 123-4567" x-model="formData.phone_number">
+                        <p class="mt-1 text-xs text-gray-500">Your phone number will not be shared with learners</p>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Bio & Qualifications -->
+                <div x-show="currentStep === 4" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Bio & Qualifications</h2>
+                    <p class="text-gray-600 mb-6">
+                        Share your professional background and teaching approach with potential learners.
+                    </p>
+                    
+                    <div>
+                        <label for="id_bio" class="block text-sm font-medium text-gray-700">Professional Bio</label>
+                        <textarea name="bio" id="id_bio" rows="5" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Tell potential learners about your professional background, teaching experience, and approach to mentoring..." x-model="formData.bio" @input="validateStep4()"></textarea>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <label for="id_intro_video" class="block text-sm font-medium text-gray-700">Introduction Video URL (Optional)</label>
+                        <input type="url" name="intro_video" id="id_intro_video" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="YouTube, Vimeo or other video URL" x-model="formData.intro_video">
+                        <p class="mt-1 text-xs text-gray-500">A short video introduction can significantly increase your booking rate</p>
+                    </div>
+                </div>
+                
+                <!-- Step 5: Profile Picture & Intro Video -->
+                <div x-show="currentStep === 5" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Profile Picture</h2>
+                    <p class="text-gray-600 mb-6">
+                        Add a professional profile picture to help learners connect with you better.
+                    </p>
+                    
+                    <div class="flex justify-center mb-6">
+                        <div class="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden" x-show="!previewUrl">
+                            <svg class="h-16 w-16 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        <div class="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden" x-show="previewUrl">
+                            <img :src="previewUrl" alt="Profile preview" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-center mb-8">
+                        <label class="cursor-pointer bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <span>Upload a photo</span>
+                            <input type="file" name="profile_picture" id="id_profile_picture" class="sr-only" accept="image/*" @change="handleFileUpload">
+                        </label>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-blue-800">Verification Note</h3>
+                                <div class="mt-2 text-sm text-blue-700">
+                                    <p>Your profile will be reviewed by our team. We may contact you for additional verification to ensure the quality of our mentor community.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-between items-center">
+                    <button 
+                        type="button" 
+                        class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        x-show="currentStep > 1"
+                        @click="prevStep"
+                    >
+                        Previous
+                    </button>
+                    
+                    <div class="ml-auto flex space-x-3">
+                        <button 
+                            type="button" 
+                            class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            x-show="currentStep < 5"
+                            @click="nextStep"
+                            :disabled="!isStepValid"
+                        >
+                            Next
+                        </button>
+                        
+                        <button 
+                            type="submit" 
+                            class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            x-show="currentStep === 5"
+                        >
+                            Create Account
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">
+                Already have an account? <a href="{% url 'users:login' %}" class="font-medium text-primary-600 hover:text-primary-500">Log in</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/auth.js"></script>
+<script>
+function mentorSignupForm() {
+    return {
+        currentStep: 1,
+        isStepValid: false,
+        previewUrl: null,
+        formData: {
+            username: '',
+            email: '',
+            first_name: '',
+            last_name: '',
+            password1: '',
+            password2: '',
+            expertise: '',
+            skills: '',
+            phone_number: '',
+            bio: '',
+            intro_video: ''
+        },
+        popularDomains: [
+            'Programming', 'Web Development', 'Data Science', 'Machine Learning', 
+            'UI/UX Design', 'Digital Marketing', 'Business', 'Finance', 
+            'Mathematics', 'Science', 'Languages', 'Music'
+        ],
+        
+        initForm() {
+            // Initialize form with any server-side values if present
+            {% if form.username.value %}this.formData.username = "{{ form.username.value }}"{% endif %}
+            {% if form.email.value %}this.formData.email = "{{ form.email.value }}"{% endif %}
+            {% if form.first_name.value %}this.formData.first_name = "{{ form.first_name.value }}"{% endif %}
+            {% if form.last_name.value %}this.formData.last_name = "{{ form.last_name.value }}"{% endif %}
+            {% if form.expertise.value %}this.formData.expertise = "{{ form.expertise.value }}"{% endif %}
+            {% if form.skills.value %}this.formData.skills = "{{ form.skills.value }}"{% endif %}
+            {% if form.phone_number.value %}this.formData.phone_number = "{{ form.phone_number.value }}"{% endif %}
+            {% if form.bio.value %}this.formData.bio = "{{ form.bio.value }}"{% endif %}
+            {% if form.intro_video.value %}this.formData.intro_video = "{{ form.intro_video.value }}"{% endif %}
+            
+            this.validateStep1();
+        },
+        
+        nextStep() {
+            if (this.isStepValid) {
+                this.currentStep++;
+                this.validateCurrentStep();
+            }
+        },
+        
+        prevStep() {
+            if (this.currentStep > 1) {
+                this.currentStep--;
+                this.validateCurrentStep();
+            }
+        },
+        
+        validateCurrentStep() {
+            switch(this.currentStep) {
+                case 1: this.validateStep1(); break;
+                case 2: this.validateStep2(); break;
+                case 3: this.validateStep3(); break;
+                case 4: this.validateStep4(); break;
+                case 5: this.isStepValid = true; break;
+            }
+        },
+        
+        validateStep1() {
+            // Basic validation - check if required fields are filled and passwords match
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            this.isStepValid = 
+                this.formData.username.length >= 3 && 
+                emailRegex.test(this.formData.email) && 
+                this.formData.password1.length >= 8 && 
+                this.formData.password1 === this.formData.password2;
+        },
+        
+        validateStep2() {
+            // Check if expertise is provided
+            this.isStepValid = this.formData.expertise.trim().length > 0;
+        },
+        
+        validateStep3() {
+            // Check if skills are provided
+            this.isStepValid = this.formData.skills.trim().length > 0;
+        },
+        
+        validateStep4() {
+            // Bio should be provided and of reasonable length
+            this.isStepValid = this.formData.bio.trim().length >= 50;
+        },
+        
+        handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                this.previewUrl = URL.createObjectURL(file);
+            }
+        },
+        
+        isDomainSelected(domain) {
+            const expertiseArray = this.formData.expertise
+                .split(',')
+                .map(e => e.trim())
+                .filter(e => e);
+            
+            return expertiseArray.includes(domain);
+        },
+        
+        toggleDomain(domain) {
+            let expertiseArray = this.formData.expertise
+                .split(',')
+                .map(e => e.trim())
+                .filter(e => e);
+            
+            if (this.isDomainSelected(domain)) {
+                // Remove domain
+                expertiseArray = expertiseArray.filter(e => e !== domain);
+            } else {
+                // Add domain
+                expertiseArray.push(domain);
+            }
+            
+            this.formData.expertise = expertiseArray.join(', ');
+            this.validateStep2();
+        }
+    }
+}
+</script>
+{% endblock %}

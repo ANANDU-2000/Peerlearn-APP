@@ -1,0 +1,578 @@
+{% extends 'base.html' %}
+
+{% block title %}PeerLearn - One-to-One Live Learning Platform{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-gradient-to-br from-primary-600 to-primary-800 text-white">
+    <div class="container mx-auto px-4 py-16 md:py-24">
+        <div class="flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2 mb-10 md:mb-0">
+                <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">
+                    Learn Anything, Anytime, from Expert Mentors
+                </h1>
+                <p class="text-xl md:text-2xl text-blue-100 mb-8">
+                    PeerLearn connects you with experienced mentors for personalized 1:1 live sessions.
+                </p>
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="{% url 'users:auth_selector' %}" class="bg-white text-primary-600 hover:bg-blue-50 px-6 py-3 rounded-lg font-semibold text-center">
+                        Get Started →
+                    </a>
+                    <a href="{% url 'sessions:list' %}" class="border border-white text-white hover:bg-white hover:text-primary-600 px-6 py-3 rounded-lg font-semibold text-center transition-colors">
+                        Browse Sessions
+                    </a>
+                </div>
+            </div>
+            <div class="md:w-1/2 flex justify-center">
+                <div class="relative w-full max-w-md">
+                    <!-- Lottie animation will be loaded here -->
+                    <div id="hero-animation" class="w-full h-64 md:h-80">
+                        <!-- Fallback image for no-JS -->
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+                            <path d="M5.52 19c.64-2.2 1.84-3 3.22-3h6.52c1.38 0 2.58.8 3.22 3"/>
+                            <circle cx="12" cy="10" r="3"/>
+                            <circle cx="12" cy="12" r="10"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Live & Upcoming Sessions -->
+<section class="py-12 bg-gray-50">
+    <div class="container mx-auto px-4">
+        <div class="mb-8 text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Live & Upcoming Sessions</h2>
+            <p class="text-lg text-gray-600">Join interactive sessions with top mentors</p>
+        </div>
+        
+        <!-- Category Tabs -->
+        <div class="mb-6 flex flex-wrap justify-center" x-data="{ activeTab: 'all' }">
+            <button 
+                @click="activeTab = 'all'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === 'all', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'all' }"
+                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
+            >
+                All
+            </button>
+            <button 
+                @click="activeTab = 'programming'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === 'programming', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'programming' }"
+                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
+            >
+                Programming
+            </button>
+            <button 
+                @click="activeTab = 'design'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === 'design', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'design' }"
+                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
+            >
+                Design
+            </button>
+            <button 
+                @click="activeTab = 'business'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === 'business', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'business' }"
+                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
+            >
+                Business
+            </button>
+            <button 
+                @click="activeTab = 'science'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === 'science', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'science' }"
+                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
+            >
+                Science
+            </button>
+        </div>
+        
+        <!-- Sessions Carousel -->
+        <div class="relative" x-data="{ activeSlide: 0 }">
+            <!-- Prev Button -->
+            <button 
+                @click="activeSlide = (activeSlide - 1 + 3) % 3" 
+                class="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white rounded-full p-2 shadow-md text-gray-600 hover:text-primary-600 focus:outline-none md:-ml-5"
+                aria-label="Previous slide"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            
+            <!-- Carousel Container -->
+            <div class="overflow-hidden">
+                <div class="flex transition-transform duration-300 ease-in-out" :style="{ transform: `translateX(-${activeSlide * 100}%)` }">
+                    <!-- Slide 1 -->
+                    <div class="w-full flex-shrink-0 px-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Session Card 1 -->
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                <div class="relative">
+                                    <!-- Live badge or countdown -->
+                                    <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
+                                        <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                                        LIVE NOW
+                                    </div>
+                                    
+                                    <!-- Attendees count -->
+                                    <div class="absolute top-3 right-3 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+                                        <span>12 attending</span>
+                                    </div>
+                                    
+                                    <div class="h-40 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                        <span class="text-4xl">💻</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Programming</span>
+                                        <span class="text-sm text-gray-600">1 hour</span>
+                                    </div>
+                                    <h3 class="text-lg font-bold text-gray-900 mb-1">Python for Beginners</h3>
+                                    <p class="text-sm text-gray-700 mb-3">Learn the basics of Python programming from an expert</p>
+                                    <div class="flex items-center mb-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">JD</div>
+                                        <span class="text-sm font-medium">John Doe</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-primary-600">$25</span>
+                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                            Book →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Session Card 2 -->
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                <div class="relative">
+                                    <!-- Countdown -->
+                                    <div class="absolute top-3 left-3 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                        Starts in 3 hours
+                                    </div>
+                                    
+                                    <div class="h-40 bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center">
+                                        <span class="text-4xl">🎨</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">Design</span>
+                                        <span class="text-sm text-gray-600">45 mins</span>
+                                    </div>
+                                    <h3 class="text-lg font-bold text-gray-900 mb-1">UI/UX Design Principles</h3>
+                                    <p class="text-sm text-gray-700 mb-3">Master the fundamentals of user interface design</p>
+                                    <div class="flex items-center mb-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">AS</div>
+                                        <span class="text-sm font-medium">Alice Smith</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-primary-600">Free</span>
+                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                            Book →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Session Card 3 -->
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                <div class="relative">
+                                    <!-- Countdown -->
+                                    <div class="absolute top-3 left-3 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                        Tomorrow, 2 PM
+                                    </div>
+                                    
+                                    <div class="h-40 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                                        <span class="text-4xl">💼</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Business</span>
+                                        <span class="text-sm text-gray-600">90 mins</span>
+                                    </div>
+                                    <h3 class="text-lg font-bold text-gray-900 mb-1">Startup Fundraising</h3>
+                                    <p class="text-sm text-gray-700 mb-3">Learn how to pitch investors and raise capital</p>
+                                    <div class="flex items-center mb-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">RJ</div>
+                                        <span class="text-sm font-medium">Robert Johnson</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-primary-600">$50</span>
+                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                            Book →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Slide 2 (Additional content would be loaded from backend) -->
+                    <div class="w-full flex-shrink-0 px-4">
+                        <!-- Skeleton loaders for sessions -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {% for i in '123'|make_list %}
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                                <div class="h-40 bg-gray-200 skeleton"></div>
+                                <div class="p-5">
+                                    <div class="flex justify-between mb-2">
+                                        <div class="h-6 w-20 bg-gray-200 rounded-full skeleton"></div>
+                                        <div class="h-6 w-16 bg-gray-200 rounded skeleton"></div>
+                                    </div>
+                                    <div class="h-7 w-3/4 bg-gray-200 mb-1 skeleton"></div>
+                                    <div class="h-5 w-full bg-gray-200 mb-3 skeleton"></div>
+                                    <div class="flex items-center mb-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 skeleton"></div>
+                                        <div class="h-5 w-24 bg-gray-200 skeleton"></div>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <div class="h-6 w-12 bg-gray-200 skeleton"></div>
+                                        <div class="h-10 w-20 bg-gray-200 rounded-lg skeleton"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Slide 3 (Additional content would be loaded from backend) -->
+                    <div class="w-full flex-shrink-0 px-4">
+                        <!-- Skeleton loaders for sessions -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {% for i in '123'|make_list %}
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                                <div class="h-40 bg-gray-200 skeleton"></div>
+                                <div class="p-5">
+                                    <div class="flex justify-between mb-2">
+                                        <div class="h-6 w-20 bg-gray-200 rounded-full skeleton"></div>
+                                        <div class="h-6 w-16 bg-gray-200 rounded skeleton"></div>
+                                    </div>
+                                    <div class="h-7 w-3/4 bg-gray-200 mb-1 skeleton"></div>
+                                    <div class="h-5 w-full bg-gray-200 mb-3 skeleton"></div>
+                                    <div class="flex items-center mb-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 skeleton"></div>
+                                        <div class="h-5 w-24 bg-gray-200 skeleton"></div>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <div class="h-6 w-12 bg-gray-200 skeleton"></div>
+                                        <div class="h-10 w-20 bg-gray-200 rounded-lg skeleton"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Next Button -->
+            <button 
+                @click="activeSlide = (activeSlide + 1) % 3" 
+                class="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white rounded-full p-2 shadow-md text-gray-600 hover:text-primary-600 focus:outline-none md:-mr-5"
+                aria-label="Next slide"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+            
+            <!-- Dots -->
+            <div class="flex justify-center mt-6 space-x-2">
+                <button 
+                    @click="activeSlide = 0" 
+                    :class="{ 'bg-primary-600': activeSlide === 0, 'bg-gray-300': activeSlide !== 0 }"
+                    class="w-3 h-3 rounded-full focus:outline-none"
+                    aria-label="Go to slide 1"
+                ></button>
+                <button 
+                    @click="activeSlide = 1" 
+                    :class="{ 'bg-primary-600': activeSlide === 1, 'bg-gray-300': activeSlide !== 1 }"
+                    class="w-3 h-3 rounded-full focus:outline-none"
+                    aria-label="Go to slide 2"
+                ></button>
+                <button 
+                    @click="activeSlide = 2" 
+                    :class="{ 'bg-primary-600': activeSlide === 2, 'bg-gray-300': activeSlide !== 2 }"
+                    class="w-3 h-3 rounded-full focus:outline-none"
+                    aria-label="Go to slide 3"
+                ></button>
+            </div>
+        </div>
+        
+        <div class="text-center mt-10">
+            <a href="{% url 'sessions:list' %}" class="inline-flex items-center text-primary-600 hover:text-primary-800 font-medium">
+                View All Sessions
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Top Mentors -->
+<section class="py-12">
+    <div class="container mx-auto px-4">
+        <div class="mb-8 text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Meet Our Expert Mentors</h2>
+            <p class="text-lg text-gray-600">Learn from industry professionals and thought leaders</p>
+        </div>
+        
+        <!-- Mentors Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Mentor Card 1 -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                <div class="h-48 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
+                    <div class="h-24 w-24 rounded-full bg-white text-center flex items-center justify-center text-2xl">
+                        👨‍💻
+                    </div>
+                </div>
+                <div class="p-5">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">James Wilson</h3>
+                    <p class="text-sm text-gray-700 mb-2">Senior Developer at TechCorp</p>
+                    <div class="flex mb-3">
+                        <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full mr-1">Python</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full mr-1">React</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">AI</span>
+                    </div>
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            {% for i in '12345'|make_list %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            {% endfor %}
+                        </div>
+                        <span class="text-sm text-gray-600 ml-1">(24 reviews)</span>
+                    </div>
+                    <a href="{% url 'users:mentor_list' %}" class="block w-full bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-center text-sm font-semibold transition-colors">
+                        View Profile →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mentor Card 2 -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                <div class="h-48 bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center">
+                    <div class="h-24 w-24 rounded-full bg-white text-center flex items-center justify-center text-2xl">
+                        👩‍🎨
+                    </div>
+                </div>
+                <div class="p-5">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Sarah Johnson</h3>
+                    <p class="text-sm text-gray-700 mb-2">UI/UX Designer at DesignHub</p>
+                    <div class="flex mb-3">
+                        <span class="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full mr-1">Figma</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full mr-1">UX</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">Sketch</span>
+                    </div>
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            {% for i in '1234'|make_list %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            {% endfor %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.5;">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <span class="text-sm text-gray-600 ml-1">(18 reviews)</span>
+                    </div>
+                    <a href="{% url 'users:mentor_list' %}" class="block w-full bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-center text-sm font-semibold transition-colors">
+                        View Profile →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mentor Card 3 -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                <div class="h-48 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                    <div class="h-24 w-24 rounded-full bg-white text-center flex items-center justify-center text-2xl">
+                        👨‍💼
+                    </div>
+                </div>
+                <div class="p-5">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Michael Brown</h3>
+                    <p class="text-sm text-gray-700 mb-2">Marketing Director at GrowthCo</p>
+                    <div class="flex mb-3">
+                        <span class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full mr-1">SEO</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full mr-1">SEM</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Analytics</span>
+                    </div>
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            {% for i in '12345'|make_list %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            {% endfor %}
+                        </div>
+                        <span class="text-sm text-gray-600 ml-1">(31 reviews)</span>
+                    </div>
+                    <a href="{% url 'users:mentor_list' %}" class="block w-full bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-center text-sm font-semibold transition-colors">
+                        View Profile →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mentor Card 4 -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                <div class="h-48 bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center">
+                    <div class="h-24 w-24 rounded-full bg-white text-center flex items-center justify-center text-2xl">
+                        👩‍🔬
+                    </div>
+                </div>
+                <div class="p-5">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Emily Chen</h3>
+                    <p class="text-sm text-gray-700 mb-2">Data Scientist at AnalyticsPro</p>
+                    <div class="flex mb-3">
+                        <span class="text-xs font-semibold px-2 py-1 bg-teal-100 text-teal-800 rounded-full mr-1">Python</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-teal-100 text-teal-800 rounded-full mr-1">ML</span>
+                        <span class="text-xs font-semibold px-2 py-1 bg-teal-100 text-teal-800 rounded-full">SQL</span>
+                    </div>
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            {% for i in '1234'|make_list %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            {% endfor %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.5;">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <span class="text-sm text-gray-600 ml-1">(27 reviews)</span>
+                    </div>
+                    <a href="{% url 'users:mentor_list' %}" class="block w-full bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-center text-sm font-semibold transition-colors">
+                        View Profile →
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-10">
+            <a href="{% url 'users:mentor_list' %}" class="inline-flex items-center text-primary-600 hover:text-primary-800 font-medium">
+                View All Mentors
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="py-12 bg-gray-50">
+    <div class="container mx-auto px-4">
+        <div class="mb-10 text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">How PeerLearn Works</h2>
+            <p class="text-lg text-gray-600">Simple steps to start learning from experts</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Step 1 -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="w-16 h-16 bg-blue-100 text-primary-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-center mb-2">Discover</h3>
+                <p class="text-gray-600 text-center">
+                    Browse upcoming sessions or explore our mentor profiles to find the perfect match for your learning needs.
+                </p>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="w-16 h-16 bg-blue-100 text-primary-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-center mb-2">Book or Request</h3>
+                <p class="text-gray-600 text-center">
+                    Join an upcoming session with one click or request a personalized 1:1 session with your chosen mentor.
+                </p>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="w-16 h-16 bg-blue-100 text-primary-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-center mb-2">Learn Live</h3>
+                <p class="text-gray-600 text-center">
+                    Join your live session with video, chat, screen sharing, and interactive whiteboard for an immersive learning experience.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-16 bg-primary-600 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold mb-4">Ready to Share Your Knowledge?</h2>
+        <p class="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            Join our community of mentors and help others learn while earning from your expertise.
+        </p>
+        <a href="{% url 'users:auth_selector' %}" class="inline-block bg-white text-primary-600 hover:bg-blue-50 px-8 py-4 rounded-lg font-bold text-lg transition-colors">
+            Become a Mentor →
+        </a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.7.8/build/player/lottie.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load Lottie animation for hero section
+        const animationContainer = document.getElementById('hero-animation');
+        if (animationContainer) {
+            const animation = lottie.loadAnimation({
+                container: animationContainer,
+                renderer: 'svg',
+                loop: true,
+                autoplay: true,
+                path: 'https://assets2.lottiefiles.com/packages/lf20_w51pcehl.json' // Example education-related animation
+            });
+        }
+        
+        // Add mobile swipe support for carousels
+        const carouselContainer = document.querySelector('.carousel-container');
+        if (carouselContainer) {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            
+            carouselContainer.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+            
+            carouselContainer.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            });
+            
+            function handleSwipe() {
+                const swipeThreshold = 50;
+                if (touchEndX < touchStartX - swipeThreshold) {
+                    // Swipe left - next slide
+                    window.dispatchEvent(new CustomEvent('carousel-next'));
+                }
+                if (touchEndX > touchStartX + swipeThreshold) {
+                    // Swipe right - previous slide
+                    window.dispatchEvent(new CustomEvent('carousel-prev'));
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
