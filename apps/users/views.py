@@ -717,8 +717,8 @@ def mentor_session_detail(request, session_id):
     session = get_object_or_404(Session, id=session_id, mentor=request.user)
     
     # Process actions if any
-    if session_req.method == 'POST':
-        action = session_req.POST.get('action')
+    if request.method == 'POST':
+        action = request.POST.get('action')
         
         if action == 'cancel':
             # Cancel the session
@@ -819,7 +819,7 @@ def mentor_session_detail(request, session_id):
 def mentor_create_session(request):
     """
     View for mentor create session tab.
-    Now redirects to the advanced session creation page as per user session_req.
+    Now redirects to the advanced session creation page as per user request.
     """
     if not request.user.is_mentor:
         messages.error(request, 'Access denied.')
@@ -847,8 +847,8 @@ def mentor_session_edit(request, session_id):
         messages.error(request, f'Sessions that are {session.get_status_display().lower()} cannot be edited.')
         return redirect('users:mentor_session_detail', session_id=session.id)
         
-    if session_req.method == 'POST':
-        form = SessionForm(session_req.POST, instance=session)
+    if request.method == 'POST':
+        form = SessionForm(request.POST, instance=session)
         if form.is_valid():
             # Save the form but don't commit yet
             updated_session = form.save(commit=False)
@@ -887,9 +887,9 @@ def mentor_create_advanced_session(request):
     from apps.notifications.models import Notification
     import uuid
     
-    if session_req.method == 'POST':
-        form = SessionForm(session_req.POST, session_req.FILES)
-        is_free = session_req.POST.get('is_free') == 'true'
+    if request.method == 'POST':
+        form = SessionForm(request.POST, request.FILES)
+        is_free = request.POST.get('is_free') == 'true'
         
         if form.is_valid():
             # Create the session but don't save it yet
