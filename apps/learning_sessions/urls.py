@@ -45,4 +45,5 @@ urlpatterns = [
     # New API endpoints with improved error handling and WebSocket integration
     path('api/create/', api_endpoints.create_session_api, name='create_api'),
     path('api/session/<int:session_id>/', api_endpoints.session_details_api, name='session_details_api'),
+    path('api/sessions/<int:session_id>/cancel/', api_endpoints.cancel_session_api, name='cancel_session_api'),
 ]

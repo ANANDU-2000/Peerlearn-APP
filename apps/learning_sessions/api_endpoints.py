@@ -244,3 +244,112 @@ def session_details_api(request, session_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@login_required
+@require_POST
+def cancel_session_api(request, session_id):
+    """
+    API endpoint to cancel a session.
+    This will cancel all bookings and notify all participants.
+    Only the mentor who created the session can cancel it.
+    """
+    try:
+        # Get session
+        session = get_object_or_404(Session, id=session_id)
+        
+        # Check if user is the mentor
+        if session.mentor != request.user:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only the mentor who created the session can cancel it'
+            }, status=403)
+        
+        # Check if session can be cancelled (not already completed or cancelled)
+        if session.status in ['completed', 'cancelled']:
+            return JsonResponse({
+                'success': False,
+                'error': f'Cannot cancel a session that is already {session.status}'
+            }, status=400)
+        
+        # Parse request data
+        data = json.loads(request.body)
+        cancellation_reason = data.get('reason', 'Cancelled by mentor')
+        
+        # Start a transaction to ensure all operations are atomic
+        with transaction.atomic():
+            # Update session status
+            session.status = 'cancelled'
+            session.save()
+            
+            # Get confirmed bookings
+            bookings = Booking.objects.filter(session=session, status='confirmed')
+            
+            # Cancel all bookings and notify learners
+            for booking in bookings:
+                # Update booking status
+                booking.status = 'cancelled'
+                booking.cancellation_reason = cancellation_reason
+                booking.save()
+                
+                # Create notification for learner
+                Notification.objects.create(
+                    user=booking.learner,
+                    title="Session Cancelled",
+                    message=f"The session '{session.title}' has been cancelled by the mentor. Reason: {cancellation_reason}",
+                    notification_type="session_cancelled",
+                    reference_id=session.id
+                )
+            
+            # Create notification for mentor
+            Notification.objects.create(
+                user=request.user,
+                title="Session Cancelled",
+                message=f"You have cancelled the session: {session.title}",
+                notification_type="session_cancelled",
+                reference_id=session.id
+            )
+            
+            # Send real-time updates via WebSocket
+            channel_layer = get_channel_layer()
+            
+            # Format session data for WebSocket
+            session_data = {
+                'id': session.id,
+                'title': session.title,
+                'status': 'cancelled',
+                'cancelled_at': timezone.now().isoformat()
+            }
+            
+            # Send to mentor's channel group
+            async_to_sync(channel_layer.group_send)(
+                f"dashboard_{request.user.id}",
+                {
+                    'type': 'session_update',
+                    'session': session_data,
+                    'action': 'cancelled'
+                }
+            )
+            
+            # Send to each learner's channel group
+            for booking in bookings:
+                async_to_sync(channel_layer.group_send)(
+                    f"dashboard_{booking.learner.id}",
+                    {
+                        'type': 'session_update',
+                        'session': session_data,
+                        'action': 'cancelled'
+                    }
+                )
+        
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'message': 'Session cancelled successfully'
+        })
+        
+    except Exception as e:
+        # Return error
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

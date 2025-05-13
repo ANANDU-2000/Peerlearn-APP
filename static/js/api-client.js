@@ -263,6 +263,16 @@ class ApiClient {
     async updateSessionStatus(sessionId, status) {
         return this.post(`/sessions/update-status/${sessionId}/`, { status });
     }
+    
+    /**
+     * Cancel a session (for mentors)
+     * @param {number} sessionId - Session ID
+     * @param {string} reason - Cancellation reason
+     * @returns {Promise} Promise with cancellation result
+     */
+    async cancelSession(sessionId, reason) {
+        return this.post(`/sessions/api/sessions/${sessionId}/cancel/`, { reason });
+    }
 }
 
 // Create a global instance of the API client
