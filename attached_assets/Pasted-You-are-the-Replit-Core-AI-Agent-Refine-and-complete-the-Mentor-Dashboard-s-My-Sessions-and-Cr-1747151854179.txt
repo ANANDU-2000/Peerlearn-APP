@@ -1,0 +1,80 @@
+You are the Replit Core AI Agent. Refine and complete the *Mentor Dashboard’s **My Sessions* and *Create Session* features so that duplicates are eliminated, timers display real-time remaining time, “Go Live” buttons appear correctly, and all alerts, notifications, edits, and real-time updates work flawlessly. Use Django+Channels+SQLite3+TailwindCSS+Alpine.js. No further input needed.
+
+ROUTE: /dashboard/mentor (mentor-only)
+
+1. DEDUPLICATION & DATA SOURCE  
+   • Query upcoming sessions with Session.objects.filter(mentor=self, status='scheduled', schedule__gt=now()).distinct()  
+   • Eliminate duplicate records by unique (title, schedule, mentor) constraint  
+   • Display only future sessions; past sessions move to “Past” tab  
+
+2. MY SESSIONS TAB  
+   Sub-tabs: Today | Upcoming | Past  
+
+   A) *Today*  
+   – Sessions scheduled for current date  
+   – Card fields:
+     • Title (bold, truncate 1 line)
+     • Schedule time (formatted to locale)  
+     • Remaining time countdown (Alpine.js x-init="$interval(...)") showing hh:mm:ss  
+     • Max participants (hide if one-to-one)  
+     • Price badge (INR if paid, “Free”)  
+     • *Go Live ▶* button appears only if now() ≥ schedule − 00:15:00 and status='scheduled'  
+       - Disabled (grayed) if earlier; hidden if session ended  
+   – On *Go Live* click:
+     • AJAX POST /api/sessions/{id}/go_live/ → set status='live' + started_at=now()  
+     • Redirect → /session/{room_code}/  
+     • WS broadcast on sessions:{room_code} {type:'session.live'}  
+     • Toast “Session is live ✔”  
+
+   B) *Upcoming*  
+   – Future sessions beyond today  
+   – Same card layout; countdown until schedule  
+   – *Edit ✎* icon visible until T−5min:
+     • Opens modal with prefilled Create form
+     • On save: validate future time; save changes; WS broadcast session.updated  
+     • Toast “Session updated ✔”  
+   – *Cancel 🗑* icon:
+     • Confirms then sets status='cancelled'; WS broadcast session.cancelled; toast  
+
+   C) *Past*  
+   – Sessions with status in ['completed','cancelled'] or schedule < now()  
+   – Show “Completed at hh:mm” or “Cancelled” badge  
+   – Disable all actions  
+
+3. CREATE SESSION REFINEMENTS  
+   • Upon Publish, ensure no duplicates (unique constraint)  
+   • Redirect to My Sessions Upcoming  
+   • WS sessions:new broadcasts new card  
+
+4. REAL-TIME ALERTS & NOTIFICATIONS  
+   • When learner books: Channels send on notifications:{mentor_id} + WS toast “Alice booked ‘ML Basics’”  
+   • When learner joins lobby early: send learner.join on sessions:{room_code} → lobby toast  
+   • When no bookings 24h before: Celery task → WS toast “No bookings for tomorrow’s session—consider editing”  
+
+5. TIMER & STATUS UPDATES  
+   • Alpine.js updates countdown every second  
+   • When countdown reaches zero and Mentor hasn’t clicked Go Live:
+     – Show toast “Time to go live 🚀”; button enables automatically  
+   • After session end, show “Session ended” toast  
+
+6. ERROR HANDLING & FALLBACK  
+   • DB save errors → retry modal  
+   • WS disconnect → retry/backoff + toast  
+   • Network slow: skeleton >1s, spinner >3s  
+   • GCST/TURN failure → fallback audio + toast  
+   • Unauthorized requests → redirect + toast  
+
+7. MOBILE & WEB UI/UX  
+   • *Web*: horizontal tabs, responsive grid, consistent typography (Inter); cards less tall, two-line descriptions  
+   • *Mobile*: bottom nav, swipeable tabs, swipe to see edit/cancel actions on cards  
+   • Buttons: hover:scale-105, focus:outline, disabled states  
+
+8. TEST & VALIDATION  
+   • Add tests for:
+     – No duplicate sessions
+     – Go Live only in window
+     – Edit & Cancel permissions
+     – Countdown logic
+     – WS events for live/update/cancel
+
+Deliver all templates, views, serializers, Alpine.js scripts, and Channels consumers to implement this robust, real-time Mentor Dashboard with fully functional My Sessions and Create Session flows—no duplicates, correct timers, Go Live buttons, editing, and comprehensive error handling.

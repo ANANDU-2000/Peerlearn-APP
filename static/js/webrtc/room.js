@@ -246,6 +246,23 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             }
                             break;
                             
+                        case 'media_status':
+                            // Update media status of a participant
+                            if (message.user_id !== userId) {
+                                // Update participant's media status
+                                if (!this.participantMediaStatus[message.user_id]) {
+                                    this.participantMediaStatus[message.user_id] = {};
+                                }
+                                
+                                this.participantMediaStatus[message.user_id].audioEnabled = message.audioEnabled;
+                                this.participantMediaStatus[message.user_id].videoEnabled = message.videoEnabled;
+                                
+                                // Update UI to show audio/video status indicators
+                                console.log(`Participant ${message.username} media status updated:`, 
+                                    `audio=${message.audioEnabled}, video=${message.videoEnabled}`);
+                            }
+                            break;
+                            
                         case 'session_ended':
                             // Session was ended by the mentor
                             if (message.user_id !== userId) {
