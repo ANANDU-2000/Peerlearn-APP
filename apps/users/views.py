@@ -372,9 +372,6 @@ def learner_dashboard(request):
 
 
 
-
-
-
     # Sort activities by timestamp
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     
