@@ -3,36 +3,32 @@
     <div class="flex justify-around">
         <!-- Home -->
         <a href="{% url 'users:learner_dashboard' %}?tab=home" 
-           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
-           data-tab="home"
-           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'home\')'); return false;">
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 {% if active_tab == 'home' %}text-primary-600{% else %}text-gray-500{% endif %}"
+           data-tab="home">
             <i data-feather="home" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Home</span>
         </a>
         
         <!-- Activity -->
         <a href="{% url 'users:learner_dashboard' %}?tab=activity" 
-           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
-           data-tab="activity"
-           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'activity\')'); return false;">
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 {% if active_tab == 'activity' %}text-primary-600{% else %}text-gray-500{% endif %}"
+           data-tab="activity">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Activity</span>
         </a>
         
         <!-- Mentors -->
         <a href="{% url 'users:learner_dashboard' %}?tab=mentors" 
-           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
-           data-tab="mentors"
-           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'mentors\')'); return false;">
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 {% if active_tab == 'mentors' %}text-primary-600{% else %}text-gray-500{% endif %}"
+           data-tab="mentors">
             <i data-feather="users" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Mentors</span>
         </a>
         
         <!-- Notifications -->
         <a href="{% url 'users:learner_dashboard' %}?tab=notifications" 
-           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 relative"
-           data-tab="notifications"
-           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'notifications\')'); return false;">
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 relative {% if active_tab == 'notifications' %}text-primary-600{% else %}text-gray-500{% endif %}"
+           data-tab="notifications">
             <i data-feather="bell" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Alerts</span>
             {% if unread_notifications_count > 0 %}
@@ -45,9 +41,8 @@
         
         <!-- Profile -->
         <a href="{% url 'users:learner_dashboard' %}?tab=profile" 
-           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
-           data-tab="profile"
-           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'profile\')'); return false;">
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 {% if active_tab == 'profile' %}text-primary-600{% else %}text-gray-500{% endif %}"
+           data-tab="profile">
             <i data-feather="user" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Profile</span>
         </a>
