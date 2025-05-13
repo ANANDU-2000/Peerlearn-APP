@@ -64,7 +64,12 @@ def create_session_api(request):
         errors['schedule'] = ['Schedule is required']
     else:
         try:
+            # Parse the datetime and ensure it's timezone-aware
             schedule_datetime = datetime.fromisoformat(data['schedule'].replace('Z', '+00:00'))
+            if schedule_datetime.tzinfo is None:
+                # If the datetime is naive, make it aware
+                schedule_datetime = timezone.make_aware(schedule_datetime)
+            
             # Check if the schedule is in the future
             if schedule_datetime <= timezone.now():
                 errors['schedule'] = ['Schedule must be in the future']
