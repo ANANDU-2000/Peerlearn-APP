@@ -131,10 +131,27 @@
     {% include 'includes/toasts.html' %}
     {% include 'includes/modals.html' %}
     
-    <!-- Initialize Feather Icons -->
+    <!-- Initialize Feather Icons and Alpine.js -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             feather.replace();
+            
+            // Initialize mobile navigation tabs
+            if (typeof window.initializeAlpineData === 'function') {
+                const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
+                const activeTab = window.getActiveTabFromURL ? window.getActiveTabFromURL() : 'home';
+                
+                // Set initial active state
+                mobileNavItems.forEach(item => {
+                    if (item.dataset.tab === activeTab) {
+                        item.classList.add('text-primary-600');
+                        item.classList.remove('text-gray-500');
+                    } else {
+                        item.classList.remove('text-primary-600');
+                        item.classList.add('text-gray-500');
+                    }
+                });
+            }
         });
     </script>
     

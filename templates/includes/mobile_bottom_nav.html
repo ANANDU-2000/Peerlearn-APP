@@ -12,28 +12,31 @@
         </a>
         
         <!-- Activity -->
-        <a href="{% url 'learner_dashboard' %}?tab=activity" 
-           class="flex flex-col items-center justify-center w-full py-2"
+        <a href="#" 
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
+           data-tab="activity"
            :class="{'text-primary-600': activeTab === 'activity', 'text-gray-500': activeTab !== 'activity'}"
-           @click="activeTab = 'activity'">
+           @click.prevent="setActiveTab('activity')">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Activity</span>
         </a>
         
         <!-- Mentors -->
-        <a href="{% url 'learner_dashboard' %}?tab=mentors" 
-           class="flex flex-col items-center justify-center w-full py-2"
+        <a href="#" 
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
+           data-tab="mentors"
            :class="{'text-primary-600': activeTab === 'mentors', 'text-gray-500': activeTab !== 'mentors'}"
-           @click="activeTab = 'mentors'">
+           @click.prevent="setActiveTab('mentors')">
             <i data-feather="users" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Mentors</span>
         </a>
         
         <!-- Notifications -->
-        <a href="{% url 'learner_dashboard' %}?tab=notifications" 
-           class="flex flex-col items-center justify-center w-full py-2 relative"
+        <a href="#" 
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 relative"
+           data-tab="notifications"
            :class="{'text-primary-600': activeTab === 'notifications', 'text-gray-500': activeTab !== 'notifications'}"
-           @click="activeTab = 'notifications'">
+           @click.prevent="setActiveTab('notifications')">
             <i data-feather="bell" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Alerts</span>
             {% if unread_notifications_count > 0 %}
@@ -45,10 +48,11 @@
         </a>
         
         <!-- Profile -->
-        <a href="{% url 'learner_dashboard' %}?tab=profile" 
-           class="flex flex-col items-center justify-center w-full py-2"
+        <a href="#" 
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
+           data-tab="profile"
            :class="{'text-primary-600': activeTab === 'profile', 'text-gray-500': activeTab !== 'profile'}"
-           @click="activeTab = 'profile'">
+           @click.prevent="setActiveTab('profile')">
             <i data-feather="user" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Profile</span>
         </a>

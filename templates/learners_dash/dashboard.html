@@ -27,8 +27,8 @@
     }
 </style>
 <script>
-    // Get active tab from URL parameter
-    function getActiveTabFromURL() {
+    // Get active tab from URL parameter - expose globally
+    window.getActiveTabFromURL = function() {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab');
         return ['home', 'activity', 'mentors', 'notifications', 'profile'].includes(tab) ? tab : '{{ active_tab }}';
