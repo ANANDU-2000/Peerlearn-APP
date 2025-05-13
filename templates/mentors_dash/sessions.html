@@ -10,7 +10,7 @@
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-semibold text-gray-900">My Sessions</h1>
                 <div class="hidden md:flex space-x-3">
-                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out transform hover:scale-105">
                         <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
@@ -21,754 +21,825 @@
         </div>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
             <!-- Sessions content starts here -->
-                <div class="mt-4">
-                    <!-- Session tabs -->
-                    <div class="sm:hidden">
-                        <label for="tabs" class="sr-only">Select a tab</label>
-                        <select id="tabs" name="tabs" x-data="{ tab: '{{ sub_tab }}' }" x-model="tab" @change="window.location.href = '{% url 'users:mentor_sessions' %}?tab=' + tab" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
-                            <option value="today" {% if sub_tab == 'today' %}selected{% endif %}>Today</option>
-                            <option value="upcoming" {% if sub_tab == 'upcoming' %}selected{% endif %}>Upcoming</option>
-                            <option value="past" {% if sub_tab == 'past' %}selected{% endif %}>Past</option>
-                        </select>
-                    </div>
-                    <div class="hidden sm:block">
-                        <div class="border-b border-gray-200">
-                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                                <a href="{% url 'users:mentor_sessions' %}?tab=today" 
-                                   data-tab="today" 
-                                   id="tab-today"
-                                   onclick="switchSessionTab('today'); return false;"
-                                   class="sub-tab {% if sub_tab == 'today' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                    Today
-                                </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" 
-                                   data-tab="upcoming" 
-                                   id="tab-upcoming"
-                                   onclick="switchSessionTab('upcoming'); return false;"
-                                   class="sub-tab {% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                    Upcoming
-                                </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=past" 
-                                   data-tab="past" 
-                                   id="tab-past"
-                                   onclick="switchSessionTab('past'); return false;"
-                                   class="sub-tab {% if sub_tab == 'past' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                    Past
-                                </a>
-                            </nav>
-                        </div>
-                    </div>
-
-                    <!-- Session lists based on tab -->
-                    <div class="mt-6">
-                        <!-- Today's sessions tab content - visible when today tab is active -->
-                        <div id="today-sessions-content" class="sessions-tab-content {% if sub_tab != 'today' %}hidden{% endif %}" data-tab="today">
-                            {% if today_sessions %}
-                            <div class="bg-white shadow overflow-hidden sm:rounded-md">
-                                <ul class="divide-y divide-gray-200">
-                                    {% for session in today_sessions %}
-                                    <li id="session-{{ session.id }}" class="session-item" x-data="{ 
-                                        countdown: '{{ session.countdown_str }}',
-                                        canGoLive: {{ session.can_go_live|default:"false"|lower }},
-                                        status: '{{ session.status }}',
-                                        intervalId: null,
-                                        target: new Date('{{ session.schedule|date:'c' }}'),
-                                        now: new Date('{{ current_time }}'),
-                                        
-                                        checkGoLive() {
-                                            // Calculate if we're within 15 minutes of session start
-                                            const timeUntil = this.target - this.now;
-                                            if (timeUntil <= 15 * 60 * 1000 && this.status === 'scheduled') {
-                                                this.canGoLive = true;
-                                            }
-                                            return this.canGoLive;
-                                        },
-                                        
-                                        updateCountdown() {
-                                            this.now = new Date();
-                                            
-                                            if (this.status === 'live') {
-                                                // Session is live, count down remaining time
-                                                const durationMinutes = {{ session.duration }};
-                                                const endTime = new Date(this.target.getTime() + (durationMinutes * 60000));
-                                                const remaining = endTime - this.now;
-                                                
-                                                if (remaining <= 0) {
-                                                    this.countdown = '00:00:00';
-                                                    clearInterval(this.intervalId);
-                                                    return;
-                                                }
-                                                
-                                                // Format remaining time
-                                                const hours = Math.floor(remaining / 3600000);
-                                                const minutes = Math.floor((remaining % 3600000) / 60000);
-                                                const seconds = Math.floor((remaining % 60000) / 1000);
-                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                                            } else {
-                                                // Session is scheduled, count down until start
-                                                const timeUntil = this.target - this.now;
-                                                
-                                                if (timeUntil <= 0) {
-                                                    // It's time to go live
-                                                    this.countdown = 'LIVE NOW';
-                                                    this.canGoLive = true;
-                                                    return;
-                                                }
-                                                
-                                                // Check if within 15 minutes of start time
-                                                if (timeUntil <= 15 * 60 * 1000) {
-                                                    this.canGoLive = true;
-                                                }
-                                                
-                                                // Format countdown
-                                                const hours = Math.floor(timeUntil / 3600000);
-                                                const minutes = Math.floor((timeUntil % 3600000) / 60000);
-                                                const seconds = Math.floor((timeUntil % 60000) / 1000);
-                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                                            }
-                                        }
-                                    }" 
-                                    x-init="
-                                        updateCountdown();
-                                        intervalId = setInterval(() => {
-                                            updateCountdown();
-                                        }, 1000); // Update every second
-                                        $cleanup = () => clearInterval(intervalId);
-                                    "
-                                    class="block hover:bg-gray-50">
-                                        <div class="px-4 py-4 sm:px-6">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center">
-                                                    <p class="text-lg font-medium text-primary-600 truncate">
-                                                        {{ session.title }}
-                                                    </p>
-                                                    <div class="ml-2 flex-shrink-0 flex">
-                                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                            {% if session.status == 'scheduled' %}bg-blue-100 text-blue-800
-                                                            {% elif session.status == 'live' %}bg-green-100 text-green-800
-                                                            {% elif session.status == 'completed' %}bg-gray-100 text-gray-800
-                                                            {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
-                                                            {% endif %}">
-                                                            {{ session.status|title }}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-2 flex-shrink-0 flex items-center">
-                                                    <div x-show="checkGoLive() && status === 'scheduled'" class="mr-4">
-                                                        <a href="{% url 'sessions:go_live' room_code=session.room_code %}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                                            <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                                                            </svg>
-                                                            Go Live
-                                                        </a>
-                                                    </div>
-                                                    <div x-show="status === 'live'" class="mr-4">
-                                                        <a href="{% url 'sessions:room' room_code=session.room_code %}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                                            <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                              <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                                                            </svg>
-                                                            Join Session
-                                                        </a>
-                                                    </div>
-                                                    <div class="flex items-center text-sm text-gray-500">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span x-text="countdown" class="tabular-nums"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 sm:flex sm:justify-between">
-                                                <div class="sm:flex">
-                                                    <p class="flex items-center text-sm text-gray-500">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {{ session.schedule|date:"F j, Y P" }}
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span class="participant-counter" data-current="{{ session.confirmed_bookings_count }}" data-max="{{ session.max_participants }}">
-                                                            <span class="count-display font-semibold text-primary-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
-                                                        </span>
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% else %}
-                            <div class="text-center py-12 bg-white shadow rounded-md">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <h3 class="mt-2 text-lg font-medium text-gray-900">No sessions today</h3>
-                                <p class="mt-1 text-sm text-gray-500">You don't have any sessions scheduled for today.</p>
-                                <div class="mt-6">
-                                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Create New Session
-                                    </a>
-                                </div>
-                            </div>
-                            {% endif %}
-                        <!-- Upcoming sessions tab content - visible when upcoming tab is active -->
-                        <div id="upcoming-sessions-content" class="sessions-tab-content {% if sub_tab != 'upcoming' %}hidden{% endif %}" data-tab="upcoming">
-                            {% if upcoming_sessions %}
-                            <div class="bg-white shadow overflow-hidden sm:rounded-md sessions-container">
-                                <ul class="divide-y divide-gray-200" id="sessions-list">
-                                    {% for session in upcoming_sessions %}
-                                    <li id="session-{{ session.id }}" class="session-item" x-data="{ 
-                                        countdown: '{{ session.countdown_str }}',
-                                        showEditMenu: false,
-                                        canEdit: {{ session.can_edit|lower }},
-                                        canGoLive: {{ session.can_go_live|lower }},
-                                        status: '{{ session.status }}',
-                                        intervalId: null,
-                                        target: new Date('{{ session.schedule|date:'c' }}'),
-                                        now: new Date('{{ current_time }}'),
-                                        
-                                        updateCountdown() {
-                                            this.now = new Date();
-                                            
-                                            // Count down until start
-                                            const timeUntil = this.target - this.now;
-                                            
-                                            if (timeUntil <= 0) {
-                                                this.countdown = 'LIVE NOW';
-                                                clearInterval(this.intervalId);
-                                                return;
-                                            }
-                                            
-                                            // Format countdown
-                                            const days = Math.floor(timeUntil / (24 * 3600000));
-                                            const hours = Math.floor((timeUntil % (24 * 3600000)) / 3600000);
-                                            const minutes = Math.floor((timeUntil % 3600000) / 60000);
-                                            const seconds = Math.floor((timeUntil % 60000) / 1000);
-                                            
-                                            if (days > 0) {
-                                                this.countdown = `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                                            } else {
-                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                                            }
-                                            
-                                            // Update edit permission (can't edit within 5 minutes of start)
-                                            this.canEdit = timeUntil > 5 * 60 * 1000;
-                                        }
-                                    }" 
-                                    x-init="
-                                        updateCountdown();
-                                        intervalId = setInterval(() => {
-                                            updateCountdown();
-                                        }, 1000); // Update every second
-                                        $cleanup = () => clearInterval(intervalId);
-                                    "
-                                    class="block hover:bg-gray-50 relative">
-                                        <div class="px-4 py-4 sm:px-6">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center">
-                                                    <p class="text-lg font-medium text-primary-600 truncate">
-                                                        {{ session.title }}
-                                                    </p>
-                                                    <div class="ml-2 flex-shrink-0 flex">
-                                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                            Scheduled
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-2 flex space-x-4 items-center">
-                                                    <div class="flex items-center text-sm text-gray-500">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span x-text="countdown" class="tabular-nums"></span>
-                                                    </div>
-                                                    
-                                                    <!-- Edit/Cancel Menu Button -->
-                                                    <div class="relative ml-3" x-data="{ open: false }">
-                                                        <div>
-                                                            <button @click="open = !open" type="button" class="inline-flex items-center p-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                        
-                                                        <div x-show="open" 
-                                                             @click.away="open = false"
-                                                             x-transition:enter="transition ease-out duration-100"
-                                                             x-transition:enter-start="transform opacity-0 scale-95"
-                                                             x-transition:enter-end="transform opacity-100 scale-100"
-                                                             x-transition:leave="transition ease-in duration-75"
-                                                             x-transition:leave-start="transform opacity-100 scale-100"
-                                                             x-transition:leave-end="transform opacity-0 scale-95"
-                                                             class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-10">
-                                                            
-                                                            <a x-show="canEdit" href="{% url 'users:mentor_session_edit' session.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                </svg>
-                                                                Edit Session
-                                                            </a>
-                                                            
-                                                            <button x-show="!canEdit" disabled class="block w-full text-left px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                </svg>
-                                                                Cannot Edit (Too Close to Start)
-                                                            </button>
-                                                            
-                                                            <a href="#" onclick="confirmCancelSession({{ session.id }}, '{{ session.title|escapejs }}'); return false;" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
-                                                                <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                                Cancel Session
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 sm:flex sm:justify-between">
-                                                <div class="sm:flex">
-                                                    <p class="flex items-center text-sm text-gray-500">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {{ session.schedule|date:"F j, Y P" }}
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span class="participant-counter" data-current="{{ session.confirmed_bookings_count }}" data-max="{{ session.max_participants }}">
-                                                            <span class="count-display font-semibold text-primary-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
-                                                        </span>
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% else %}
-                            <div class="text-center py-12 bg-white shadow rounded-md">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <h3 class="mt-2 text-lg font-medium text-gray-900">No upcoming sessions</h3>
-                                <p class="mt-1 text-sm text-gray-500">You don't have any sessions scheduled for future days.</p>
-                                <div class="mt-6">
-                                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Create New Session
-                                    </a>
-                                </div>
-                            </div>
-                            {% endif %}
-                        <!-- Past sessions tab content - visible when past tab is active -->
-                        <div id="past-sessions-content" class="sessions-tab-content {% if sub_tab != 'past' %}hidden{% endif %}" data-tab="past">
-                            {% if past_sessions %}
-                            <div class="bg-white shadow overflow-hidden sm:rounded-md">
-                                <ul class="divide-y divide-gray-200">
-                                    {% for session in past_sessions %}
-                                    <li class="block hover:bg-gray-50">
-                                        <div class="px-4 py-4 sm:px-6">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center">
-                                                    <p class="text-lg font-medium text-gray-700 truncate">
-                                                        {{ session.title }}
-                                                    </p>
-                                                    <div class="ml-2 flex-shrink-0 flex">
-                                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                            {% if session.status == 'completed' %}bg-blue-100 text-blue-800
-                                                            {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
-                                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                                            {{ session.status|title }}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-2 flex-shrink-0 flex items-center">
-                                                    {% if session.status == 'completed' %}
-                                                    <a href="#" onclick="alert('Recordings are not yet implemented.'); return false;" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                                        <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                                                        </svg>
-                                                        View Recording
-                                                    </a>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 sm:flex sm:justify-between">
-                                                <div class="sm:flex">
-                                                    <p class="flex items-center text-sm text-gray-500">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {{ session.schedule|date:"F j, Y P" }}
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span class="participant-counter">
-                                                            <span class="count-display font-semibold text-gray-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
-                                                        </span>
-                                                    </p>
-                                                    <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% else %}
-                            <div class="text-center py-12 bg-white shadow rounded-md">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <h3 class="mt-2 text-lg font-medium text-gray-900">No past sessions</h3>
-                                <p class="mt-1 text-sm text-gray-500">You haven't taught any sessions yet.</p>
-                                <div class="mt-6">
-                                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Create Your First Session
-                                    </a>
-                                </div>
-                            </div>
-                            {% endif %}
+            <div class="mt-4">
+                <!-- Session tabs -->
+                <div class="sm:hidden">
+                    <label for="tabs" class="sr-only">Select a tab</label>
+                    <select id="tabs" name="tabs" x-data="{ tab: '{{ sub_tab }}' }" x-model="tab" @change="window.location.href = '{% url 'users:mentor_sessions' %}?tab=' + tab" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                        <option value="today" {% if sub_tab == 'today' %}selected{% endif %}>Today</option>
+                        <option value="upcoming" {% if sub_tab == 'upcoming' %}selected{% endif %}>Upcoming</option>
+                        <option value="past" {% if sub_tab == 'past' %}selected{% endif %}>Past</option>
+                    </select>
+                </div>
+                <div class="hidden sm:block">
+                    <div class="border-b border-gray-200">
+                        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                            <a href="{% url 'users:mentor_sessions' %}?tab=today" 
+                               data-tab="today" 
+                               id="tab-today"
+                               class="sub-tab {% if sub_tab == 'today' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                Today
+                            </a>
+                            <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" 
+                               data-tab="upcoming" 
+                               id="tab-upcoming"
+                               class="sub-tab {% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                Upcoming
+                            </a>
+                            <a href="{% url 'users:mentor_sessions' %}?tab=past" 
+                               data-tab="past" 
+                               id="tab-past"
+                               class="sub-tab {% if sub_tab == 'past' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                Past
+                            </a>
+                        </nav>
                     </div>
                 </div>
-            `;
-        }
-    });
-</script>
+            </div>
 
-<!-- Session Cancel Modal JavaScript -->
-<script>
-    function confirmCancelSession(sessionId, sessionTitle) {
-        if (confirm(`Are you sure you want to cancel your session "${sessionTitle}"? This will notify all booked learners.`)) {
-            // Call the API client method to cancel the session
-            apiClient.cancelSession(sessionId, 'Cancelled by mentor')
-                .then(data => {
-                    if (data.success) {
-                        showToast('success', 'Session Cancelled', 'Your session has been cancelled and learners have been notified.');
-                        // Delay for toast to be visible
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    } else {
-                        showToast('error', 'Error', data.error || 'There was an error cancelling the session.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('error', 'Error', 'There was an error communicating with the server.');
-                });
-        }
-    }
-</script>
+            <!-- Tab Content -->
+            <div class="mt-6" x-data="sessionManager()" x-init="initializeWebSocket()">
+                <!-- Loading skeleton displayed while data is loading -->
+                <div class="sessions-loading-skeleton" x-show="isLoading" x-cloak>
+                    <div class="animate-pulse space-y-4">
+                        {% for i in '123'|make_list %}
+                            <div class="bg-white shadow rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                                        <div class="mt-2 h-4 bg-gray-200 rounded w-1/2"></div>
+                                    </div>
+                                    <div class="w-24 h-10 bg-gray-200 rounded"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Actual session cards -->
+                <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3" x-show="!isLoading">
+                    <template x-if="sessions.length > 0">
+                        <template x-for="session in sessions" :key="session.id">
+                            <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                x-data="{
+                                    showOptionsMenu: false,
+                                    canGoLive: false,
+                                    isBusy: false,
+                                    checkGoLive() {
+                                        const now = new Date();
+                                        const sessionTime = new Date(session.schedule);
+                                        const timeUntil = sessionTime - now;
+                                        // Update canGoLive if within 15 minutes or past start time
+                                        if (timeUntil <= 15 * 60 * 1000 || timeUntil <= 0) {
+                                            this.canGoLive = true;
+                                        }
+                                        return this.canGoLive && session.status === 'scheduled' && session.confirmed_bookings_count > 0;
+                                    }
+                                }">
+                                
+                                <!-- Session header with title and status -->
+                                <div class="px-4 pt-5 pb-2 sm:px-6">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <h3 class="text-lg font-semibold text-gray-900 truncate" x-text="session.title"></h3>
+                                            
+                                            <!-- Status badges -->
+                                            <div class="mt-1 flex items-center space-x-2">
+                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                    :class="{
+                                                        'bg-gray-100 text-gray-800': session.status === 'scheduled',
+                                                        'bg-red-100 text-red-800': session.status === 'live',
+                                                        'bg-blue-100 text-blue-800': session.status === 'completed',
+                                                        'bg-yellow-100 text-yellow-800': session.status === 'cancelled'
+                                                    }"
+                                                    x-text="session.status === 'live' ? 'LIVE NOW' : session.status.charAt(0).toUpperCase() + session.status.slice(1)">
+                                                </span>
+                                                
+                                                <!-- Participants badge -->
+                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    <span x-text="session.confirmed_bookings_count || 0"></span>/<span x-text="session.max_participants"></span> Booked
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Dropdown menu for options -->
+                                        <div class="relative">
+                                            <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
+                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                </svg>
+                                            </button>
+                                            
+                                            <!-- Dropdown menu -->
+                                            <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
+                                                <div class="py-1">
+                                                    <template x-if="session.status === 'scheduled' && isEditable(session)">
+                                                        <a :href="'/users/dashboard/mentor/sessions/' + session.id + '/edit/'" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                            Edit Session
+                                                        </a>
+                                                    </template>
+                                                    <template x-if="session.status === 'scheduled' && !isEditable(session)">
+                                                        <button disabled class="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                            Cannot Edit (Too Close to Start)
+                                                        </button>
+                                                    </template>
+                                                    
+                                                    <template x-if="session.status === 'scheduled'">
+                                                        <a href="#" @click.prevent="cancelSession(session)" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                            Cancel Session
+                                                        </a>
+                                                    </template>
+                                                    
+                                                    <template x-if="session.status === 'completed'">
+                                                        <a :href="'/sessions/' + session.id + '/analytics/'" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                            </svg>
+                                                            View Analytics
+                                                        </a>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Session details -->
+                                <div class="px-4 py-4 sm:px-6">
+                                    <div class="space-y-3">
+                                        <!-- Date and time -->
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span x-text="formatDateTime(session.schedule)"></span>
+                                        </div>
+                                        
+                                        <!-- Duration -->
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span x-text="session.duration + ' minutes'"></span>
+                                        </div>
+                                        
+                                        <!-- Price -->
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span x-text="session.price > 0 ? '₹' + session.price : 'Free'"></span>
+                                        </div>
+                                        
+                                        <!-- Countdown timer -->
+                                        <div class="flex items-center text-sm font-medium">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="session-countdown" x-text="formatCountdown(session)" :class="{'text-red-600 font-semibold': isLive(session) || isStartingSoon(session)}"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Action buttons -->
+                                <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+                                    <!-- Go Live button (only show if scheduled & booked & within 15min) -->
+                                    <template x-if="checkGoLive()">
+                                        <button @click="goLive(session)" :disabled="isBusy"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                                            <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                            </svg>
+                                            <svg x-show="isBusy" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Go Live
+                                        </button>
+                                    </template>
+                                    
+                                    <!-- Enter Room button (only if live or has bookings) -->
+                                    <template x-if="session.status === 'live' || (session.confirmed_bookings_count > 0 && isStartingSoon(session))">
+                                        <a :href="'/sessions/' + session.room_code + '/join/'"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                                            </svg>
+                                            Join Room
+                                        </a>
+                                    </template>
+                                    
+                                    <!-- Edit button (only for scheduled sessions that are editable) -->
+                                    <template x-if="session.status === 'scheduled' && isEditable(session)">
+                                        <a :href="'/users/dashboard/mentor/sessions/' + session.id + '/edit/'"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                            </svg>
+                                            Edit
+                                        </a>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+                
+                    <!-- Empty state when no sessions found -->
+                    <template x-if="sessions.length === 0">
+                        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 bg-white shadow rounded-md">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <h3 class="mt-2 text-lg font-medium text-gray-900">No sessions found</h3>
+                            <p class="mt-1 text-sm text-gray-500" x-text="getEmptyStateMessage()"></p>
+                            <div class="mt-6">
+                                <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Create a new session
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <!-- End of Sessions content -->
+        </div>
 
-{% block extra_js %}
-<script>
-    // Initialize and handle real-time updates for sessions
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mark tabs with class for easier selection
-        const tabLinks = document.querySelectorAll('.border-b-2');
-        tabLinks.forEach(link => {
-            link.classList.add('sessions-tab-link');
-        });
-        
-        // Mark tab content sections with data attributes
-        const todayContent = document.querySelector('#today-sessions-content');
-        if (todayContent) todayContent.setAttribute('data-tab', 'today');
-        
-        const upcomingContent = document.querySelector('#upcoming-sessions-content');
-        if (upcomingContent) upcomingContent.setAttribute('data-tab', 'upcoming');
-        
-        const pastContent = document.querySelector('#past-sessions-content');
-        if (pastContent) pastContent.setAttribute('data-tab', 'past');
-        
-        // Set classes for tab content
-        const allContents = document.querySelectorAll('[data-tab]');
-        allContents.forEach(content => {
-            content.classList.add('sessions-tab-content');
-        });
-        
-        // Set up event listeners for the tab links
-        setupSessionTabHandlers();
-        
-        // Initialize session timers
-        initializeSessionTimers();
-    });
-    
-    // Set up event handlers for session tabs
-    function setupSessionTabHandlers() {
-        const tabLinks = document.querySelectorAll('.sessions-tab-link');
-        tabLinks.forEach(link => {
-            link.addEventListener('click', handleTabClick);
-        });
-    }
-    
-    // Handle tab click to update content without page reload
-    function handleTabClick(event) {
-        event.preventDefault();
-        
-        // Get the tab value from the href
-        const url = new URL(event.currentTarget.href);
-        const tabValue = url.searchParams.get('tab');
-        
-        // Update URL without reloading page
-        window.history.pushState({tab: tabValue}, '', event.currentTarget.href);
-        
-        // Update active tab indicator
-        updateActiveTabUI(tabValue);
-        
-        // No need for AJAX here since the content is already in the page
-        // Just show/hide the appropriate tab content
-        showTabContent(tabValue);
-    }
-    
-    // Update the active tab indicator in the UI
-    function updateActiveTabUI(activeTab) {
-        const tabLinks = document.querySelectorAll('.sessions-tab-link');
-        
-        tabLinks.forEach(link => {
-            const url = new URL(link.href);
-            const tabValue = url.searchParams.get('tab');
-            
-            if (tabValue === activeTab) {
-                link.classList.add('border-primary-500', 'text-primary-600');
-                link.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-            } else {
-                link.classList.remove('border-primary-500', 'text-primary-600');
-                link.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-            }
-        });
-        
-        // Update mobile selector if present
-        const mobileSelector = document.getElementById('tabs');
-        if (mobileSelector) {
-            mobileSelector.value = activeTab;
+        <!-- Mobile Fixed Action Button -->
+        <div class="fixed bottom-20 right-6 sm:hidden">
+            <a href="{% url 'users:mentor_create_advanced_session' %}" class="shadow-xl flex items-center justify-center h-14 w-14 rounded-full bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out transform hover:scale-105">
+                <svg class="text-white h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+            </a>
+        </div>
+    </main>
+</div>
+
+<!-- Notification toasts container -->
+<div class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2" id="toast-container"></div>
+
+<!-- Connection status indicator -->
+<div class="fixed bottom-4 left-4 z-50 transition-opacity" 
+     x-data="{ show: false, message: '', type: 'info' }"
+     x-show="show"
+     @connection-status.window="
+        show = true;
+        message = $event.detail.message;
+        type = $event.detail.type;
+        if ($event.detail.type === 'success') {
+            setTimeout(() => show = false, 3000);
         }
-    }
-    
-    // Show the content for the selected tab
-    function showTabContent(activeTab) {
-        const allTabContents = document.querySelectorAll('.sessions-tab-content');
-        
-        allTabContents.forEach(content => {
-            if (content.getAttribute('data-tab') === activeTab) {
-                content.classList.remove('hidden');
-            } else {
-                content.classList.add('hidden');
-            }
-        });
-    }
-    
-    // Initialize timers for session countdowns
-    function initializeSessionTimers() {
-        // Add data attributes to all session items
-        document.querySelectorAll('.session-item').forEach(item => {
-            const sessionId = item.getAttribute('id').replace('session-', '');
-            const countdownElement = item.querySelector('.session-countdown');
-            
-            if (countdownElement) {
-                // Set attributes for timer updates
-                countdownElement.setAttribute('data-session-id', sessionId);
-                countdownElement.setAttribute('data-countdown', 'true');
-                
-                // Extract schedule datetime from existing format
-                const scheduleText = item.querySelector('.session-schedule').getAttribute('datetime');
-                countdownElement.setAttribute('data-target', scheduleText);
-                
-                // Get duration from duration badge
-                const durationText = item.querySelector('.session-duration').textContent;
-                const duration = parseInt(durationText.match(/\d+/)[0]);
-                countdownElement.setAttribute('data-duration', duration);
-                
-                // Get status from status badge
-                const statusText = item.querySelector('.session-status').textContent.toLowerCase();
-                countdownElement.setAttribute('data-status', statusText);
-            }
-        });
-        
-        // Start timers
-        const sessionTimers = document.querySelectorAll('[data-countdown]');
-        
-        sessionTimers.forEach(timer => {
-            const sessionId = timer.getAttribute('data-session-id');
-            const targetTime = new Date(timer.getAttribute('data-target'));
-            const duration = parseInt(timer.getAttribute('data-duration'));
-            const status = timer.getAttribute('data-status');
-            
-            // Set up interval to update the timer
-            updateSessionTimer(timer, targetTime, duration, status);
-            const intervalId = setInterval(() => {
-                updateSessionTimer(timer, targetTime, duration, status);
-            }, 1000);
-            
-            // Store the interval ID to clear it when needed
-            timer.setAttribute('data-interval-id', intervalId);
-        });
-    }
-    
-    // Update a single session timer display
-    function updateSessionTimer(timerElement, targetTime, durationMinutes, status) {
-        const now = new Date();
-        
-        if (status === 'live') {
-            // Session is live, count down remaining time
-            const endTime = new Date(targetTime.getTime() + (durationMinutes * 60000));
-            const remaining = endTime - now;
-            
-            if (remaining <= 0) {
-                timerElement.textContent = '00:00:00';
-                const intervalId = timerElement.getAttribute('data-interval-id');
-                if (intervalId) {
-                    clearInterval(parseInt(intervalId));
-                }
-                return;
-            }
-            
-            // Format remaining time
-            const hours = Math.floor(remaining / 3600000);
-            const minutes = Math.floor((remaining % 3600000) / 60000);
-            const seconds = Math.floor((remaining % 60000) / 1000);
-            timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        } else {
-            // Session is scheduled, count down until start
-            const timeUntil = targetTime - now;
-            
-            if (timeUntil <= 0) {
-                timerElement.textContent = 'LIVE NOW';
-                
-                // Use Alpine's context to update the canGoLive flag
-                const sessionItem = timerElement.closest('.session-item');
-                const component = Alpine.$data(sessionItem);
-                if (component) {
-                    component.canGoLive = true;
-                    component.checkGoLive();
-                }
-                return;
-            }
-            
-            // Check if within 15 minutes of start time
-            if (timeUntil <= 15 * 60 * 1000) {
-                // Use Alpine's context to update the canGoLive flag
-                const sessionItem = timerElement.closest('.session-item');
-                const component = Alpine.$data(sessionItem);
-                if (component) {
-                    component.canGoLive = true;
-                    component.checkGoLive();
-                }
-            }
-            
-            // Format countdown
-            const hours = Math.floor(timeUntil / 3600000);
-            const minutes = Math.floor((timeUntil % 3600000) / 60000);
-            const seconds = Math.floor((timeUntil % 60000) / 1000);
-            timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-    }
-    
-    // Initialize tab functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        initTabFunctionality();
-    });
-    
-    // Function to switch between session tabs
-    function switchSessionTab(tabName) {
-        console.log(`Switching to tab: ${tabName}`);
-        
-        // Update active state on tab buttons
-        document.querySelectorAll('.sub-tab').forEach(tab => {
-            if (tab.dataset.tab === tabName) {
-                tab.classList.add('active', 'border-primary-500', 'text-primary-600');
-                tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-            } else {
-                tab.classList.remove('active', 'border-primary-500', 'text-primary-600');
-                tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-            }
-        });
-        
-        // Hide all tab contents
-        document.querySelectorAll('.sessions-tab-content').forEach(content => {
-            if (content.dataset.tab === tabName) {
-                content.classList.remove('hidden');
-            } else {
-                content.classList.add('hidden');
-            }
-        });
-        
-        // Update URL without page reload (for bookmarking and history)
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', tabName);
-        window.history.pushState({}, '', url);
-        
-        // Refresh sessions in this tab via API if available
-        if (window.refreshSessionsList) {
-            console.log('Refreshing sessions for tab:', tabName);
-            window.refreshSessionsList();
-        }
-    }
-    
-    function initTabFunctionality() {
-        // First, make sure all session content tabs have the correct display state
-        const activeTab = document.querySelector('.sub-tab.active');
-        if (activeTab) {
-            const tabName = activeTab.dataset.tab;
-            
-            // Hide all tab contents
-            document.querySelectorAll('.sessions-tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            
-            // Show the active tab content
-            const activeContent = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
-            if (activeContent) {
-                activeContent.classList.remove('hidden');
-            }
-        }
-        
-        // Add click handlers for tabs (in case JavaScript navigation is preferred over server-side)
-        document.querySelectorAll('.sub-tab').forEach(tab => {
-            tab.addEventListener('click', function(e) {
-                const tabName = this.dataset.tab;
-                switchSessionTab(tabName);
-                e.preventDefault(); // Prevent the default navigation
-            });
-        });
-    }
-</script>
+     ">
+    <div class="px-4 py-2 rounded-lg shadow-md text-sm font-medium flex items-center space-x-2" 
+         :class="{
+            'bg-green-100 text-green-800': type === 'success',
+            'bg-yellow-100 text-yellow-800': type === 'warning',
+            'bg-red-100 text-red-800': type === 'error'
+         }">
+        <svg x-show="type === 'success'" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        </svg>
+        <svg x-show="type === 'warning' || type === 'error'" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span x-text="message"></span>
+        <button @click="show = false" class="ml-2 text-gray-500 hover:text-gray-700 focus:outline-none">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    </div>
+</div>
 {% endblock %}
 
+{% block page_scripts %}
+<script>
+    function sessionManager() {
+        return {
+            sessions: [],
+            isLoading: true,
+            wsSocket: null,
+            reconnectAttempt: 0,
+            reconnectMaxAttempts: 5,
+            currentTab: "{{ sub_tab }}",
+            
+            /**
+             * Initialize WebSocket connection
+             */
+            initializeWebSocket() {
+                this.loadInitialSessions();
+                
+                // Setup WebSocket connection for real-time updates
+                const userId = "{{ request.user.id }}";
+                const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${userId}/`;
+                
+                this.connectWebSocket(wsUrl);
+                
+                // Setup timers for session countdowns
+                setInterval(() => this.updateAllCountdowns(), 1000);
+            },
+            
+            /**
+             * Load initial sessions data via AJAX
+             */
+            loadInitialSessions() {
+                this.isLoading = true;
+                
+                fetch(`/sessions/api/status/?tab=${this.currentTab}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        this.sessions = data.sessions;
+                        this.isLoading = false;
+                        console.log("Updated sessions display with data:", data);
+                    })
+                    .catch(error => {
+                        console.error("Error fetching session data:", error);
+                        this.isLoading = false;
+                        this.showToast("Failed to load sessions. Please refresh the page.", "error");
+                    });
+            },
+            
+            /**
+             * Connect to WebSocket for real-time updates
+             */
+            connectWebSocket(url) {
+                this.wsSocket = new WebSocket(url);
+                
+                this.wsSocket.onopen = (event) => {
+                    this.reconnectAttempt = 0;
+                    this.showConnectionStatus("Connected to session updates", "success");
+                    console.log("Dashboard WebSocket connected");
+                    
+                    // Setup keep-alive ping
+                    this.startKeepAlivePing();
+                };
+                
+                this.wsSocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log("Dashboard message received:", data.type);
+                    
+                    switch (data.type) {
+                        case "connection_established":
+                            console.log("Dashboard WebSocket: connection_established");
+                            // Request initial data
+                            this.sendMessage({ type: "get_data" });
+                            break;
+                            
+                        case "dashboard_data":
+                            console.log("Received dashboard data:", data.type, data);
+                            // Handle different types of data updates
+                            this.handleDashboardData(data);
+                            break;
+                            
+                        case "session_update":
+                            this.handleSessionUpdate(data.session);
+                            break;
+                            
+                        case "new_booking":
+                            this.handleNewBooking(data.session_id, data.count);
+                            break;
+                            
+                        case "session_live":
+                            this.handleSessionLive(data.session_id);
+                            break;
+                            
+                        case "learner_join":
+                            this.showToast(`${data.learner_name} joined the session`, "info");
+                            break;
+                            
+                        case "learner_leave":
+                            this.showToast(`${data.learner_name} left the session`, "info");
+                            break;
+                    }
+                };
+                
+                this.wsSocket.onclose = (event) => {
+                    console.log("WebSocket disconnected. Reconnecting in 1 seconds...");
+                    
+                    // Stop keep-alive ping
+                    if (this.keepAlivePingInterval) {
+                        clearInterval(this.keepAlivePingInterval);
+                    }
+                    
+                    if (this.reconnectAttempt < this.reconnectMaxAttempts) {
+                        this.reconnectAttempt++;
+                        const backoffTime = Math.min(1000 * Math.pow(1.5, this.reconnectAttempt), 30000);
+                        this.showConnectionStatus(`Connection lost. Reconnecting (${this.reconnectAttempt}/${this.reconnectMaxAttempts})...`, "warning");
+                        
+                        setTimeout(() => {
+                            this.connectWebSocket(url);
+                        }, backoffTime);
+                    } else {
+                        this.showConnectionStatus("Connection lost. Please refresh the page.", "error");
+                    }
+                };
+                
+                this.wsSocket.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                };
+            },
+            
+            /**
+             * Send message to WebSocket
+             */
+            sendMessage(message) {
+                if (this.wsSocket && this.wsSocket.readyState === WebSocket.OPEN) {
+                    this.wsSocket.send(JSON.stringify(message));
+                }
+            },
+            
+            /**
+             * Handle dashboard data updates
+             */
+            handleDashboardData(data) {
+                if (data.data && data.data.sessions) {
+                    this.sessions = data.data.sessions;
+                }
+                
+                if (data.data && data.data.session_requests) {
+                    // Handle session requests if needed
+                }
+                
+                this.isLoading = false;
+            },
+            
+            /**
+             * Handle session update event
+             */
+            handleSessionUpdate(updatedSession) {
+                const index = this.sessions.findIndex(s => s.id === updatedSession.id);
+                if (index !== -1) {
+                    this.sessions[index] = updatedSession;
+                    this.showToast(`Session "${updatedSession.title}" has been updated`, "info");
+                }
+            },
+            
+            /**
+             * Handle new booking event
+             */
+            handleNewBooking(sessionId, count) {
+                const index = this.sessions.findIndex(s => s.id === sessionId);
+                if (index !== -1) {
+                    this.sessions[index].confirmed_bookings_count = count;
+                    this.showToast(`New booking for "${this.sessions[index].title}"`, "success");
+                }
+            },
+            
+            /**
+             * Handle session going live event
+             */
+            handleSessionLive(sessionId) {
+                const index = this.sessions.findIndex(s => s.id === sessionId);
+                if (index !== -1) {
+                    this.sessions[index].status = "live";
+                    this.showToast(`Session "${this.sessions[index].title}" is now LIVE`, "success");
+                }
+            },
+            
+            /**
+             * Update countdown timers for all sessions
+             */
+            updateAllCountdowns() {
+                // No need to do anything here - countdown display is handled by the formatCountdown method
+                // which is called in the template
+            },
+            
+            /**
+             * Format the countdown display for a session
+             */
+            formatCountdown(session) {
+                const now = new Date();
+                const sessionTime = new Date(session.schedule);
+                
+                // For past sessions
+                if (session.status === 'completed' || session.status === 'cancelled') {
+                    return session.status.charAt(0).toUpperCase() + session.status.slice(1);
+                }
+                
+                // For live sessions
+                if (session.status === 'live') {
+                    return 'LIVE NOW';
+                }
+                
+                // For sessions that haven't started yet
+                const timeUntil = sessionTime - now;
+                
+                if (timeUntil <= 0) {
+                    // Should be live but status not updated yet
+                    return 'Starting...';
+                }
+                
+                // Format the countdown
+                const hours = Math.floor(timeUntil / 3600000);
+                const minutes = Math.floor((timeUntil % 3600000) / 60000);
+                const seconds = Math.floor((timeUntil % 60000) / 1000);
+                
+                if (hours > 24) {
+                    const days = Math.floor(hours / 24);
+                    return `${days} day${days !== 1 ? 's' : ''} ${hours % 24} hr${hours % 24 !== 1 ? 's' : ''}`;
+                }
+                
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            },
+            
+            /**
+             * Format date and time for display
+             */
+            formatDateTime(dateTimeStr) {
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                };
+                return new Date(dateTimeStr).toLocaleDateString(undefined, options);
+            },
+            
+            /**
+             * Check if session is editable (not too close to start time)
+             */
+            isEditable(session) {
+                const now = new Date();
+                const sessionTime = new Date(session.schedule);
+                const timeUntil = sessionTime - now;
+                
+                // Not editable if less than 5 minutes until start
+                return timeUntil > (5 * 60 * 1000);
+            },
+            
+            /**
+             * Check if session is starting soon (within 15 minutes)
+             */
+            isStartingSoon(session) {
+                const now = new Date();
+                const sessionTime = new Date(session.schedule);
+                const timeUntil = sessionTime - now;
+                
+                return timeUntil <= (15 * 60 * 1000) && timeUntil > 0;
+            },
+            
+            /**
+             * Check if session is live now
+             */
+            isLive(session) {
+                return session.status === 'live';
+            },
+            
+            /**
+             * Get empty state message based on current tab
+             */
+            getEmptyStateMessage() {
+                switch (this.currentTab) {
+                    case 'today':
+                        return "You don't have any sessions scheduled for today.";
+                    case 'upcoming':
+                        return "You don't have any upcoming sessions. Create a new session to get started.";
+                    case 'past':
+                        return "You haven't conducted any sessions yet.";
+                    default:
+                        return "No sessions found.";
+                }
+            },
+            
+            /**
+             * Go live with a session
+             */
+            goLive(session) {
+                this.isBusy = true;
+                
+                // Make API call to set session as live
+                fetch(`/sessions/api/sessions/${session.id}/go_live/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to go live');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update session status locally
+                    const index = this.sessions.findIndex(s => s.id === session.id);
+                    if (index !== -1) {
+                        this.sessions[index].status = 'live';
+                    }
+                    
+                    this.showToast('Session is now live! ✓', 'success');
+                    
+                    // Redirect to session room
+                    window.location.href = `/sessions/${session.room_code}/join/`;
+                })
+                .catch(error => {
+                    console.error('Error going live:', error);
+                    this.showToast('Failed to go live. Please try again.', 'error');
+                    this.isBusy = false;
+                });
+            },
+            
+            /**
+             * Cancel a session
+             */
+            cancelSession(session) {
+                if (confirm(`Are you sure you want to cancel the session "${session.title}"? This action cannot be undone.`)) {
+                    fetch(`/sessions/api/sessions/${session.id}/cancel/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to cancel session');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Update session status locally
+                        const index = this.sessions.findIndex(s => s.id === session.id);
+                        if (index !== -1) {
+                            this.sessions[index].status = 'cancelled';
+                        }
+                        
+                        this.showToast(`Session "${session.title}" has been cancelled`, 'success');
+                    })
+                    .catch(error => {
+                        console.error('Error cancelling session:', error);
+                        this.showToast('Failed to cancel session. Please try again.', 'error');
+                    });
+                }
+            },
+            
+            /**
+             * Show a toast notification
+             */
+            showToast(message, type = 'info') {
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                
+                toast.className = 'animate-fade-in-up px-4 py-3 rounded-lg shadow-md text-sm font-medium flex items-center space-x-2 max-w-xs';
+                
+                // Set colors based on type
+                switch (type) {
+                    case 'success':
+                        toast.classList.add('bg-green-100', 'text-green-800');
+                        break;
+                    case 'error':
+                        toast.classList.add('bg-red-100', 'text-red-800');
+                        break;
+                    case 'warning':
+                        toast.classList.add('bg-yellow-100', 'text-yellow-800');
+                        break;
+                    default: // info
+                        toast.classList.add('bg-blue-100', 'text-blue-800');
+                }
+                
+                // Add icon based on type
+                let icon = '';
+                switch (type) {
+                    case 'success':
+                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>`;
+                        break;
+                    case 'error':
+                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>`;
+                        break;
+                    case 'warning':
+                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>`;
+                        break;
+                    default: // info
+                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>`;
+                }
+                
+                toast.innerHTML = `
+                    ${icon}
+                    <span>${message}</span>
+                    <button class="ml-auto text-gray-600 hover:text-gray-800 focus:outline-none">
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                `;
+                
+                // Add close button handler
+                toast.querySelector('button').addEventListener('click', () => {
+                    toast.remove();
+                });
+                
+                // Add to container
+                toastContainer.appendChild(toast);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    toast.classList.add('animate-fade-out');
+                    setTimeout(() => {
+                        toastContainer.contains(toast) && toastContainer.removeChild(toast);
+                    }, 300);
+                }, 5000);
+            },
+            
+            /**
+             * Show connection status message
+             */
+            showConnectionStatus(message, type) {
+                window.dispatchEvent(new CustomEvent('connection-status', {
+                    detail: { message, type }
+                }));
+            },
+            
+            /**
+             * Start keep-alive ping to prevent connection timeout
+             */
+            startKeepAlivePing() {
+                this.keepAlivePingInterval = setInterval(() => {
+                    if (this.wsSocket && this.wsSocket.readyState === WebSocket.OPEN) {
+                        this.sendMessage({ type: "ping" });
+                    }
+                }, 30000); // Every 30 seconds
+            },
+            
+            /**
+             * Get CSRF token from cookies
+             */
+            getCsrfToken() {
+                const cookieValue = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('csrftoken='))
+                    ?.split('=')[1];
+                
+                return cookieValue || '';
+            }
+        };
+    }
+
+    // Add animation classes for toasts
+    document.addEventListener('DOMContentLoaded', function() {
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translate3d(0, 20px, 0);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate3d(0, 0, 0);
+                }
+            }
+            
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                }
+                to {
+                    opacity: 0;
+                }
+            }
+            
+            .animate-fade-in-up {
+                animation: fadeInUp 0.3s ease-out;
+            }
+            
+            .animate-fade-out {
+                animation: fadeOut 0.3s ease-out;
+            }
+            
+            [x-cloak] { 
+                display: none !important; 
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Initialize Feather icons
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+</script>
 {% endblock %}
