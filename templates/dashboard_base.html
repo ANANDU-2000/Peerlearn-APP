@@ -175,24 +175,42 @@
     <!-- Initialize WebSocket connections -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const userId = document.querySelector('meta[name="user-id"]').getAttribute('content');
-            if (userId) {
-                // Initialize real-time connections
-                if (typeof initDashboardWebSocket === 'function') {
-                    initDashboardWebSocket(userId);
-                }
+            // Check if we're on an authenticated page by looking for the user-id meta tag
+            const userIdMeta = document.querySelector('meta[name="user-id"]');
+            
+            // Only proceed if the meta tag exists
+            if (userIdMeta) {
+                const userId = userIdMeta.getAttribute('content');
                 
-                if (typeof initNotifications === 'function') {
-                    initNotifications();
+                // Only initialize if we have a valid user ID
+                if (userId) {
+                    console.log('User authenticated with ID:', userId);
+                    
+                    // Initialize real-time connections
+                    if (typeof window.initDashboardWebSocket === 'function') {
+                        window.initDashboardWebSocket(userId);
+                    } else {
+                        console.warn('Dashboard WebSocket initialization function not found');
+                    }
+                    
+                    if (typeof window.initNotifications === 'function') {
+                        window.initNotifications();
+                    } else {
+                        console.warn('Notifications initialization function not found');
+                    }
+                    
+                    // Update connection indicator
+                    const indicator = document.getElementById('ws-status-indicator');
+                    if (indicator) {
+                        indicator.classList.remove('bg-red-500');
+                        indicator.classList.add('bg-green-500');
+                        indicator.setAttribute('title', 'Connected to real-time updates');
+                    }
+                } else {
+                    console.warn('User ID meta tag is empty');
                 }
-                
-                // Update connection indicator
-                const indicator = document.getElementById('ws-status-indicator');
-                if (indicator) {
-                    indicator.classList.remove('bg-red-500');
-                    indicator.classList.add('bg-green-500');
-                    indicator.setAttribute('title', 'Connected to real-time updates');
-                }
+            } else {
+                console.log('User is not authenticated, WebSocket connections not initialized');
             }
         });
     </script>

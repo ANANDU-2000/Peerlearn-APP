@@ -10,6 +10,12 @@ if (typeof window.initNotifications !== 'undefined') {
     return;
 }
 
+// Set up window unloading flag to prevent reconnection attempts when page is closing
+window.isUnloading = false;
+window.addEventListener('beforeunload', () => {
+    window.isUnloading = true;
+});
+
 // Store notification data
 let notificationsData = {
     count: 0,
@@ -137,15 +143,39 @@ function onNotificationSocketMessage(event) {
 function onNotificationSocketClose(event) {
     console.log('Notification WebSocket closed:', event);
     
+    // Check if window is closing/page is unloading - no need to reconnect in that case
+    if (window.isUnloading) {
+        console.log('Page is unloading, not attempting to reconnect notification WebSocket');
+        return;
+    }
+    
+    // Determine if we should reconnect based on the close code
+    // Don't reconnect for authentication failures (4003) or policy violations (1008)
+    const shouldNotReconnect = [1008, 4003].includes(event.code);
+    
+    if (shouldNotReconnect) {
+        console.warn(`Not reconnecting notification WebSocket due to close code ${event.code}: ${event.reason}`);
+        return;
+    }
+    
     // Attempt to reconnect with exponential backoff
     if (reconnectAttempts < maxReconnectAttempts) {
+        // Calculate delay with exponential backoff and a bit of randomization
+        const delay = reconnectInterval * (1 + (Math.random() * 0.1));
+        console.log(`Reconnecting notification WebSocket in ${(delay/1000).toFixed(1)}s (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+        
         setTimeout(() => {
             reconnectAttempts++;
             reconnectInterval = Math.min(30000, reconnectInterval * 2); // Max 30s
             connectNotificationWebSocket();
-        }, reconnectInterval);
+        }, delay);
     } else {
         console.error('Max reconnect attempts reached for notification WebSocket');
+        
+        // Maybe show an error toast to the user
+        if (window.showToast) {
+            window.showToast('Unable to connect to notification service. Please refresh the page.', 'error', 0);
+        }
     }
 }
 

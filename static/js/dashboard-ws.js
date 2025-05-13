@@ -10,6 +10,14 @@ if (typeof window.initDashboardWebSocket !== 'undefined') {
     return;
 }
 
+// Set up window unloading flag to prevent reconnection attempts when page is closing
+if (typeof window.isUnloading === 'undefined') {
+    window.isUnloading = false;
+    window.addEventListener('beforeunload', () => {
+        window.isUnloading = true;
+    });
+}
+
 // WebSocket connection for dashboard
 let dashboardSocket = null;
 let reconnectAttempts = 0;
@@ -133,20 +141,45 @@ function onDashboardSocketMessage(event) {
 function onDashboardSocketClose(event) {
     console.log('Dashboard WebSocket closed:', event.code, event.reason);
     
+    // Check if window is closing/page is unloading - no need to reconnect in that case
+    if (window.isUnloading) {
+        console.log('Page is unloading, not attempting to reconnect dashboard WebSocket');
+        return;
+    }
+    
+    // Determine if we should reconnect based on the close code
+    // Don't reconnect for authentication failures (4003) or policy violations (1008)
+    const shouldNotReconnect = [1008, 4003].includes(event.code);
+    
+    if (shouldNotReconnect) {
+        console.warn(`Not reconnecting dashboard WebSocket due to close code ${event.code}: ${event.reason}`);
+        return;
+    }
+    
     // Set reconnect flag for page reload detection
     sessionStorage.setItem('dashboard_reconnect', 'true');
     
     // Attempt to reconnect with exponential backoff
     if (reconnectAttempts < maxReconnectAttempts) {
-        console.log(`Reconnecting dashboard WebSocket in ${reconnectInterval / 1000}s...`);
+        // Calculate delay with exponential backoff and a bit of randomization
+        const delay = reconnectInterval * (1 + (Math.random() * 0.1));
+        console.log(`Reconnecting dashboard WebSocket in ${(delay/1000).toFixed(1)}s (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
         
         setTimeout(() => {
             reconnectAttempts++;
             reconnectInterval = Math.min(30000, reconnectInterval * 2); // Max 30s
             connectDashboardWebSocket();
-        }, reconnectInterval);
+        }, delay);
     } else {
         console.error('Max reconnect attempts reached for dashboard WebSocket');
+        
+        // Update connection indicator
+        const indicator = document.getElementById('ws-status-indicator');
+        if (indicator) {
+            indicator.classList.remove('bg-green-500');
+            indicator.classList.add('bg-red-500');
+            indicator.setAttribute('title', 'Disconnected from real-time updates');
+        }
         
         // Show toast with reload option
         if (window.showToast) {
