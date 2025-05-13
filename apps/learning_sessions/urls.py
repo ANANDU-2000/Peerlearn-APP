@@ -37,6 +37,7 @@ urlpatterns = [
     # WebRTC room and live functionality
     path('room/<uuid:room_code>/', views.session_room, name='room'),
     path('room/<uuid:room_code>/go-live/', views.go_live_session, name='go_live'),
+    path('<uuid:room_code>/join/', views.join_session_room, name='join'),
     
     # API endpoints
     path('api/status/', api_views.session_status_api, name='status_api'),

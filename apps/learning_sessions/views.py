@@ -428,6 +428,11 @@ def cancel_booking(request, booking_id):
     })
 
 @login_required
+def join_session_room(request, room_code):
+    """View for joining a session room via /sessions/{room_code}/join/ URL."""
+    session = get_object_or_404(Session, room_code=room_code)
+    return redirect('sessions:room', room_code=room_code)
+    
 def session_room(request, room_code):
     """View for the WebRTC session room."""
     session = get_object_or_404(Session, room_code=room_code)
