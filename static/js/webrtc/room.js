@@ -462,10 +462,30 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         throw new Error("getUserMedia is not supported in this browser");
                     }
                     
-                    // Try multiple fallbacks in case of issues
+                    // Check if browser is secure context (required for modern browsers)
+                    if (!window.isSecureContext) {
+                        console.warn("Not in secure context - getUserMedia might not work");
+                        showToast('warning', 'Security Warning', 'Your browser may block camera access because this site isn\'t using HTTPS. Try connecting via HTTPS for better compatibility.');
+                    }
+                    
+                    // Try multiple fallbacks in case of issues - start with simpler constraints first
                     let stream = null;
                     const fallbackOptions = [
-                        // Option 1: Ideal HD constraints
+                        // Option 1: Basic video/audio (most compatible)
+                        {
+                            audio: true,
+                            video: true
+                        },
+                        // Option 2: Low resolution video
+                        {
+                            audio: true,
+                            video: {
+                                width: { ideal: 640 },
+                                height: { ideal: 480 },
+                                frameRate: { ideal: 15 }
+                            }
+                        },
+                        // Option 3: HD constraints
                         {
                             audio: true,
                             video: {
@@ -474,20 +494,7 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 facingMode: 'user'
                             }
                         },
-                        // Option 2: Basic video/audio
-                        {
-                            audio: true,
-                            video: true
-                        },
-                        // Option 3: Low resolution video
-                        {
-                            audio: true,
-                            video: {
-                                width: { ideal: 640 },
-                                height: { ideal: 480 }
-                            }
-                        },
-                        // Option 4: Audio only with video placeholder
+                        // Option 4: Audio only with video placeholder (last resort)
                         {
                             audio: true,
                             video: false
@@ -499,7 +506,13 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     for (let i = 0; i < fallbackOptions.length; i++) {
                         try {
                             console.log(`Trying media constraints option ${i+1}:`, fallbackOptions[i]);
-                            stream = await navigator.mediaDevices.getUserMedia(fallbackOptions[i]);
+                            
+                            // Add a timeout for getUserMedia to prevent hanging
+                            const mediaPromise = navigator.mediaDevices.getUserMedia(fallbackOptions[i]);
+                            
+                            // Wait for the media with a generous timeout
+                            stream = await mediaPromise;
+                            
                             console.log(`Successfully obtained media stream with option ${i+1}`);
                             
                             // If we got here, we have a working stream
@@ -511,10 +524,14 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             break;
                         } catch (error) {
                             lastError = error;
-                            console.warn(`Failed with option ${i+1}:`, error.message);
+                            console.warn(`Failed with option ${i+1}:`, error.name, error.message);
+                            
+                            // Log full error details
+                            console.error('Detailed error:', error);
                             
                             // If this is a permission error, no need to try other options
                             if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                                showToast('error', 'Camera Permission Denied', 'You must allow camera and microphone access to join the session.');
                                 throw error;
                             }
                         }
@@ -522,6 +539,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     
                     // If we couldn't get a stream with any options
                     if (!this.localStream) {
+                        const errorMessage = lastError ? `${lastError.name}: ${lastError.message}` : "Unknown error";
+                        console.error("All getUserMedia options failed:", errorMessage);
                         throw lastError || new Error("Could not acquire media stream with any constraints");
                     }
                     
@@ -532,50 +551,114 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     
                     if (videoTracks.length > 0) {
                         console.log("Video track:", videoTracks[0].label, "enabled:", videoTracks[0].enabled);
+                        
+                        // Add track event listener to detect if track ends unexpectedly
+                        videoTracks[0].addEventListener('ended', () => {
+                            console.warn("Video track ended unexpectedly");
+                            this.videoEnabled = false;
+                            showToast('warning', 'Camera Disconnected', 'Your camera was disconnected. Please check your device and refresh.');
+                            
+                            // Show placeholder since video is no longer available
+                            const placeholderElements = document.querySelectorAll('.video-placeholder');
+                            placeholderElements.forEach(el => el.classList.remove('hidden'));
+                        });
+                        
                     } else {
                         // If no video tracks but we're in a video call, create a placeholder
                         console.log("No video tracks available, using placeholder");
                         this.videoEnabled = false;
                         
-                        // Show placeholder image/message in UI
-                        const placeholderElement = document.querySelector('.video-placeholder');
-                        if (placeholderElement) {
-                            placeholderElement.classList.remove('hidden');
-                        }
+                        // Show placeholder image/message in UI (more comprehensive selection)
+                        const placeholderElements = document.querySelectorAll('.video-placeholder');
+                        placeholderElements.forEach(el => el.classList.remove('hidden'));
                     }
+                    
+                    // Helper function to safely set up video elements
+                    const setupVideoElement = (element, stream, isMuted = false, name = 'Video') => {
+                        if (!element) {
+                            console.warn(`${name} element not found!`);
+                            return false;
+                        }
+                        
+                        console.log(`Setting ${name.toLowerCase()} source`);
+                        
+                        try {
+                            // First stop any existing streams
+                            if (element.srcObject) {
+                                const existingStream = element.srcObject;
+                                const tracks = existingStream.getTracks();
+                                tracks.forEach(track => track.stop());
+                            }
+                            
+                            // Set the new stream
+                            element.srcObject = stream;
+                            
+                            // Mute if needed (to prevent echo)
+                            element.muted = isMuted;
+                            
+                            // Ensure proper playback of video
+                            element.onloadedmetadata = () => {
+                                console.log(`${name} metadata loaded, attempting playback`);
+                                
+                                // Use promise to handle autoplay restrictions
+                                const playPromise = element.play();
+                                
+                                if (playPromise !== undefined) {
+                                    playPromise
+                                        .then(() => {
+                                            console.log(`${name} playing successfully`);
+                                        })
+                                        .catch(error => {
+                                            console.error(`Error playing ${name.toLowerCase()}:`, error);
+                                            
+                                            // Handle autoplay restrictions
+                                            if (error.name === 'NotAllowedError') {
+                                                console.warn(`Autoplay prevented for ${name.toLowerCase()}`);
+                                                
+                                                // Create play button overlay if needed
+                                                const container = element.parentElement;
+                                                if (container) {
+                                                    const playButton = document.createElement('button');
+                                                    playButton.className = 'play-video-button absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-10';
+                                                    playButton.innerHTML = `
+                                                        <svg class="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    `;
+                                                    playButton.onclick = () => {
+                                                        element.play()
+                                                            .then(() => {
+                                                                playButton.remove();
+                                                            })
+                                                            .catch(e => console.error(`Error playing ${name.toLowerCase()} on click:`, e));
+                                                    };
+                                                    container.appendChild(playButton);
+                                                }
+                                            }
+                                        });
+                                }
+                            };
+                            
+                            // Handle errors
+                            element.onerror = (e) => {
+                                console.error(`${name} element error:`, e);
+                            };
+                            
+                            return true;
+                        } catch (error) {
+                            console.error(`Error setting up ${name.toLowerCase()} element:`, error);
+                            return false;
+                        }
+                    };
                     
                     // Set local video
                     const localVideo = document.getElementById('local-video');
-                    if (localVideo) {
-                        console.log("Setting local video source");
-                        localVideo.srcObject = this.localStream;
-                        localVideo.muted = true; // Mute local video to prevent echo
-                        
-                        // Ensure the video starts playing
-                        localVideo.onloadedmetadata = () => {
-                            console.log("Local video metadata loaded");
-                            localVideo.play().catch(e => console.error("Error playing local video:", e));
-                        };
-                    } else {
-                        console.warn("Local video element not found!");
-                    }
+                    setupVideoElement(localVideo, this.localStream, true, 'Local video');
                     
                     // Set main stream (initially local stream)
                     this.mainStream = this.localStream;
                     const mainVideo = this.$refs.mainVideo;
-                    if (mainVideo) {
-                        console.log("Setting main video source");
-                        mainVideo.srcObject = this.mainStream;
-                        mainVideo.muted = true; // Mute main video when it's local stream
-                        
-                        // Ensure the video starts playing
-                        mainVideo.onloadedmetadata = () => {
-                            console.log("Main video metadata loaded");
-                            mainVideo.play().catch(e => console.error("Error playing main video:", e));
-                        };
-                    } else {
-                        console.warn("Main video element not found!");
-                    }
+                    setupVideoElement(mainVideo, this.mainStream, true, 'Main video');
                     
                     // Update peer connections with the new media stream
                     this.updatePeerConnections();

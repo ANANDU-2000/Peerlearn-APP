@@ -682,6 +682,9 @@ function createSessionElement(session) {
         li.id = `session-${session.id}`;
         li.className = 'session-item block hover:bg-gray-50';
         
+        // Store schedule time in data attribute for countdown calculation
+        li.dataset.scheduleTime = session.schedule;
+        
         // Format date
         const sessionDate = new Date(session.schedule);
         const formattedDate = sessionDate.toLocaleString('en-US', { 
