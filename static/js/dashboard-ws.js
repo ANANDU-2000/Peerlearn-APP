@@ -3,6 +3,13 @@
  * Handles real-time updates for the dashboard
  */
 
+// Use an IIFE to prevent variable name collisions
+(function() {
+// Don't re-initialize if already defined
+if (typeof window.initDashboardWebSocket !== 'undefined') {
+    return;
+}
+
 // WebSocket connection for dashboard
 let dashboardSocket = null;
 let reconnectAttempts = 0;
@@ -680,3 +687,5 @@ document.addEventListener('DOMContentLoaded', () => {
         initDashboardWebSocket();
     }
 });
+
+})(); // End of IIFE

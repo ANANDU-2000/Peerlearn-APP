@@ -187,3 +187,5 @@ window.clearAllToasts = clearAllToasts;
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', initToastContainer);
+
+})(); // End of IIFE

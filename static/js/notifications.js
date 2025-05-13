@@ -3,6 +3,13 @@
  * Provides real-time notifications via WebSocket
  */
 
+// Use an IIFE to prevent variable name collisions
+(function() {
+// Don't re-initialize if already defined
+if (typeof window.initNotifications !== 'undefined') {
+    return;
+}
+
 // Store notification data
 let notificationsData = {
     count: 0,
@@ -356,3 +363,5 @@ function getCsrfToken() {
 window.initNotifications = initNotifications;
 window.markNotificationAsRead = markNotificationAsRead;
 window.markAllNotificationsAsRead = markAllNotificationsAsRead;
+
+})(); // End of IIFE
