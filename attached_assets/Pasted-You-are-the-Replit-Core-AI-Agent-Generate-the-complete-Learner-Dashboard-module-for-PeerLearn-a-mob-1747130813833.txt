@@ -1,0 +1,66 @@
+You are the Replit Core AI Agent. Generate the complete Learner Dashboard module for PeerLearn—a mobile‐first & web‐responsive, real‐time, SQLite3-backed Django+Channels+TailwindCSS+Alpine.js project—so “replit run” produces a working learner dashboard. Cover every sub-page, tab/sub-tab, click flow, ML calls, booking/request logic, WebRTC entry, error handling, and notifications. No further input needed.
+
+ROUTE: /dashboard/learner (learner-only; middleware redirects others)
+
+1. NAVIGATION  
+• *Web*: fixed header (logo + Home, Sessions, Mentors, About, Logout) + sidebar on dashboard with icons & labels for Home, Activity, Mentors, Notifications, Profile  
+• *Mobile*: header + 56px bottom nav icons:  
+  – Home ▶ (recommended sessions)  
+  – Activity 🔄 (requests & bookings)  
+  – Mentors 🤝 (ML mentor list)  
+  – Notifications 🔔  
+  – Profile 👤  
+
+2. TABS & SUB-TABS  
+A. *Home*  
+  • GET /api/recommendations for sessions (vector match on interests+career_goal)  
+  • Carousel of Session Cards: thumbnail, title, mentor name/avatar, domain tags, countdown hh:mm:ss or LIVE badge, price/free badge, Book▶  
+  • WS sessions:{session_id} updates attendee count live  
+  • Book▶ → bottom-sheet: session details + [Confirm▶ or Pay via Razorpay▶]  
+    – On pay success: create Booking + Payment in SQLite3, WS→requests:{mentor_id}, toast “Booked✔”  
+    – On free: create Booking, WS, toast  
+  • Below: “Top Mentors for You” carousel via /api/mentor-recs: mentor cards with photo, name, domains, ⭐ rating, “View Profile▶” & “Request Live▶”  
+
+B. *Activity*  
+  • Sub-tabs: All | Requests | Bookings  
+  • *Requests*: SessionRequest rows with title, mentor, proposed time, budget, status chip (⏳/💸/✓), “Cancel▶”  
+    – Confirm▶ on offered: POST accept → create Booking, WS→mentor, toast  
+  • *Bookings*: confirmed sessions: title, mentor, start time, status chip, “Join▶” active T–5m  
+    – Join▶ → /session/{room_code}, WS learner.join event, errors if unauthorized  
+  • *All*: merged feed sorted by timestamp  
+  • WS: responses:{learner_id} and sessions:{room_code} for live/join updates  
+  • Toasts: “Mentor accepted your request✔”, “Session starts in 5m—Join▶”, “Alice joined”  
+
+C. *Mentors*  
+  • GET /api/mentor-recs + search/filter  
+  • List/grid of mentor cards: photo, name, domains, rating, live viewers, “View Profile▶”, “Request Live▶”  
+  • Request Flow: inline sheet with title, domain tags, datetime (>now), budget → save SessionRequest, WS→requests:{mentor_id}, toast  
+
+D. *Notifications*  
+  • WS notifications:{learner_id} live list  
+  • Each item clickable → navigates to relevant Activity sub-tab or session page  
+
+E. *Profile*  
+  • Edit name, interests[], career_goal, profile pic  
+  • PATCH CustomUser; recalc ML vectors; toast “Profile updated✔”  
+
+3. UI/UX  
+• *Web*: sidebar + main; skeleton loaders >1s, spinner >3s; hover:scale cards; tooltips on ⓘ  
+• *Mobile*: bottom nav; swipeable carousels; slide-up sheets; inputs ≥44px; animated toasts  
+• Alpine.js for countdown, form transitions, tooltips  
+
+4. ERROR HANDLING & FALLBACKS  
+• Offline banner + local draft save  
+• Razorpay failures → retry modal + toast  
+• WS disconnect → back-off polling + toast  
+• STUN/TURN fail → fallback audio + toast “Connectivity issue”  
+• Unauthorized actions → toast “Please book first”  
+• Session expired → toast “Session has ended”  
+
+5. REAL-TIME & BACKEND  
+• SQLite3 for all models  
+• Channels: sessions:{id}, requests:{mentor_id}, responses:{learner_id}, notifications:{learner_id}  
+• Celery tasks: T–30min reminder → WS/email; T+1hr feedback prompt  
+• Secure role checks, CSRF, sanitization  
+
+Deliver Django views, models, templates, consumers, and static assets for this learner dashboard—fully wired, real-time, and error-resilient.

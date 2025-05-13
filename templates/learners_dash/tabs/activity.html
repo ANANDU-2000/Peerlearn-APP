@@ -4,17 +4,23 @@
     <div x-data="{ activeSubtab: 'all' }">
         <!-- Sub-tab navigation -->
         <div class="border-b border-gray-200 mb-6">
-            <nav class="-mb-px flex space-x-6 overflow-x-auto hide-scrollbar">
-                <button @click="activeSubtab = 'all'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'all', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'all'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
-                    All Activities
+            <div class="flex justify-between items-center">
+                <nav class="-mb-px flex space-x-6 overflow-x-auto hide-scrollbar">
+                    <button @click="activeSubtab = 'all'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'all', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'all'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+                        All Activities
+                    </button>
+                    <button @click="activeSubtab = 'requests'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'requests', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'requests'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+                        Session Requests
+                    </button>
+                    <button @click="activeSubtab = 'bookings'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'bookings', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'bookings'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+                        Bookings
+                    </button>
+                </nav>
+                <button onclick="refreshActivityContent()" class="flex items-center space-x-1 text-primary-600 hover:text-primary-800 pr-2">
+                    <i data-feather="refresh-cw" class="h-4 w-4"></i>
+                    <span class="text-sm font-medium hidden sm:inline">Refresh</span>
                 </button>
-                <button @click="activeSubtab = 'requests'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'requests', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'requests'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
-                    Session Requests
-                </button>
-                <button @click="activeSubtab = 'bookings'" :class="{'border-primary-600 text-primary-600': activeSubtab === 'bookings', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeSubtab !== 'bookings'}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
-                    Bookings
-                </button>
-            </nav>
+            </div>
         </div>
 
         <!-- All Activities Tab -->
