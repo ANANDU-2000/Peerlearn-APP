@@ -26,6 +26,7 @@ urlpatterns = [
     # Dashboards
     path('dashboard/learner/', views.learner_dashboard, name='learner_dashboard'),
     path('dashboard/learner/activity/', views.learner_activity, name='learner_activity'),
+    path('dashboard/learner/activity-partial/', views.learner_activity_partial, name='learner_activity_partial'),
     
     # Mentor dashboard and routes
     path('dashboard/mentor/', views.mentor_dashboard, name='mentor_dashboard'),

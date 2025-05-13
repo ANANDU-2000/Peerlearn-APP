@@ -9,7 +9,7 @@ from django.views.generic import ListView, DetailView, UpdateView
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 import json
 
 from .models import CustomUser, UserRating
@@ -384,6 +384,65 @@ class MentorProfileUpdateView(UpdateView):
         return super().form_valid(form)
 
 @login_required
+def learner_activity_partial(request):
+    """Partial view for learner activity tab content to be loaded with AJAX."""
+    if not request.user.is_learner:
+        return HttpResponse("Access denied", status=403)
+    
+    # Get bookings and requests for the learner
+    from apps.learning_sessions.models import Booking, SessionRequest
+    
+    bookings = Booking.objects.filter(
+        learner=request.user
+    ).select_related('session', 'session__mentor').order_by('-created_at')
+    
+    session_requests = SessionRequest.objects.filter(
+        learner=request.user
+    ).select_related('mentor').order_by('-created_at')
+    
+    # Create activities list for the combined view
+    activities = []
+    
+    # Add bookings to activities
+    for booking in bookings:
+        activity = {
+            'type': 'booking',
+            'type_color': 'blue',
+            'title': booking.session.title,
+            'mentor': booking.session.mentor,
+            'timestamp': booking.created_at,
+            'status': booking.get_status_display(),
+            'status_color': 'green' if booking.status == 'completed' else 'blue' if booking.status == 'confirmed' else 'yellow' if booking.status == 'pending' else 'red',
+            'description': booking.session.description,
+            'can_review': booking.status == 'completed',
+            'has_feedback': booking.feedback_submitted,
+            'room_code': booking.session.room_code,
+            'id': booking.id
+        }
+        activities.append(activity)
+    
+    # Add requests to activities
+    for request in session_requests:
+        activity = {
+            'type': 'request',
+            'type_color': 'indigo',
+            'title': request.title,
+            'mentor': request.mentor,
+            'timestamp': request.created_at,
+            'status': request.get_status_display(),
+            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
+            'description': request.description,
+            'id': request.id
+        }
+        activities.append(activity)
+    
+    # Sort activities by timestamp
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return render(request, 'learners_dash/tabs/activity_partial.html', {
+        'activities': activities,
+    })
+
 def learner_activity(request):
     """View for learner activity page."""
     if not request.user.is_learner:
