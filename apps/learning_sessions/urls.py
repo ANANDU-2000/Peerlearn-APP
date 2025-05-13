@@ -20,6 +20,7 @@ urlpatterns = [
     
     # Session requests
     path('request/<int:mentor_id>/', views.request_session, name='request'),
+    path('request/', views.request_session_api, name='request_api'),
     path('request/<int:request_id>/respond/', views.respond_to_request, name='respond_to_request'),
     
     # Bookings

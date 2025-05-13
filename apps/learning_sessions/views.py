@@ -184,6 +184,66 @@ def request_session(request, mentor_id):
         'mentor': mentor
     })
 
+
+@login_required
+def request_session_api(request):
+    """API endpoint for learners to request a session from a mentor."""
+    if not request.user.is_learner:
+        return JsonResponse({'success': False, 'message': 'Only learners can request sessions.'})
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            mentor_id = data.get('mentor_id')
+            title = data.get('title')
+            domain_id = data.get('domain')
+            description = data.get('description')
+            proposed_time = data.get('proposed_time')
+            duration = data.get('duration')
+            budget = data.get('budget')
+            
+            # Basic validation
+            if not all([mentor_id, title, domain_id, proposed_time, duration, budget]):
+                return JsonResponse({'success': False, 'message': 'Missing required fields.'})
+            
+            # Get mentor
+            try:
+                mentor = CustomUser.objects.get(id=mentor_id, role=CustomUser.MENTOR)
+            except CustomUser.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Mentor not found.'})
+            
+            # Create session request
+            session_request = SessionRequest.objects.create(
+                learner=request.user,
+                mentor=mentor,
+                title=title,
+                domain_id=domain_id,
+                description=description,
+                proposed_time=proposed_time,
+                duration=duration,
+                budget=budget,
+            )
+            
+            # Create notification for mentor
+            Notification.objects.create(
+                user=mentor,
+                message=f"New session request from {request.user.get_full_name() or request.user.username}",
+                link=f"/dashboard/mentor/requests/"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Session request sent successfully!',
+                'request_id': session_request.id
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid JSON data.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Only POST method is allowed.'})
+
 @login_required
 def respond_to_request(request, request_id):
     """View for mentors to respond to session requests."""
