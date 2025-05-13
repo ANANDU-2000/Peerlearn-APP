@@ -344,40 +344,42 @@ def learner_dashboard(request):
         learner=request.user
     ).select_related('mentor').order_by('-created_at')[:10]
     
-
     for session_req in session_requests:
+        activity = {
+            "type": "request",
+            "type_color": "indigo",
+            "title": session_req.title,
+            "mentor": session_req.mentor,
+            "timestamp": session_req.created_at,
+            "status": session_req.get_status_display(),
+            "status_color": "green" if session_req.status == "accepted" else "blue" if session_req.status == "counter_offer" else "yellow" if session_req.status == "pending" else "red",
+            "description": session_req.description,
+            "schedule": session_req.proposed_time,
+            "duration": session_req.duration,
+            "price": session_req.budget,
+            "request_id": session_req.id,
+            "can_confirm": session_req.status == "counter_offer"
+        }
+        activities.append(activity)
+    
+    # Sort activities by timestamp
         activity = {
             'type': 'request',
             'type_color': 'indigo',
-            'title': session_req.title,
-            'mentor': session_req.mentor,
-            'timestamp': session_req.created_at,
-            'status': session_req.get_status_display(),
-            'status_color': 'green' if session_req.status == 'accepted' else 'blue' if session_req.status == 'counter_offer' else 'yellow' if session_req.status == 'pending' else 'red',
-            'description': session_req.description,
-            'schedule': session_req.proposed_time,
-            'duration': session_req.duration,
-            'price': session_req.budget,
-            'request_id': session_req.id,
-            'can_confirm': session_req.status == 'counter_offer'
+            'title': request.title,
+            'mentor': request.mentor,
+            'timestamp': request.created_at,
+            'status': request.get_status_display(),
+            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
+            'description': request.description,
+            'schedule': request.proposed_time,
+            'duration': request.duration,
+            'price': request.budget,
+            'request_id': request.id,
+            'can_confirm': request.status == 'counter_offer'
         }
         activities.append(activity)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
     # Sort activities by timestamp
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     
