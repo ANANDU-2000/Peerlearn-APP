@@ -169,118 +169,187 @@
         updateTimers();
         setInterval(updateTimers, 1000);
         
-        // Connect to WebSocket for realtime updates
-        try {
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = `${protocol}//${window.location.host}/ws/sessions/`;
-            const socket = new WebSocket(wsUrl);
+        // Connect to WebSocket for real-time updates with exponential backoff reconnection
+        const setupWebSocket = () => {
+            // In development mode, WebSocket might be disabled to prevent console spam
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('Notification WebSocket is disabled in development mode');
+                // Still set up polling for updates in development
+                setupPolling();
+                return;
+            }
             
-            socket.onopen = function(e) {
-                console.log('WebSocket connection established');
-            };
+            let socket = null;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            const baseReconnectDelay = 1000; // Start with 1 second delay
             
-            socket.onmessage = function(event) {
-                const data = JSON.parse(event.data);
+            function connect() {
+                const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsUrl = `${protocol}//${window.location.host}/ws/sessions/`;
                 
-                // Update attendee count
-                if (data.type === 'attendee_update') {
-                    const countElement = document.querySelector(`.attendee-count[data-session-id="${data.session_id}"]`);
-                    if (countElement) {
-                        countElement.textContent = data.count;
-                    }
+                // Close existing socket if any
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
                 }
                 
-                // Update session status
-                else if (data.type === 'session_status_update') {
-                    const sessionCard = document.querySelector(`.session-card[data-session-id="${data.session_id}"]`);
-                    if (sessionCard) {
-                        sessionCard.setAttribute('data-status', data.status);
-                        // Update UI based on new status
-                        updateSessionCardUI(sessionCard, data.status);
-                    }
-                }
+                socket = new WebSocket(wsUrl);
                 
-                // Handle booking confirmations
-                else if (data.type === 'booking_confirmation') {
-                    window.dispatchEvent(new CustomEvent('toast', {
-                        detail: {
-                            message: 'Your booking has been confirmed!',
-                            type: 'success'
-                        }
-                    }));
+                socket.onopen = function(e) {
+                    console.log('WebSocket connection established');
+                    // Reset reconnect attempts on successful connection
+                    reconnectAttempts = 0;
                     
-                    // Instead of reloading the page, update the booking status via AJAX
-                    if (data.booking_id) {
-                        fetch(`/sessions/api/bookings/${data.booking_id}/`)
-                            .then(response => response.json())
-                            .then(bookingData => {
-                                // Update UI to show the booking is confirmed
-                                const bookingElement = document.querySelector(`.booking-item[data-booking-id="${data.booking_id}"]`);
-                                if (bookingElement) {
-                                    bookingElement.querySelector('.booking-status').textContent = 'Confirmed';
-                                    bookingElement.querySelector('.booking-status').classList.remove('text-yellow-600');
-                                    bookingElement.querySelector('.booking-status').classList.add('text-green-600');
-                                }
-                                
-                                // Add this booking to the user's activity if in the activity tab
-                                const activityList = document.getElementById('bookings-list');
-                                if (activityList && bookingData) {
-                                    // If we have the booking data, update the activity list 
-                                    // without requiring a full page reload
-                                    updateActivityList(bookingData);
-                                }
-                            })
-                            .catch(error => console.error('Error fetching booking details:', error));
-                    }
-                }
-            };
-            
-            socket.onclose = function(event) {
-                console.log('WebSocket connection closed');
-                // Don't automatically refresh the page on connection close
-                // Just log the connection close
-                console.log('WebSocket disconnected. Real-time updates disabled.');
+                    // Immediately request current session data
+                    socket.send(JSON.stringify({
+                        type: 'fetch_sessions'
+                    }));
+                };
                 
-                // Set up polling instead of full page reload
-                setInterval(function() {
-                    fetch('/sessions/api/status/')
-                        .then(response => response.json())
-                        .then(data => {
-                            // Update UI with polled data
-                            if (data.sessions) {
-                                data.sessions.forEach(session => {
-                                    const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
-                                    if (sessionCard) {
-                                        updateSessionCardUI(sessionCard, session.status);
-                                    }
-                                });
-                            }
-                        })
-                        .catch(error => console.error('Error polling session status:', error));
-                }, 30000); // Poll every 30 seconds instead of forcing page reload
-            };
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    // Update sessions data
+                    if (data.type === 'sessions_update' && data.sessions) {
+                        updateSessionsDisplay(data.sessions);
+                    }
+                    
+                    // Update attendee count
+                    else if (data.type === 'attendee_update') {
+                        const countElement = document.querySelector(`.attendee-count[data-session-id="${data.session_id}"]`);
+                        if (countElement) {
+                            countElement.textContent = data.count;
+                        }
+                    }
+                    
+                    // Update session status
+                    else if (data.type === 'session_status_update') {
+                        const sessionCard = document.querySelector(`.session-card[data-session-id="${data.session_id}"]`);
+                        if (sessionCard) {
+                            sessionCard.setAttribute('data-status', data.status);
+                            updateSessionCardUI(sessionCard, data.status);
+                        }
+                    }
+                    
+                    // Handle booking confirmations
+                    else if (data.type === 'booking_confirmation') {
+                        showNotification('Your booking has been confirmed!', 'success');
+                        
+                        // Update booking status via AJAX
+                        if (data.booking_id) {
+                            updateBookingDisplay(data.booking_id);
+                        }
+                    }
+                };
+                
+                socket.onclose = function(event) {
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        // Calculate exponential backoff delay
+                        const delay = Math.min(30000, baseReconnectDelay * Math.pow(2, reconnectAttempts));
+                        console.log(`WebSocket disconnected. Reconnecting in ${delay/1000} seconds...`);
+                        
+                        setTimeout(() => {
+                            reconnectAttempts++;
+                            connect();
+                        }, delay);
+                    } else {
+                        console.log('WebSocket disconnected. Real-time updates disabled.');
+                        // Fall back to polling after max reconnect attempts
+                        setupPolling();
+                    }
+                };
+                
+                socket.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    // Errors will trigger onclose, which handles reconnection
+                };
+            }
             
-            socket.onerror = function(error) {
-                console.error('WebSocket error:', error);
+            // Start the connection
+            connect();
+            
+            // Keep socket alive with ping every 30 seconds
+            const pingInterval = setInterval(() => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'ping' }));
+                }
+            }, 30000);
+            
+            // Store socket and interval in window object for cleanup
+            window.socketConnection = {
+                socket,
+                pingInterval
             };
-        } catch (e) {
-            console.error('Error setting up WebSocket:', e);
-            // Fall back to polling
-            setInterval(function() {
+        };
+        
+        // Setup polling fallback
+        const setupPolling = () => {
+            // Clear existing polling interval if any
+            if (window.pollingInterval) {
+                clearInterval(window.pollingInterval);
+            }
+            
+            // Setup new polling
+            window.pollingInterval = setInterval(() => {
                 fetch('/sessions/api/status/')
                     .then(response => response.json())
                     .then(data => {
-                        // Update UI with polled data
-                        data.sessions.forEach(session => {
-                            const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
-                            if (sessionCard) {
-                                updateSessionCardUI(sessionCard, session.status);
-                            }
-                        });
+                        if (data.sessions) {
+                            updateSessionsDisplay(data.sessions);
+                        }
                     })
                     .catch(error => console.error('Error polling session status:', error));
-            }, 10000); // Poll every 10 seconds
-        }
+            }, 30000); // Poll every 30 seconds
+        };
+        
+        // Helper function to update sessions display
+        const updateSessionsDisplay = (sessions) => {
+            sessions.forEach(session => {
+                const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
+                if (sessionCard) {
+                    // Update attendee count
+                    const countElement = sessionCard.querySelector('.attendee-count');
+                    if (countElement) {
+                        countElement.textContent = session.attendees;
+                    }
+                    
+                    // Update status
+                    updateSessionCardUI(sessionCard, session.status);
+                }
+            });
+        };
+        
+        // Helper function to update booking display
+        const updateBookingDisplay = (bookingId) => {
+            fetch(`/sessions/api/bookings/${bookingId}/`)
+                .then(response => response.json())
+                .then(bookingData => {
+                    // Update UI to show the booking is confirmed
+                    const bookingElement = document.querySelector(`.booking-item[data-booking-id="${bookingId}"]`);
+                    if (bookingElement) {
+                        bookingElement.querySelector('.booking-status').textContent = 'Confirmed';
+                        bookingElement.querySelector('.booking-status').classList.remove('text-yellow-600');
+                        bookingElement.querySelector('.booking-status').classList.add('text-green-600');
+                    }
+                    
+                    // Add this booking to the user's activity if in the activity tab
+                    const activityList = document.getElementById('bookings-list');
+                    if (activityList && bookingData) {
+                        updateActivityList(bookingData);
+                    }
+                })
+                .catch(error => console.error('Error fetching booking details:', error));
+        };
+        
+        // Helper function to show notifications
+        const showNotification = (message, type = 'info') => {
+            window.dispatchEvent(new CustomEvent('toast', {
+                detail: { message, type }
+            }));
+        };
+        
+        // Initialize WebSocket connection
+        setupWebSocket();
         
         // Function to update activity list with new booking data
         function updateActivityList(bookingData) {
