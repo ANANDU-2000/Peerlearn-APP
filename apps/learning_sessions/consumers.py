@@ -274,14 +274,24 @@ class SessionStatusConsumer(AsyncJsonWebsocketConsumer):
         Called when there's an update to session status
         """
         # Forward the update to the client
-        await self.send_json(event)
+        await self.send_json({
+            'type': 'session_update',
+            'session': event.get('session', {}),
+            'action': event.get('action', 'updated'),
+            'timestamp': timezone.now().isoformat()
+        })
     
     async def booking_update(self, event):
         """
         Called when there's an update to a booking
         """
         # Forward the update to the client
-        await self.send_json(event)
+        await self.send_json({
+            'type': 'booking_update',
+            'booking': event.get('booking', {}),
+            'action': event.get('action', 'updated'),
+            'timestamp': timezone.now().isoformat()
+        })
     
     @database_sync_to_async
     def get_active_sessions(self):

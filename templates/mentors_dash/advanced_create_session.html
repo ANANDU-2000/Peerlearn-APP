@@ -3,6 +3,10 @@
 
 {% block title %}Create Session - Mentor Dashboard - PeerLearn{% endblock %}
 
+{% block extra_head %}
+<script src="{% static 'js/api-client.js' %}"></script>
+{% endblock %}
+
 {% block content %}
 {{ block.super }}
 <script>
@@ -917,24 +921,44 @@
                 
                 this.isSubmitting = true;
                 
-                // Set thumbnail in the form if it exists
-                const fileInput = document.getElementById('id_thumbnail');
-                const thumbnailContainer = document.getElementById('thumbnail-container');
+                // Create FormData from the form data
+                const formData = new FormData();
+                formData.append('title', this.formData.title);
+                formData.append('topics', this.formData.topics);
+                formData.append('description', this.formData.description);
+                formData.append('schedule', this.formData.schedule);
+                formData.append('duration', this.formData.duration);
+                formData.append('price', this.formData.price);
+                formData.append('is_free', this.formData.is_free);
+                formData.append('max_participants', this.formData.max_participants);
                 
+                // Get the file input
+                const fileInput = document.getElementById('id_thumbnail');
                 if (fileInput.files && fileInput.files[0]) {
-                    // Clone the file input and append to the form
-                    const clone = fileInput.cloneNode(true);
-                    clone.name = 'thumbnail';
-                    
-                    // Clear any previous input
-                    thumbnailContainer.innerHTML = '';
-                    thumbnailContainer.appendChild(clone);
+                    formData.append('thumbnail', fileInput.files[0]);
                 }
                 
-                // Submit the form after a short delay to allow the loading state to show
-                setTimeout(() => {
-                    document.getElementById('session-form').submit();
-                }, 100);
+                // Submit using the API client
+                ApiClient.createSession(formData)
+                    .then(response => {
+                        if (!response || !response.success) {
+                            // Handle validation errors
+                            if (response && response.errors) {
+                                // Display field-specific errors
+                                if (response.errors.title) this.titleError = response.errors.title[0];
+                                if (response.errors.topics) this.topicsError = response.errors.topics[0];
+                                if (response.errors.description) this.descriptionError = response.errors.description[0];
+                                if (response.errors.schedule) this.scheduleError = response.errors.schedule[0];
+                                if (response.errors.price) this.priceError = response.errors.price[0];
+                            }
+                            this.isSubmitting = false;
+                        }
+                        // On success, the API client will redirect after showing a toast
+                    })
+                    .catch(error => {
+                        console.error('Error submitting form:', error);
+                        this.isSubmitting = false;
+                    });
             }
         }
     }

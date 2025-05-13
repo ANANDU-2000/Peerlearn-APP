@@ -3,21 +3,22 @@ API endpoints for learning sessions with error handling and real-time updates.
 """
 
 import json
-import uuid
+from datetime import datetime
+
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from .models import Session, Booking, SessionRequest
-from .forms import SessionForm
 from apps.notifications.models import Notification
 
 @login_required
-@require_http_methods(["POST"])
+@require_POST
 def create_session_api(request):
     """
     API endpoint to create a new session with proper error handling
@@ -26,177 +27,214 @@ def create_session_api(request):
     if not request.user.is_mentor:
         return JsonResponse({
             'success': False,
-            'errors': {'__all__': ['Only mentors can create sessions.']}
+            'errors': {'__all__': ['Only mentors can create sessions']}
         }, status=403)
     
-    # Extract data from request
-    form = SessionForm(request.POST, request.FILES)
-    is_free = request.POST.get('is_free') == 'true'
+    # Get form data
+    data = {}
+    form_data = request.POST
     
-    if not form.is_valid():
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors
-        }, status=400)
+    # Extract data from form
+    data['title'] = form_data.get('title', '').strip()
+    data['description'] = form_data.get('description', '').strip()
+    data['topics'] = form_data.get('topics', '').strip()
+    data['schedule'] = form_data.get('schedule')
+    data['duration'] = form_data.get('duration', 60)
+    data['price'] = form_data.get('price', 0)
+    data['is_free'] = form_data.get('is_free') == 'true'
+    data['max_participants'] = form_data.get('max_participants', 1)
+    
+    # Validate form data
+    errors = {}
+    
+    if not data['title']:
+        errors['title'] = ['Title is required']
+    elif len(data['title']) < 5:
+        errors['title'] = ['Title must be at least 5 characters']
+    
+    if not data['description']:
+        errors['description'] = ['Description is required']
+    elif len(data['description']) < 20:
+        errors['description'] = ['Description must be at least 20 characters']
+    
+    if not data['topics']:
+        errors['topics'] = ['At least one topic is required']
+    
+    if not data['schedule']:
+        errors['schedule'] = ['Schedule is required']
+    else:
+        try:
+            schedule_datetime = datetime.fromisoformat(data['schedule'].replace('Z', '+00:00'))
+            # Check if the schedule is in the future
+            if schedule_datetime <= timezone.now():
+                errors['schedule'] = ['Schedule must be in the future']
+        except ValueError:
+            errors['schedule'] = ['Invalid schedule format']
     
     try:
-        # Create the session but don't save it yet
-        session = form.save(commit=False)
-        session.mentor = request.user
-        session.status = 'scheduled'
-        session.room_code = str(uuid.uuid4())
+        data['price'] = float(data['price'])
+        if data['price'] < 0:
+            errors['price'] = ['Price cannot be negative']
+    except ValueError:
+        errors['price'] = ['Price must be a number']
+    
+    # If there are errors, return them
+    if errors:
+        return JsonResponse({
+            'success': False,
+            'errors': errors
+        }, status=400)
+    
+    # Set price to 0 if it's a free session
+    if data['is_free']:
+        data['price'] = 0
+    
+    # Create session
+    try:
+        session = Session(
+            title=data['title'],
+            description=data['description'],
+            mentor=request.user,
+            schedule=data['schedule'],
+            duration=data['duration'],
+            price=data['price'],
+            max_participants=data['max_participants']
+        )
         
-        # Set price to 0 if marked as free
-        if is_free:
-            session.price = 0
-        
-        # Handle topics JSON field
-        topics_str = form.cleaned_data.get('topics', '')
-        session.topics = [topic.strip() for topic in topics_str.split(',') if topic.strip()]
+        # Handle thumbnail if provided
+        if 'thumbnail' in request.FILES:
+            session.thumbnail = request.FILES['thumbnail']
         
         session.save()
         
-        # Create notification for mentor
-        notification = Notification.objects.create(
+        # Add topics
+        if data['topics']:
+            session.topics = data['topics']
+            session.save()
+        
+        # Create notification for admin
+        Notification.objects.create(
             user=request.user,
-            title='Session Created',
-            message=f'Your session "{session.title}" has been created successfully.',
-            notification_type='session_created',
+            title="New Session Created",
+            message=f"You have created a new session: {session.title}",
+            notification_type="session_created",
             reference_id=session.id
         )
         
-        # Send real-time notification to connected clients
+        # Send real-time update via WebSocket
         channel_layer = get_channel_layer()
         
-        # Notification to the mentor
-        async_to_sync(channel_layer.group_send)(
-            f'notifications:{request.user.id}',
-            {
-                'type': 'notification_message',
-                'notification': {
-                    'id': notification.id,
-                    'title': notification.title,
-                    'message': notification.message,
-                    'created_at': notification.created_at.isoformat(),
-                    'read': notification.read,
-                    'notification_type': notification.notification_type,
-                    'reference_id': notification.reference_id,
-                }
+        # Format session data for WebSocket
+        session_data = {
+            'id': session.id,
+            'title': session.title,
+            'description': session.description,
+            'schedule': session.schedule.isoformat(),
+            'duration': session.duration,
+            'price': float(session.price),
+            'max_participants': session.max_participants,
+            'status': session.status,
+            'created_at': session.created_at.isoformat(),
+            'topics': session.topics,
+            'mentor': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'full_name': f"{request.user.first_name} {request.user.last_name}".strip()
             }
-        )
+        }
         
-        # Broadcast new session to all connected clients
+        # Send to mentor's channel group
         async_to_sync(channel_layer.group_send)(
-            'session_updates',
+            f"dashboard_{request.user.id}",
             {
                 'type': 'session_update',
-                'session': {
-                    'id': session.id,
-                    'title': session.title,
-                    'mentor_name': request.user.get_full_name() or request.user.username,
-                    'mentor_id': request.user.id,
-                    'schedule': session.schedule.isoformat() if session.schedule else None,
-                    'duration': session.duration,
-                    'price': float(session.price),
-                    'status': session.status,
-                    'created_at': session.created_at.isoformat(),
-                    'topics': session.topics,
-                    'max_participants': session.max_participants,
-                    'description': session.description,
-                    'attendees': 0,
-                    'room_code': session.room_code,
-                    'action': 'created'
-                }
+                'session': session_data,
+                'action': 'created'
             }
         )
         
-        # Return success response with session details
+        # Return success response
         return JsonResponse({
             'success': True,
             'session': {
                 'id': session.id,
                 'title': session.title,
-                'redirect_url': f'/users/dashboard/mentor/sessions/?tab=upcoming'
+                'redirect_url': reverse('users:mentor_session_detail', args=[session.id])
             }
-        }, status=201)
-    
-    except Exception as e:
-        # Log the error
-        import traceback
-        print(f"Error creating session: {str(e)}")
-        print(traceback.format_exc())
+        })
         
-        # Return error response
+    except Exception as e:
+        # Return error
         return JsonResponse({
             'success': False,
-            'errors': {'__all__': [f'Error creating session: {str(e)}']}
+            'errors': {'__all__': [str(e)]}
         }, status=500)
 
 @login_required
-@require_http_methods(["GET"])
+@require_GET
 def session_details_api(request, session_id):
     """
     API endpoint to get session details.
     """
     try:
-        session = Session.objects.get(id=session_id)
+        session = get_object_or_404(Session, id=session_id)
         
-        # Check permissions
-        if not request.user.is_staff:
-            if request.user != session.mentor:
-                # Check if user has booked this session
-                if not Booking.objects.filter(session=session, learner=request.user).exists():
-                    return JsonResponse({
-                        'success': False,
-                        'errors': {'__all__': ['You do not have permission to view this session.']}
-                    }, status=403)
+        # Check if user has access
+        is_mentor = session.mentor == request.user
+        is_participant = session.bookings.filter(learner=request.user, status='confirmed').exists()
         
-        # Get bookings
-        bookings = Booking.objects.filter(session=session)
-        booked_count = bookings.filter(status='confirmed').count()
+        if not (is_mentor or is_participant):
+            return JsonResponse({
+                'success': False,
+                'error': 'You do not have access to this session'
+            }, status=403)
+        
+        # Get bookings if user is the mentor
+        bookings = []
+        if is_mentor:
+            for booking in session.bookings.all():
+                bookings.append({
+                    'id': booking.id,
+                    'learner': {
+                        'id': booking.learner.id,
+                        'username': booking.learner.username,
+                        'full_name': f"{booking.learner.first_name} {booking.learner.last_name}".strip()
+                    },
+                    'status': booking.status,
+                    'created_at': booking.created_at.isoformat()
+                })
         
         # Format session data
         session_data = {
             'id': session.id,
             'title': session.title,
             'description': session.description,
-            'mentor': {
-                'id': session.mentor.id,
-                'name': session.mentor.get_full_name() or session.mentor.username,
-                'avatar': session.mentor.avatar.url if session.mentor.avatar else None,
-                'expertise': session.mentor.expertise,
-                'bio': session.mentor.bio,
-            },
-            'schedule': session.schedule.isoformat() if session.schedule else None,
+            'schedule': session.schedule.isoformat(),
             'duration': session.duration,
             'price': float(session.price),
-            'topics': session.topics,
+            'max_participants': session.max_participants,
             'status': session.status,
             'created_at': session.created_at.isoformat(),
-            'updated_at': session.updated_at.isoformat(),
-            'max_participants': session.max_participants,
-            'booked_count': booked_count,
-            'is_full': booked_count >= session.max_participants,
-            'room_code': session.room_code if request.user.is_staff or request.user == session.mentor else None,
+            'topics': session.topics,
+            'thumbnail_url': session.thumbnail.url if session.thumbnail else None,
+            'room_code': session.room_code,
+            'mentor': {
+                'id': session.mentor.id,
+                'username': session.mentor.username,
+                'full_name': f"{session.mentor.first_name} {session.mentor.last_name}".strip()
+            }
         }
         
-        # Add thumbnail if exists
-        if session.thumbnail:
-            session_data['thumbnail'] = session.thumbnail.url
+        # Add bookings if user is mentor
+        if is_mentor:
+            session_data['bookings'] = bookings
         
         return JsonResponse({
             'success': True,
             'session': session_data
         })
-    
-    except Session.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'errors': {'__all__': ['Session not found.']}
-        }, status=404)
-    
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'errors': {'__all__': [f'Error retrieving session: {str(e)}']}
+            'error': str(e)
         }, status=500)
