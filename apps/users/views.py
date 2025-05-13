@@ -42,7 +42,7 @@ def learner_signup(request):
             user.save()
             login(request, user)
             messages.success(request, 'Account created successfully!')
-            return redirect('learner_dashboard')
+            return redirect('users:learner_dashboard')
     else:
         form = LearnerSignUpForm()
     
@@ -61,7 +61,7 @@ def mentor_signup(request):
                 request, 
                 'Mentor profile created successfully! ✅ You can now create sessions and start mentoring.'
             )
-            return redirect('mentor_dashboard')
+            return redirect('users:mentor_dashboard')
     else:
         form = MentorSignUpForm()
     
