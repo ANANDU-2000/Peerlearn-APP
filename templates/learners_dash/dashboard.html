@@ -226,8 +226,53 @@
                 }
             }
         }
+        
+        // Function to refresh activity tab content without full page reload
+        function refreshActivityContent() {
+            const activityContainer = document.getElementById('activity-content');
+            if (!activityContainer) return;
+            
+            // Show loading state
+            activityContainer.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>';
+            
+            // Fetch the activity content
+            fetch('/users/dashboard/learner/activity-partial/')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch activity content');
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    activityContainer.innerHTML = html;
+                    // Initialize any components in the new content
+                    if (window.feather) {
+                        window.feather.replace();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing activity content:', error);
+                    activityContainer.innerHTML = '<div class="text-center py-10 text-red-600">Failed to load content. <button onclick="refreshActivityContent()" class="underline">Try again</button></div>';
+                });
+        }
     });
 </script>
+
+<style>
+    .spinner {
+        border: 3px solid rgba(59, 130, 246, 0.2);
+        border-radius: 50%;
+        border-top: 3px solid rgba(59, 130, 246, 1);
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
