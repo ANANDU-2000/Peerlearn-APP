@@ -1,0 +1,449 @@
+{% extends 'mentors_dash/dashboard.html' %}
+{% load static %}
+
+{% block title %}Create Session - Mentor Dashboard - PeerLearn{% endblock %}
+
+{% block content %}
+{{ block.super }}
+<script>
+    // Replace the main content in the dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        const mainContent = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(1)');
+        if (mainContent) {
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-semibold text-gray-900">Create New Session</h1>
+                </div>
+            `;
+        }
+
+        const mainContentBody = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(2)');
+        if (mainContentBody) {
+            mainContentBody.innerHTML = `
+                <div class="mt-6">
+                    <div class="md:grid md:grid-cols-3 md:gap-6">
+                        <div class="md:col-span-1">
+                            <div class="px-4 sm:px-0">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Session Information</h3>
+                                <p class="mt-1 text-sm text-gray-600">
+                                    Create a new learning session for learners to book and attend. 
+                                    Fill in all the details to make your session more discoverable.
+                                </p>
+                                <div class="mt-6">
+                                    <div class="flex items-center">
+                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="ml-2 text-sm text-gray-600">Real-time validation</p>
+                                    </div>
+                                    <div class="flex items-center mt-2">
+                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="ml-2 text-sm text-gray-600">Image preview</p>
+                                    </div>
+                                    <div class="flex items-center mt-2">
+                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="ml-2 text-sm text-gray-600">Topic suggestions</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-5 md:mt-0 md:col-span-2">
+                            <form action="{% url 'users:mentor_create_session' %}" method="post" enctype="multipart/form-data" x-data="sessionForm()">
+                                {% csrf_token %}
+                                <div class="shadow sm:rounded-md sm:overflow-hidden">
+                                    <div class="px-4 py-5 bg-white space-y-6 sm:p-6">
+                                        <div>
+                                            <label for="id_title" class="block text-sm font-medium text-gray-700">Session Title</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <input type="text" name="title" id="id_title" x-model="formData.title" @input="validateTitle()" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="e.g. Advanced JavaScript for Beginners" required>
+                                                <div x-show="titleError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!titleError && formData.title.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p x-show="titleError" x-text="titleError" class="mt-2 text-sm text-red-600"></p>
+                                        </div>
+
+                                        <div>
+                                            <label for="id_topics" class="block text-sm font-medium text-gray-700">Topics</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <input type="text" name="topics" id="id_topics" x-model="formData.topics" @input="validateTopics()" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="e.g. JavaScript, Web Development, React" required>
+                                                <div x-show="topicsError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!topicsError && formData.topics.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p class="mt-2 text-sm text-gray-500">Comma-separated list of topics</p>
+                                            <p x-show="topicsError" x-text="topicsError" class="mt-2 text-sm text-red-600"></p>
+                                            <div x-show="suggestedTopics.length > 0" class="mt-2">
+                                                <p class="text-sm font-medium text-gray-700">Suggested topics:</p>
+                                                <div class="mt-1 flex flex-wrap gap-2">
+                                                    <template x-for="topic in suggestedTopics" :key="topic">
+                                                        <button type="button" @click="addTopic(topic)" class="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-primary-100 text-primary-800 hover:bg-primary-200">
+                                                            <span x-text="topic"></span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label for="id_description" class="block text-sm font-medium text-gray-700">Description</label>
+                                            <div class="mt-1 relative">
+                                                <textarea id="id_description" name="description" rows="3" x-model="formData.description" @input="validateDescription()" class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border border-gray-300 rounded-md" placeholder="Describe what will be covered in this session..." required></textarea>
+                                                <div x-show="descriptionError" class="absolute top-3 right-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!descriptionError && formData.description.length > 0" class="absolute top-3 right-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p x-show="descriptionError" x-text="descriptionError" class="mt-2 text-sm text-red-600"></p>
+                                            <p class="mt-2 text-sm text-gray-500" x-show="formData.description.length > 0">
+                                                <span x-text="formData.description.length"></span>/1000 characters
+                                            </p>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <div>
+                                                <label for="id_schedule" class="block text-sm font-medium text-gray-700">Schedule</label>
+                                                <div class="mt-1 relative rounded-md shadow-sm">
+                                                    <input type="datetime-local" name="schedule" id="id_schedule" x-model="formData.schedule" @input="validateSchedule()" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" required>
+                                                    <div x-show="scheduleError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <div x-show="!scheduleError && formData.schedule.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <p x-show="scheduleError" x-text="scheduleError" class="mt-2 text-sm text-red-600"></p>
+                                            </div>
+
+                                            <div>
+                                                <label for="id_duration" class="block text-sm font-medium text-gray-700">Duration (minutes)</label>
+                                                <div class="mt-1 relative rounded-md shadow-sm">
+                                                    <input type="number" name="duration" id="id_duration" x-model="formData.duration" @input="validateDuration()" min="15" max="180" step="15" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="60" required>
+                                                    <div x-show="durationError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <div x-show="!durationError && formData.duration.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <p x-show="durationError" x-text="durationError" class="mt-2 text-sm text-red-600"></p>
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <div>
+                                                <div class="flex items-center justify-between">
+                                                    <label for="id_price" class="block text-sm font-medium text-gray-700">Session Price ($)</label>
+                                                    <span class="text-sm text-gray-500" x-show="formData.is_free">Free</span>
+                                                </div>
+                                                <div class="mt-1 relative rounded-md shadow-sm">
+                                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                                    </div>
+                                                    <input type="number" name="price" id="id_price" x-model="formData.price" :disabled="formData.is_free" @input="validatePrice()" min="0" step="0.01" class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md" placeholder="0.00" required>
+                                                    <div class="absolute inset-y-0 right-0 flex items-center">
+                                                        <label for="is_free" class="sr-only">Free</label>
+                                                        <div class="h-full flex items-center pr-2">
+                                                            <input id="is_free" name="is_free" type="checkbox" x-model="formData.is_free" @change="toggleFree()" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                                                            <span class="ml-2 text-sm text-gray-500">Free</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <p x-show="priceError" x-text="priceError" class="mt-2 text-sm text-red-600"></p>
+                                            </div>
+
+                                            <div>
+                                                <label for="id_max_participants" class="block text-sm font-medium text-gray-700">Max Participants</label>
+                                                <div class="mt-1 relative rounded-md shadow-sm">
+                                                    <input type="number" name="max_participants" id="id_max_participants" x-model="formData.max_participants" @input="validateMaxParticipants()" min="1" max="50" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="10" required>
+                                                    <div x-show="maxParticipantsError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <div x-show="!maxParticipantsError && formData.max_participants.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <p x-show="maxParticipantsError" x-text="maxParticipantsError" class="mt-2 text-sm text-red-600"></p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Session Thumbnail</label>
+                                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md" x-data="{ files: null }">
+                                                <div class="space-y-1 text-center">
+                                                    <div class="flex flex-col items-center">
+                                                        <div x-show="!previewUrl" class="flex text-gray-400">
+                                                            <svg class="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                                            </svg>
+                                                        </div>
+                                                        <img x-show="previewUrl" :src="previewUrl" class="h-32 object-cover rounded">
+                                                    </div>
+                                                    <div class="flex text-sm text-gray-600 justify-center">
+                                                        <label for="id_thumbnail" class="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
+                                                            <span>Upload a file</span>
+                                                            <input id="id_thumbnail" name="thumbnail" type="file" accept="image/*" class="sr-only" @change="handleFileChange($event)">
+                                                        </label>
+                                                        <p class="pl-1">or drag and drop</p>
+                                                    </div>
+                                                    <p class="text-xs text-gray-500">
+                                                        PNG, JPG, GIF up to 10MB
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <p x-show="thumbnailError" x-text="thumbnailError" class="mt-2 text-sm text-red-600"></p>
+                                        </div>
+                                    </div>
+                                    <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
+                                        <button type="submit" :disabled="!isFormValid" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            Create Session
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    });
+</script>
+
+<script>
+    function sessionForm() {
+        return {
+            formData: {
+                title: '',
+                topics: '',
+                description: '',
+                schedule: '',
+                duration: '60',
+                price: '10.00',
+                max_participants: '10',
+                is_free: false
+            },
+            titleError: '',
+            topicsError: '',
+            descriptionError: '',
+            scheduleError: '',
+            durationError: '',
+            priceError: '',
+            maxParticipantsError: '',
+            thumbnailError: '',
+            previewUrl: null,
+            suggestedTopics: [
+                'JavaScript', 'Python', 'Machine Learning', 'Web Development', 
+                'Data Science', 'React', 'Angular', 'Vue.js', 'Django', 'Flask',
+                'Node.js', 'Express', 'SQL', 'NoSQL', 'Docker', 'AWS', 'Git',
+                'DevOps', 'Design Patterns', 'Algorithm', 'Computer Science'
+            ],
+            
+            isFormValid() {
+                return !this.titleError && !this.topicsError && !this.descriptionError &&
+                       !this.scheduleError && !this.durationError && !this.priceError &&
+                       !this.maxParticipantsError && !this.thumbnailError &&
+                       this.formData.title && this.formData.topics && this.formData.description &&
+                       this.formData.schedule && this.formData.duration && 
+                       (this.formData.is_free || this.formData.price) && this.formData.max_participants;
+            },
+            
+            validateTitle() {
+                if (!this.formData.title) {
+                    this.titleError = 'Title is required';
+                } else if (this.formData.title.length < 5) {
+                    this.titleError = 'Title must be at least 5 characters';
+                } else if (this.formData.title.length > 100) {
+                    this.titleError = 'Title must be less than 100 characters';
+                } else {
+                    this.titleError = '';
+                }
+            },
+            
+            validateTopics() {
+                if (!this.formData.topics) {
+                    this.topicsError = 'At least one topic is required';
+                } else {
+                    const topics = this.formData.topics.split(',').map(t => t.trim()).filter(t => t);
+                    if (topics.length === 0) {
+                        this.topicsError = 'At least one topic is required';
+                    } else if (topics.some(t => t.length < 2)) {
+                        this.topicsError = 'Each topic must be at least 2 characters';
+                    } else if (topics.some(t => t.length > 30)) {
+                        this.topicsError = 'Each topic must be less than 30 characters';
+                    } else {
+                        this.topicsError = '';
+                    }
+                }
+            },
+            
+            validateDescription() {
+                if (!this.formData.description) {
+                    this.descriptionError = 'Description is required';
+                } else if (this.formData.description.length < 20) {
+                    this.descriptionError = 'Description must be at least 20 characters';
+                } else if (this.formData.description.length > 1000) {
+                    this.descriptionError = 'Description must be less than 1000 characters';
+                } else {
+                    this.descriptionError = '';
+                }
+            },
+            
+            validateSchedule() {
+                if (!this.formData.schedule) {
+                    this.scheduleError = 'Schedule date and time are required';
+                } else {
+                    const selectedDate = new Date(this.formData.schedule);
+                    const now = new Date();
+                    
+                    if (selectedDate <= now) {
+                        this.scheduleError = 'Schedule must be in the future';
+                    } else {
+                        this.scheduleError = '';
+                    }
+                }
+            },
+            
+            validateDuration() {
+                if (!this.formData.duration) {
+                    this.durationError = 'Duration is required';
+                } else {
+                    const duration = parseInt(this.formData.duration);
+                    if (isNaN(duration)) {
+                        this.durationError = 'Duration must be a number';
+                    } else if (duration < 15) {
+                        this.durationError = 'Duration must be at least 15 minutes';
+                    } else if (duration > 180) {
+                        this.durationError = 'Duration must be less than 3 hours';
+                    } else {
+                        this.durationError = '';
+                    }
+                }
+            },
+            
+            validatePrice() {
+                if (this.formData.is_free) {
+                    this.priceError = '';
+                    return;
+                }
+                
+                if (!this.formData.price) {
+                    this.priceError = 'Price is required';
+                } else {
+                    const price = parseFloat(this.formData.price);
+                    if (isNaN(price)) {
+                        this.priceError = 'Price must be a number';
+                    } else if (price < 0) {
+                        this.priceError = 'Price cannot be negative';
+                    } else if (price > 1000) {
+                        this.priceError = 'Price must be less than $1000';
+                    } else {
+                        this.priceError = '';
+                    }
+                }
+            },
+            
+            validateMaxParticipants() {
+                if (!this.formData.max_participants) {
+                    this.maxParticipantsError = 'Maximum participants is required';
+                } else {
+                    const maxParticipants = parseInt(this.formData.max_participants);
+                    if (isNaN(maxParticipants)) {
+                        this.maxParticipantsError = 'Maximum participants must be a number';
+                    } else if (maxParticipants < 1) {
+                        this.maxParticipantsError = 'Maximum participants must be at least 1';
+                    } else if (maxParticipants > 50) {
+                        this.maxParticipantsError = 'Maximum participants must be less than 50';
+                    } else {
+                        this.maxParticipantsError = '';
+                    }
+                }
+            },
+            
+            toggleFree() {
+                if (this.formData.is_free) {
+                    this.formData.price = '0';
+                } else {
+                    this.formData.price = '10.00';
+                }
+                this.validatePrice();
+            },
+            
+            handleFileChange(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    this.previewUrl = null;
+                    return;
+                }
+                
+                // Validate file type
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                if (!validTypes.includes(file.type)) {
+                    this.thumbnailError = 'Please upload a valid image file (PNG, JPG, GIF)';
+                    this.previewUrl = null;
+                    return;
+                }
+                
+                // Validate file size (10MB max)
+                if (file.size > 10 * 1024 * 1024) {
+                    this.thumbnailError = 'Image must be less than 10MB';
+                    this.previewUrl = null;
+                    return;
+                }
+                
+                this.thumbnailError = '';
+                
+                // Create preview URL
+                this.previewUrl = URL.createObjectURL(file);
+            },
+            
+            addTopic(topic) {
+                if (!this.formData.topics) {
+                    this.formData.topics = topic;
+                } else {
+                    const currentTopics = this.formData.topics.split(',').map(t => t.trim());
+                    if (!currentTopics.includes(topic)) {
+                        this.formData.topics += `, ${topic}`;
+                    }
+                }
+                this.validateTopics();
+            }
+        };
+    }
+</script>
+{% endblock %}

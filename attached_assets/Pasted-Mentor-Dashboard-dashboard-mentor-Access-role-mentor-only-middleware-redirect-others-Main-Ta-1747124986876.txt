@@ -1,0 +1,68 @@
+Mentor Dashboard (/dashboard/mentor)
+
+Access: role=mentor only (middleware redirect others)
+
+Main Tabs
+	1.	Requests
+	2.	My Sessions
+	3.	Create Session
+	4.	Earnings
+	5.	Profile
+
+1.1 Requests
+	•	WS channel: requests:{mentor_id} streams new SessionRequest.
+	•	List (table/web) or cards (mobile) showing learner, title, proposed time, budget, “Paid✔” badge.
+	•	Actions:
+	•	Accept ▶
+	•	Creates Session(room_code=UUID4) & Booking(status=confirmed) in SQLite3.
+	•	Broadcast WS responses:{learner_id} and notifications:{learner_id}.
+	•	Toast “Session Confirmed ✔”.
+	•	Modify ▶
+	•	Inline bottom-sheet form to adjust time/price.
+	•	POST updates SessionRequest.status=offered; WS notify learner.
+	•	Errors:
+	•	DB conflict → toast “Already accepted by another mentor”
+	•	Offline → banner “Offline: retry” + queue action
+
+1.2 My Sessions
+	•	Sub-tabs: Today | Upcoming | Past
+	•	WS channel: sessions:{mentor_id} for live/join events
+	•	Cards/rows show title, booked count, countdown (Alpine.js auto-update hh:mm:ss), price badge
+	•	Go Live ▶ (active at T−15min):
+	•	Sets Session.status=live; redirect /session/{room_code}; broadcast sessions:{room_code} “session.live”.
+	•	Toast “Session Started”
+	•	Errors:
+	•	Expired session → “Session expired” toast
+	•	WS drop → fallback polling
+
+1.3 Create Session
+	•	Route: /dashboard/mentor/create-session or floating “➕”
+	•	Form fields: thumbnail upload+preview, title, domain tags, start/end datetime (>now), free/paid toggle (+price), description
+	•	Validation: inline red❌/green✔; past dates blocked; image size/type check
+	•	On Submit:
+	•	Save Session in SQLite3 (status=scheduled), generate room_code
+	•	Toast “Session Created ✔”
+	•	Redirect to My Sessions→Upcoming
+	•	Real-time: new session appears via WS in landing, /sessions, learner dashboards
+
+1.4 Earnings
+	•	Chart (monthly earnings) + table (learner, session, date, amount) + CSV export
+	•	WS: notifications:{mentor_id} on new payments → live update
+	•	Errors: export failure, chart load error
+
+1.5 Profile
+	•	Inline edit name, domains, skills, bio, pic, intro video
+	•	PATCH CustomUser → SQLite3; toast “Profile Updated ✔”
+	•	Errors: invalid file type, save failure
+
+UI/UX
+	•	Web: 256px sidebar, top header (avatar+bell→notifications:{mentor_id}), card grid, skeleton loaders
+	•	Mobile: bottom nav (Home, Requests, Sessions, Earnings, Profile), full-screen tabs, slide-up sheets
+	•	Buttons: hover:scale-105, disabled:opacity-50
+	•	Toasts: top-right with action buttons
+
+Error & Conflict Handling
+	•	WS disconnect → retry/backoff + toast
+	•	STUN/TURN failure → fallback to audio + toast “Video connectivity issue”
+	•	Media device errors → “Camera/mic unavailable”
+	•	Payment errors → Razorpay modal retry + toast

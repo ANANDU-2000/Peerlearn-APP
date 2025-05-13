@@ -46,6 +46,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Custom middleware for role-based access control
+    'apps.users.middleware.MentorRequiredMiddleware',
+    'apps.users.middleware.LearnerRequiredMiddleware',
 ]
 
 ROOT_URLCONF = 'peerlearn.urls'

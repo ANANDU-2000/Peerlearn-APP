@@ -198,10 +198,31 @@ def mentor_dashboard(request):
         messages.error(request, 'Access denied.')
         return redirect(request.user.get_dashboard_url())
     
-    # Get session requests, upcoming sessions for the mentor
-    # These will be fetched from the respective apps
+    # Fetch summary data for the dashboard
+    from apps.learning_sessions.models import Session, SessionRequest, Booking
+    from apps.payments.models import Payment
+    from django.db.models import Sum
+    from django.utils import timezone
     
-    return render(request, 'mentors_dash/dashboard.html')
+    context = {
+        'active_tab': 'dashboard',
+        'total_sessions': Session.objects.filter(mentor=request.user).count(),
+        'upcoming_sessions': Session.objects.filter(
+            mentor=request.user, 
+            schedule__gt=timezone.now(),
+            status='scheduled'
+        ).count(),
+        'pending_requests': SessionRequest.objects.filter(
+            mentor=request.user, 
+            status='pending'
+        ).count(),
+        'earnings': Payment.objects.filter(
+            booking__session__mentor=request.user,
+            status='completed'
+        ).aggregate(Sum('amount'))['amount__sum'] or 0,
+    }
+    
+    return render(request, 'mentors_dash/dashboard.html', context)
 
 @method_decorator(login_required, name='dispatch')
 class LearnerProfileUpdateView(UpdateView):
@@ -243,3 +264,156 @@ def learner_activity(request):
     # Get bookings and requests for the learner
     
     return render(request, 'learners_dash/activity.html')
+
+@login_required
+def mentor_requests(request):
+    """View for mentor requests tab."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.models import SessionRequest
+    
+    # Get all session requests for this mentor
+    requests = SessionRequest.objects.filter(mentor=request.user).order_by('-created_at')
+    
+    context = {
+        'active_tab': 'requests',
+        'requests': requests,
+    }
+    
+    return render(request, 'mentors_dash/requests.html', context)
+
+@login_required
+def mentor_sessions(request):
+    """View for mentor sessions tab."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.models import Session
+    from django.utils import timezone
+    
+    # Get today's date
+    today = timezone.now().date()
+    
+    # Fetch all sessions by this mentor
+    today_sessions = Session.objects.filter(
+        mentor=request.user, 
+        schedule__date=today
+    ).order_by('schedule')
+    
+    upcoming_sessions = Session.objects.filter(
+        mentor=request.user, 
+        schedule__date__gt=today
+    ).order_by('schedule')
+    
+    past_sessions = Session.objects.filter(
+        mentor=request.user, 
+        schedule__date__lt=today
+    ).order_by('-schedule')
+    
+    context = {
+        'active_tab': 'sessions',
+        'sub_tab': request.GET.get('tab', 'today'),
+        'today_sessions': today_sessions,
+        'upcoming_sessions': upcoming_sessions,
+        'past_sessions': past_sessions,
+    }
+    
+    return render(request, 'mentors_dash/sessions.html', context)
+
+@login_required
+def mentor_create_session(request):
+    """View for mentor create session tab."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.forms import SessionForm
+    from apps.learning_sessions.models import Session
+    import uuid
+    
+    if request.method == 'POST':
+        form = SessionForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Create the session but don't save it yet
+            session = form.save(commit=False)
+            session.mentor = request.user
+            session.status = 'scheduled'
+            session.room_code = str(uuid.uuid4())
+            
+            # Handle topics JSON field
+            topics_str = form.cleaned_data.get('topics', '')
+            session.topics = [topic.strip() for topic in topics_str.split(',') if topic.strip()]
+            
+            session.save()
+            
+            messages.success(request, 'Session created successfully!')
+            return redirect('users:mentor_sessions')
+    else:
+        form = SessionForm()
+    
+    context = {
+        'active_tab': 'create_session',
+        'form': form,
+    }
+    
+    return render(request, 'mentors_dash/create_session.html', context)
+
+@login_required
+def mentor_earnings(request):
+    """View for mentor earnings tab."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.payments.models import Payment, MentorPayout
+    from django.db.models import Sum
+    from django.utils import timezone
+    import datetime
+    
+    # Get start of current month
+    today = timezone.now()
+    month_start = datetime.date(today.year, today.month, 1)
+    
+    # Fetch payment data for charts
+    monthly_earnings = Payment.objects.filter(
+        booking__session__mentor=request.user,
+        status='completed',
+        created_at__gte=month_start
+    ).aggregate(Sum('amount'))['amount__sum'] or 0
+    
+    # Get payment history
+    payments = Payment.objects.filter(
+        booking__session__mentor=request.user,
+        status='completed'
+    ).order_by('-created_at')
+    
+    # Get payout history
+    payouts = MentorPayout.objects.filter(
+        mentor=request.user
+    ).order_by('-created_at')
+    
+    context = {
+        'active_tab': 'earnings',
+        'monthly_earnings': monthly_earnings,
+        'payments': payments,
+        'payouts': payouts,
+    }
+    
+    return render(request, 'mentors_dash/earnings.html', context)
+
+@login_required
+def mentor_profile(request):
+    """View for mentor profile tab."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    context = {
+        'active_tab': 'profile',
+        'user': request.user,
+    }
+    
+    return render(request, 'mentors_dash/profile.html', context)

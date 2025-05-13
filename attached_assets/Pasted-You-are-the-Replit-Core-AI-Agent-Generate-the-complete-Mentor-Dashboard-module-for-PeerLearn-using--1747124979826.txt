@@ -1,0 +1,48 @@
+You are the Replit Core AI Agent. Generate the complete Mentor Dashboard module for PeerLearn using Django+Channels+SQLite3+Tailwind+Alpine.js. Include:
+
+ROUTE: /dashboard/mentor (mentor-only)
+TABS:
+  1. Requests
+    • WS: requests:{mentor_id}
+    • List pending/offered SessionRequests with learner name, title, proposed time, budget, “Paid✔” badge
+    • Actions: Accept▶ (create Session+Booking; WS→responses), Modify▶ (inline form; POST; status=offered)
+    • Errors: conflict accept (toast “Already taken”), DB save fails (retry modal), offline (banner “Offline, retry…”)
+  2. My Sessions
+    • Sub-tabs: Today | Upcoming | Past
+    • WS: sessions:{mentor_id} for live status & joins
+    • Card: title, booked count, countdown→“LIVE NOW”, price badge
+    • Go Live▶ active T-15m: sets Session.status=live; redirect→/session/{room_code}; WS broadcast “session.live”
+    • Errors: stale session (toast “Session expired”), network drop (retry spinner)
+  3. Create Session
+    • Form fields: thumbnail upload+preview, title, domain tags, start/end datetime (>now), free/paid toggle+price, description
+    • Validation: frontend+backend; past-time block (“Choose future time”); image type/size  
+    • On Submit: save Session(room_code=UUID4, status=scheduled) to DB; toast “Created✔”; redirect→Upcoming
+    • Real-time: appears via WS in landing, /sessions list, learner dashboards; countdown timers everywhere
+    • Errors: DB fail (modal retry), image upload fail, validation errors (red❌/green✔)
+  4. Earnings
+    • Chart (monthly) + table of paid Bookings; CSV export
+    • WS: notifications:{mentor_id} on new payment → live update
+    • Errors: CSV export fail, chart load error
+  5. Profile Settings
+    • Inline edit: name, domains, skills, bio, pic, intro video
+    • PATCH → CustomUser; toast on save; real-time preview
+    • Errors: invalid file type, save error
+
+UX – Web:
+  • Sidebar nav (active highlight), top header (avatar + bell→notifications:{mentor_id})
+  • Cards: rounded, shadow, hover:scale-105; skeleton loaders; accessibility labels
+UX – Mobile:
+  • Bottom nav (Home, Requests, Sessions, Earnings, Profile)
+  • Fullscreen tab pages, slide-up sheets, large tap targets
+Error Handling:
+  • WS disconnect → fallback polling 15s
+  • STUN/TURN failure → toast “Connecting…”
+  • Media errors → fallback to audio only with toast “Video unavailable”
+  • Razorpay errors logged + toast “Payment error”
+Security & Routing:
+  • Role check middleware → redirect others
+  • CSRF & sanitization on all forms
+Test & CI:
+  • Pytest for models, views, consumers; flake8, black, isort
+Docker & Env:
+  • Docker-Compose config with Redis, Channels, STUN/TURN ENV, RAZORPAY keys

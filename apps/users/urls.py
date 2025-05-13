@@ -27,8 +27,15 @@ urlpatterns = [
     
     # Dashboards
     path('dashboard/learner/', views.learner_dashboard, name='learner_dashboard'),
-    path('dashboard/mentor/', views.mentor_dashboard, name='mentor_dashboard'),
     path('dashboard/learner/activity/', views.learner_activity, name='learner_activity'),
+    
+    # Mentor dashboard and routes
+    path('dashboard/mentor/', views.mentor_dashboard, name='mentor_dashboard'),
+    path('dashboard/mentor/requests/', views.mentor_requests, name='mentor_requests'),
+    path('dashboard/mentor/sessions/', views.mentor_sessions, name='mentor_sessions'),
+    path('dashboard/mentor/create-session/', views.mentor_create_session, name='mentor_create_session'),
+    path('dashboard/mentor/earnings/', views.mentor_earnings, name='mentor_earnings'),
+    path('dashboard/mentor/profile/', views.mentor_profile, name='mentor_profile'),
     
     # Profile updates
     path('profile/learner/edit/', views.LearnerProfileUpdateView.as_view(), name='learner_profile_edit'),
