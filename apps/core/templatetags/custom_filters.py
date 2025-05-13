@@ -9,9 +9,14 @@ register = template.Library()
 def split(value, arg):
     """
     Splits a string by the provided delimiter and returns a list.
+    If value is already a list, it's returned unchanged.
     Usage: {{ value|split:"," }}
     """
-    return value.split(arg)
+    if isinstance(value, list):
+        return value
+    elif isinstance(value, str):
+        return value.split(arg)
+    return []
 
 @register.filter
 def strip(value):
@@ -19,4 +24,6 @@ def strip(value):
     Strips whitespace from a string.
     Usage: {{ value|strip }}
     """
-    return value.strip()
+    if isinstance(value, str):
+        return value.strip()
+    return value

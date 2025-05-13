@@ -1,0 +1,65 @@
+AttributeError at /users/mentors/
+'list' object has no attribute 'split'
+Request Method:	GET
+Request URL:	http://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/users/mentors/
+Django Version:	5.2.1
+Exception Type:	AttributeError
+Exception Value:	
+'list' object has no attribute 'split'
+Exception Location:	/home/runner/workspace/apps/core/templatetags/custom_filters.py, line 14, in split
+Raised during:	apps.users.views.MentorListView
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.11.10
+Python Path:	
+['/home/runner/workspace',
+ '/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/dfg63lldbvcj207iyr9z0xw21d8ax02n-python3.11-pip-24.0/lib/python3.11/site-packages',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python311.zip',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/nix/store/wblvmd5y7izx0z10d1w7ga7zc4apjxmb-python3.11-setuptools-75.1.1/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/setuptools/_vendor']
+Server time:	Tue, 13 May 2025 10:56:16 +0000
+Error during template rendering
+In template /home/runner/workspace/templates/mentors/list.html, error at line 97
+
+'list' object has no attribute 'split'
+87	                                                {% endif %}
+88	                                            </div>
+89	                                            <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count|default:"0" }})</span>
+90	                                        </div>
+91	                                    </div>
+92	                                </div>
+93	                                
+94	                                <!-- Domain tags -->
+95	                                <div class="mt-3 flex flex-wrap gap-1">
+96	                                    {% if mentor.expertise %}
+97	                                        {% for domain in mentor.expertise|split:"," %}
+98	                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+99	                                                {{ domain|strip }}
+100	                                            </span>
+101	                                        {% endfor %}
+102	                                    {% endif %}
+103	                                </div>
+104	                                
+105	                                <!-- Bio -->
+106	                                <div class="mt-3">
+107	                                    <p class="text-sm text-gray-600 line-clamp-3">{{ mentor.bio|default:"No bio available" }}</p>
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/exception.py, line 55, in inner
+                response = get_response(request)
+                               ^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/base.py, line 220, in _get_response
+                response = response.render()
+                                ^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/template/response.py, line 114, in render
+            self.content = self.rendered_content
+                                ^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/template/response.py, line 92, in rendered_content
+        return template.render(context, 
