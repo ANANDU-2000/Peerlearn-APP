@@ -91,13 +91,21 @@ class MentorSignUpForm(UserCreationForm):
             'placeholder': 'YouTube, Vimeo or other video URL'
         })
     )
-    profile_picture = forms.ImageField(required=False)
+    phone_number = forms.CharField(
+        required=False,
+        max_length=15,
+        widget=forms.TextInput(attrs={
+            'placeholder': '+1 (555) 123-4567'
+        }),
+        help_text='Your contact number (will not be shared with learners)'
+    )
+    profile_picture = forms.ImageField(required=True)
     
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'first_name', 'last_name', 
                  'password1', 'password2', 'expertise', 'skills', 
-                 'intro_video', 'profile_picture', 'bio']
+                 'phone_number', 'intro_video', 'profile_picture', 'bio']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -115,14 +123,32 @@ class MentorSignUpForm(UserCreationForm):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
         
+        # Set the user role as mentor
+        user.role = 'mentor'
+        
         # Convert expertise and skills strings to lists
         expertise_str = self.cleaned_data.get('expertise', '')
         if expertise_str:
-            user.expertise = [exp.strip() for exp in expertise_str.split(',')]
+            user.expertise = [exp.strip() for exp in expertise_str.split(',') if exp.strip()]
         
         skills_str = self.cleaned_data.get('skills', '')
         if skills_str:
-            user.skills = [skill.strip() for skill in skills_str.split(',')]
+            user.skills = [skill.strip() for skill in skills_str.split(',') if skill.strip()]
+        
+        # Save phone number
+        phone_number = self.cleaned_data.get('phone_number', '')
+        if phone_number:
+            user.phone_number = phone_number
+        
+        # Save intro video
+        intro_video = self.cleaned_data.get('intro_video', '')
+        if intro_video:
+            user.intro_video = intro_video
+            
+        # Save bio
+        bio = self.cleaned_data.get('bio', '')
+        if bio:
+            user.bio = bio
         
         if commit:
             user.save()

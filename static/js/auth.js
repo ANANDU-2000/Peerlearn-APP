@@ -167,8 +167,93 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       
       initForm() {
+        // Check if there's saved form data in localStorage
+        const savedData = localStorage.getItem('mentorSignupFormData');
+        
+        if (savedData) {
+          try {
+            // Ask user if they want to resume registration
+            if (confirm('Would you like to resume your previous registration?')) {
+              const parsedData = JSON.parse(savedData);
+              
+              // Merge saved data with default form data
+              Object.keys(parsedData).forEach(key => {
+                if (this.formData.hasOwnProperty(key)) {
+                  this.formData[key] = parsedData[key];
+                }
+              });
+              
+              // Determine which step to resume from
+              if (parsedData.currentStep) {
+                this.currentStep = parsedData.currentStep;
+              } else if (this.formData.profile_picture) {
+                this.currentStep = 5;
+              } else if (this.formData.bio || this.formData.intro_video) {
+                this.currentStep = 4;
+              } else if (this.formData.skills || this.formData.phone_number) {
+                this.currentStep = 3;
+              } else if (this.formData.expertise) {
+                this.currentStep = 2;
+              } else {
+                this.currentStep = 1;
+              }
+              
+              // If we have a profile picture preview, restore it
+              if (parsedData.previewUrl) {
+                this.previewUrl = parsedData.previewUrl;
+              }
+            } else {
+              // If user doesn't want to resume, clear the stored data
+              localStorage.removeItem('mentorSignupFormData');
+            }
+          } catch (e) {
+            console.error('Error parsing saved form data:', e);
+            localStorage.removeItem('mentorSignupFormData');
+          }
+        }
+        
+        // Add form change listener to save data as user types
+        this.setupFormAutoSave();
+        
         // Form initialization happens in the template with Django template tags
-        this.validateStep1();
+        this.validateCurrentStep();
+        
+        // Add event listener for beforeunload to warn about losing progress
+        window.addEventListener('beforeunload', (e) => {
+          if (this.currentStep > 1) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            return e.returnValue;
+          }
+        });
+      },
+      
+      setupFormAutoSave() {
+        // Setup a debounced auto-save function
+        let saveTimeout;
+        const saveFormData = () => {
+          clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => {
+            // Save form data to localStorage
+            const dataToSave = { ...this.formData, currentStep: this.currentStep };
+            
+            // Also save preview URL if we have one
+            if (this.previewUrl) {
+              dataToSave.previewUrl = this.previewUrl;
+            }
+            
+            localStorage.setItem('mentorSignupFormData', JSON.stringify(dataToSave));
+          }, 500); // Wait 500ms before saving to avoid too frequent saves
+        };
+        
+        // Watch for changes in form data and current step
+        this.$watch('formData', () => {
+          saveFormData();
+        }, { deep: true });
+        
+        this.$watch('currentStep', () => {
+          saveFormData();
+        });
       },
       
       nextStep() {
