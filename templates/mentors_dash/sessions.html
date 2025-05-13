@@ -463,22 +463,21 @@
         if (confirm(`Are you sure you want to cancel your session "${sessionTitle}"? This will notify all booked learners.`)) {
             // Call the API client method to cancel the session
             apiClient.cancelSession(sessionId, 'Cancelled by mentor')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('success', 'Session Cancelled', 'Your session has been cancelled and learners have been notified.');
-                    // Delay for toast to be visible
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                } else {
-                    showToast('error', 'Error', data.error || 'There was an error cancelling the session.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('error', 'Error', 'There was an error communicating with the server.');
-            });
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', 'Session Cancelled', 'Your session has been cancelled and learners have been notified.');
+                        // Delay for toast to be visible
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        showToast('error', 'Error', data.error || 'There was an error cancelling the session.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('error', 'Error', 'There was an error communicating with the server.');
+                });
         }
     }
 </script>
