@@ -692,6 +692,42 @@
         initTabFunctionality();
     });
     
+    // Function to switch between session tabs
+    function switchSessionTab(tabName) {
+        console.log(`Switching to tab: ${tabName}`);
+        
+        // Update active state on tab buttons
+        document.querySelectorAll('.sub-tab').forEach(tab => {
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active', 'border-primary-500', 'text-primary-600');
+                tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            } else {
+                tab.classList.remove('active', 'border-primary-500', 'text-primary-600');
+                tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            }
+        });
+        
+        // Hide all tab contents
+        document.querySelectorAll('.sessions-tab-content').forEach(content => {
+            if (content.dataset.tab === tabName) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+        
+        // Update URL without page reload (for bookmarking and history)
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tabName);
+        window.history.pushState({}, '', url);
+        
+        // Refresh sessions in this tab via API if available
+        if (window.refreshSessionsList) {
+            console.log('Refreshing sessions for tab:', tabName);
+            window.refreshSessionsList();
+        }
+    }
+    
     function initTabFunctionality() {
         // First, make sure all session content tabs have the correct display state
         const activeTab = document.querySelector('.sub-tab.active');
@@ -700,32 +736,22 @@
             
             // Hide all tab contents
             document.querySelectorAll('.sessions-tab-content').forEach(content => {
-                content.style.display = 'none';
+                content.classList.add('hidden');
             });
             
             // Show the active tab content
             const activeContent = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
             if (activeContent) {
-                activeContent.style.display = 'block';
+                activeContent.classList.remove('hidden');
             }
         }
         
         // Add click handlers for tabs (in case JavaScript navigation is preferred over server-side)
         document.querySelectorAll('.sub-tab').forEach(tab => {
             tab.addEventListener('click', function(e) {
-                // The default href navigation will still work, but this allows for potential AJAX loading
-                // of session data in the future without full page reloads
                 const tabName = this.dataset.tab;
-                console.log(`Tab clicked: ${tabName}`);
-                
-                // Update active state of tabs
-                document.querySelectorAll('.sub-tab').forEach(t => {
-                    t.classList.remove('active', 'border-primary-500', 'text-primary-600');
-                    t.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                });
-                
-                this.classList.add('active', 'border-primary-500', 'text-primary-600');
-                this.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                switchSessionTab(tabName);
+                e.preventDefault(); // Prevent the default navigation
             });
         });
     }

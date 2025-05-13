@@ -590,6 +590,219 @@ function refreshSessionsList() {
 }
 
 /**
+ * Create a session element from session data
+ * @param {Object} session - Session data
+ * @returns {HTMLElement} Session element
+ */
+function createSessionElement(session) {
+    try {
+        // Create session list item
+        const li = document.createElement('li');
+        li.id = `session-${session.id}`;
+        li.className = 'session-item block hover:bg-gray-50';
+        
+        // Format date
+        const sessionDate = new Date(session.schedule);
+        const formattedDate = sessionDate.toLocaleString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+        
+        // Determine status class
+        let statusClass = '';
+        if (session.status === 'scheduled') {
+            statusClass = 'bg-blue-100 text-blue-800';
+        } else if (session.status === 'live') {
+            statusClass = 'bg-green-100 text-green-800';
+        } else if (session.status === 'completed') {
+            statusClass = 'bg-gray-100 text-gray-800';
+        } else if (session.status === 'cancelled') {
+            statusClass = 'bg-red-100 text-red-800';
+        }
+        
+        // Calculate time until session
+        let countdown = '';
+        let canGoLive = false;
+        
+        const now = new Date();
+        const timeUntil = sessionDate - now;
+        
+        if (session.status === 'live') {
+            // Session is live, calculate remaining time
+            const durationMinutes = session.duration || 60;
+            const endTime = new Date(sessionDate.getTime() + (durationMinutes * 60000));
+            const remaining = endTime - now;
+            
+            if (remaining <= 0) {
+                countdown = '00:00:00';
+            } else {
+                // Format remaining time
+                const hours = Math.floor(remaining / 3600000);
+                const minutes = Math.floor((remaining % 3600000) / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        } else if (session.status === 'scheduled') {
+            // Session is scheduled, countdown to start
+            if (timeUntil <= 0) {
+                countdown = 'LIVE NOW';
+                canGoLive = true;
+            } else {
+                // Check if within 15 minutes of start time
+                if (timeUntil <= 15 * 60 * 1000) {
+                    canGoLive = true;
+                }
+                
+                // Format countdown
+                const hours = Math.floor(timeUntil / 3600000);
+                const minutes = Math.floor((timeUntil % 3600000) / 60000);
+                const seconds = Math.floor((timeUntil % 60000) / 1000);
+                countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        } else {
+            countdown = '00:00:00';
+        }
+        
+        // Create control buttons based on status
+        let controlButtons = '';
+        
+        if (canGoLive && session.status === 'scheduled') {
+            controlButtons = `
+                <a href="/sessions/go_live/${session.room_code}/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Go Live
+                </a>
+            `;
+        } else if (session.status === 'live') {
+            controlButtons = `
+                <a href="/sessions/room/${session.room_code}/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                    </svg>
+                    Join Session
+                </a>
+            `;
+        }
+        
+        // Build HTML for session item
+        li.innerHTML = `
+            <div class="px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <p class="text-lg font-medium text-primary-600 truncate">
+                            ${session.title}
+                        </p>
+                        <div class="ml-2 flex-shrink-0 flex">
+                            <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                                ${session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="ml-2 flex-shrink-0 flex items-center">
+                        <div class="mr-4">
+                            ${controlButtons}
+                        </div>
+                        <div class="flex items-center text-sm text-gray-500">
+                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="tabular-nums countdown-value" data-session-id="${session.id}">${countdown}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-2 sm:flex sm:justify-between">
+                    <div class="sm:flex">
+                        <p class="flex items-center text-sm text-gray-500">
+                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                            </svg>
+                            ${formattedDate}
+                        </p>
+                        <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
+                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="participant-counter" data-current="${session.bookings_count || 0}" data-max="${session.max_participants || 10}">
+                                ${session.bookings_count || 0}/${session.max_participants || 10} participants
+                            </span>
+                        </p>
+                    </div>
+                    <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        <span>${session.duration || 60} minutes</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Set up countdown interval for this session
+        const countdownElement = li.querySelector(`.countdown-value[data-session-id="${session.id}"]`);
+        if (countdownElement && (session.status === 'scheduled' || session.status === 'live')) {
+            // This interval will be automatically cleaned up if the element is removed from DOM
+            const intervalId = setInterval(() => {
+                const now = new Date();
+                let newCountdown = '';
+                
+                if (session.status === 'live') {
+                    // Update remaining time for live session
+                    const durationMinutes = session.duration || 60;
+                    const endTime = new Date(sessionDate.getTime() + (durationMinutes * 60000));
+                    const remaining = endTime - now;
+                    
+                    if (remaining <= 0) {
+                        newCountdown = '00:00:00';
+                        clearInterval(intervalId);
+                    } else {
+                        // Format remaining time
+                        const hours = Math.floor(remaining / 3600000);
+                        const minutes = Math.floor((remaining % 3600000) / 60000);
+                        const seconds = Math.floor((remaining % 60000) / 1000);
+                        newCountdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                } else {
+                    // Update countdown for scheduled session
+                    const timeUntil = sessionDate - now;
+                    
+                    if (timeUntil <= 0) {
+                        newCountdown = 'LIVE NOW';
+                        
+                        // Show Go Live button if time to start
+                        const goLiveButton = li.querySelector('.go-live-button');
+                        if (goLiveButton) {
+                            goLiveButton.classList.remove('hidden');
+                        }
+                    } else {
+                        // Format countdown
+                        const hours = Math.floor(timeUntil / 3600000);
+                        const minutes = Math.floor((timeUntil % 3600000) / 60000);
+                        const seconds = Math.floor((timeUntil % 60000) / 1000);
+                        newCountdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                }
+                
+                // Update countdown display
+                countdownElement.textContent = newCountdown;
+            }, 1000);
+            
+            // Store interval ID on the element for cleanup
+            li.dataset.intervalId = intervalId;
+        }
+        
+        return li;
+    } catch (error) {
+        console.error('Error creating session element:', error);
+        return null;
+    }
+}
+
+/**
  * Update sessions list UI with new data
  * @param {Array} sessions - List of sessions
  */
@@ -683,24 +896,46 @@ function updateSessionsListUI(sessions) {
         return;
     }
     
-    // For now, to ensure we don't break anything, let's take the conservative approach
-    // of refreshing the page if we have sessions to display in the current tab
-    if (sessionsToDisplay.length > 0 && !document.querySelector('.sessions-refresh-in-progress')) {
-        console.log(`Found ${sessionsToDisplay.length} sessions for tab ${tabName}, refreshing display...`);
+    // Update the UI with session data instead of refreshing the whole page
+    if (sessionsToDisplay.length > 0) {
+        console.log(`Found ${sessionsToDisplay.length} sessions for tab ${tabName}, updating display...`);
         
-        // Show refresh in progress
-        const refreshIndicator = document.createElement('div');
-        refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
-        refreshIndicator.innerHTML = `
-            <div class="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-500"></div>
-            <span class="ml-2">Refreshing sessions...</span>
+        // Find the session list in the current tab
+        const sessionsList = tabContentElement.querySelector('ul');
+        if (sessionsList) {
+            // Clear existing sessions first
+            sessionsList.innerHTML = '';
+            
+            // Add each session to the list
+            sessionsToDisplay.forEach(session => {
+                // We'll use the existing session data to render a new session item
+                const sessionItem = createSessionElement(session);
+                if (sessionItem) {
+                    sessionsList.appendChild(sessionItem);
+                }
+            });
+        } else {
+            console.warn('Session list element not found for update');
+        }
+    } else {
+        // If no sessions, show an empty state message
+        tabContentElement.innerHTML = `
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No sessions</h3>
+                <p class="mt-1 text-sm text-gray-500">There are no sessions to display in this tab.</p>
+                <div class="mt-6">
+                    <a href="/users/dashboard/mentor/create-session/" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create Session
+                    </a>
+                </div>
+            </div>
         `;
-        tabContentElement.appendChild(refreshIndicator);
-        
-        // Reload after short delay
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
     }
 }
 
