@@ -698,9 +698,6 @@ def mentor_sessions(request):
         'past_sessions': past_sessions,
         'current_time': now.strftime('%Y-%m-%dT%H:%M:%S'),
         'today_date': today.strftime('%Y-%m-%d'),
-        'today_sessions': today_sessions,
-        'upcoming_sessions': upcoming_sessions,
-        'past_sessions': past_sessions,
     }
     
     return render(request, 'mentors_dash/sessions.html', context)

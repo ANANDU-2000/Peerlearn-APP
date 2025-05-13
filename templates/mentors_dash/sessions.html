@@ -63,37 +63,62 @@
                                 <ul class="divide-y divide-gray-200">
                                     {% for session in today_sessions %}
                                     <li x-data="{ 
-                                        timeLeft: getTimeLeft('{{ session.schedule|date:'c' }}'), 
-                                        canGoLive: false,
+                                        countdown: '{{ session.countdown_str }}',
+                                        canGoLive: {{ session.can_go_live|lower }},
+                                        status: '{{ session.status }}',
                                         intervalId: null,
-                                        calculateTimeLeft() {
-                                            const now = new Date();
-                                            const sessionTime = new Date('{{ session.schedule|date:'c' }}');
-                                            const diff = sessionTime - now;
+                                        target: new Date('{{ session.schedule|date:'c' }}'),
+                                        now: new Date('{{ current_time }}'),
+                                        
+                                        updateCountdown() {
+                                            this.now = new Date();
                                             
-                                            if (diff <= 0) {
-                                                return 'LIVE NOW';
+                                            if (this.status === 'live') {
+                                                // Session is live, count down remaining time
+                                                const durationMinutes = {{ session.duration }};
+                                                const endTime = new Date(this.target.getTime() + (durationMinutes * 60000));
+                                                const remaining = endTime - this.now;
+                                                
+                                                if (remaining <= 0) {
+                                                    this.countdown = '00:00:00';
+                                                    clearInterval(this.intervalId);
+                                                    return;
+                                                }
+                                                
+                                                // Format remaining time
+                                                const hours = Math.floor(remaining / 3600000);
+                                                const minutes = Math.floor((remaining % 3600000) / 60000);
+                                                const seconds = Math.floor((remaining % 60000) / 1000);
+                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                                            } else {
+                                                // Session is scheduled, count down until start
+                                                const timeUntil = this.target - this.now;
+                                                
+                                                if (timeUntil <= 0) {
+                                                    // It's time to go live
+                                                    this.countdown = 'LIVE NOW';
+                                                    this.canGoLive = true;
+                                                    return;
+                                                }
+                                                
+                                                // Check if within 15 minutes of start time
+                                                if (timeUntil <= 15 * 60 * 1000) {
+                                                    this.canGoLive = true;
+                                                }
+                                                
+                                                // Format countdown
+                                                const hours = Math.floor(timeUntil / 3600000);
+                                                const minutes = Math.floor((timeUntil % 3600000) / 60000);
+                                                const seconds = Math.floor((timeUntil % 60000) / 1000);
+                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                                             }
-                                            
-                                            const minutes = Math.floor(diff / 60000);
-                                            if (minutes <= 15) {
-                                                this.canGoLive = true;
-                                            }
-                                            
-                                            if (minutes < 60) {
-                                                return minutes + ' min';
-                                            }
-                                            
-                                            const hours = Math.floor(minutes / 60);
-                                            const remainingMinutes = minutes % 60;
-                                            return hours + 'h ' + remainingMinutes + 'm';
                                         }
                                     }" 
                                     x-init="
-                                        timeLeft = calculateTimeLeft();
+                                        updateCountdown();
                                         intervalId = setInterval(() => {
-                                            timeLeft = calculateTimeLeft();
-                                        }, 60000);
+                                            updateCountdown();
+                                        }, 1000); // Update every second
                                         $cleanup = () => clearInterval(intervalId);
                                     "
                                     class="block hover:bg-gray-50">
@@ -115,21 +140,27 @@
                                                     </div>
                                                 </div>
                                                 <div class="ml-2 flex-shrink-0 flex items-center">
-                                                    <div x-show="canGoLive && timeLeft !== 'LIVE NOW'">
+                                                    <div x-show="canGoLive && status === 'scheduled'" class="mr-4">
                                                         <a href="/session/{{ session.room_code }}/go-live/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                            <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                                            </svg>
                                                             Go Live
                                                         </a>
                                                     </div>
-                                                    <div x-show="timeLeft === 'LIVE NOW'">
+                                                    <div x-show="status === 'live'" class="mr-4">
                                                         <a href="/session/{{ session.room_code }}/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                                            <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                              <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                                                            </svg>
                                                             Join Session
                                                         </a>
                                                     </div>
-                                                    <div x-show="!canGoLive && timeLeft !== 'LIVE NOW'" class="ml-2 flex items-center text-sm text-gray-500">
+                                                    <div class="flex items-center text-sm text-gray-500">
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
                                                         </svg>
-                                                        <span x-text="timeLeft"></span>
+                                                        <span x-text="countdown" class="tabular-nums"></span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -145,13 +176,15 @@
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                                                         </svg>
-                                                        <span class="participant-counter" data-current="{{ session.booking_set.count }}" data-max="{{ session.max_participants }}"><span class="count-display font-semibold text-primary-600">{{ session.booking_set.count }}</span> / {{ session.max_participants }} Participants</span>
+                                                        <span class="participant-counter" data-current="{{ session.confirmed_bookings_count }}" data-max="{{ session.max_participants }}">
+                                                            <span class="count-display font-semibold text-primary-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
+                                                        </span>
                                                     </p>
                                                     <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
                                                         </svg>
-                                                        ${{ session.price }}
+                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
                                                     </p>
                                                 </div>
                                             </div>
@@ -183,21 +216,112 @@
                             <div class="bg-white shadow overflow-hidden sm:rounded-md">
                                 <ul class="divide-y divide-gray-200">
                                     {% for session in upcoming_sessions %}
-                                    <li class="block hover:bg-gray-50">
+                                    <li x-data="{ 
+                                        countdown: '{{ session.countdown_str }}',
+                                        showEditMenu: false,
+                                        canEdit: {{ session.can_edit|lower }},
+                                        intervalId: null,
+                                        target: new Date('{{ session.schedule|date:'c' }}'),
+                                        now: new Date('{{ current_time }}'),
+                                        
+                                        updateCountdown() {
+                                            this.now = new Date();
+                                            
+                                            // Count down until start
+                                            const timeUntil = this.target - this.now;
+                                            
+                                            if (timeUntil <= 0) {
+                                                this.countdown = 'LIVE NOW';
+                                                clearInterval(this.intervalId);
+                                                return;
+                                            }
+                                            
+                                            // Format countdown
+                                            const days = Math.floor(timeUntil / (24 * 3600000));
+                                            const hours = Math.floor((timeUntil % (24 * 3600000)) / 3600000);
+                                            const minutes = Math.floor((timeUntil % 3600000) / 60000);
+                                            const seconds = Math.floor((timeUntil % 60000) / 1000);
+                                            
+                                            if (days > 0) {
+                                                this.countdown = `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                                            } else {
+                                                this.countdown = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                                            }
+                                            
+                                            // Update edit permission (can't edit within 5 minutes of start)
+                                            this.canEdit = timeUntil > 5 * 60 * 1000;
+                                        }
+                                    }" 
+                                    x-init="
+                                        updateCountdown();
+                                        intervalId = setInterval(() => {
+                                            updateCountdown();
+                                        }, 1000); // Update every second
+                                        $cleanup = () => clearInterval(intervalId);
+                                    "
+                                    class="block hover:bg-gray-50 relative">
                                         <div class="px-4 py-4 sm:px-6">
                                             <div class="flex items-center justify-between">
-                                                <p class="text-lg font-medium text-primary-600 truncate">
-                                                    {{ session.title }}
-                                                </p>
-                                                <div class="ml-2 flex-shrink-0 flex">
-                                                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                        {% if session.status == 'scheduled' %}bg-blue-100 text-blue-800
-                                                        {% elif session.status == 'live' %}bg-green-100 text-green-800
-                                                        {% elif session.status == 'completed' %}bg-gray-100 text-gray-800
-                                                        {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
-                                                        {% endif %}">
-                                                        {{ session.status|title }}
+                                                <div class="flex items-center">
+                                                    <p class="text-lg font-medium text-primary-600 truncate">
+                                                        {{ session.title }}
                                                     </p>
+                                                    <div class="ml-2 flex-shrink-0 flex">
+                                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                            Scheduled
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-2 flex space-x-4 items-center">
+                                                    <div class="flex items-center text-sm text-gray-500">
+                                                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                        </svg>
+                                                        <span x-text="countdown" class="tabular-nums"></span>
+                                                    </div>
+                                                    
+                                                    <!-- Edit/Cancel Menu Button -->
+                                                    <div class="relative ml-3" x-data="{ open: false }">
+                                                        <div>
+                                                            <button @click="open = !open" type="button" class="inline-flex items-center p-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div x-show="open" 
+                                                             @click.away="open = false"
+                                                             x-transition:enter="transition ease-out duration-100"
+                                                             x-transition:enter-start="transform opacity-0 scale-95"
+                                                             x-transition:enter-end="transform opacity-100 scale-100"
+                                                             x-transition:leave="transition ease-in duration-75"
+                                                             x-transition:leave-start="transform opacity-100 scale-100"
+                                                             x-transition:leave-end="transform opacity-0 scale-95"
+                                                             class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-10">
+                                                            
+                                                            <a x-show="canEdit" href="{% url 'users:mentor_session_edit' session.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                                Edit Session
+                                                            </a>
+                                                            
+                                                            <button x-show="!canEdit" disabled class="block w-full text-left px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                                Cannot Edit (Too Close to Start)
+                                                            </button>
+                                                            
+                                                            <a href="#" onclick="confirmCancelSession({{ session.id }}, '{{ session.title|escapejs }}'); return false;" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                                Cancel Session
+                                                            </a>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="mt-2 sm:flex sm:justify-between">
@@ -212,43 +336,16 @@
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                                                         </svg>
-                                                        <span class="participant-counter" data-current="{{ session.booking_set.count }}" data-max="{{ session.max_participants }}"><span class="count-display font-semibold text-primary-600">{{ session.booking_set.count }}</span> / {{ session.max_participants }} Participants</span>
+                                                        <span class="participant-counter" data-current="{{ session.confirmed_bookings_count }}" data-max="{{ session.max_participants }}">
+                                                            <span class="count-display font-semibold text-primary-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
+                                                        </span>
                                                     </p>
                                                     <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
                                                         </svg>
-                                                        ${{ session.price }}
+                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
                                                     </p>
-                                                </div>
-                                                <div class="mt-2 flex items-center space-x-4 text-sm sm:mt-0">
-                                                    <a href="/session/{{ session.room_code }}/preview/" class="font-medium text-primary-600 hover:text-primary-500">
-                                                        <span class="flex items-center">
-                                                            <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                            </svg>
-                                                            Preview
-                                                        </span>
-                                                    </a>
-                                                    <a href="/session/edit/{{ session.id }}/" class="font-medium text-primary-600 hover:text-primary-500">
-                                                        <span class="flex items-center">
-                                                            <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                            </svg>
-                                                            Edit
-                                                        </span>
-                                                    </a>
-                                                    <button 
-                                                        @click="if(confirm('Are you sure you want to cancel this session? This cannot be undone.')) { window.location.href='/session/cancel/{{ session.id }}/' }"
-                                                        class="font-medium text-red-600 hover:text-red-500">
-                                                        <span class="flex items-center">
-                                                            <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                            Cancel
-                                                        </span>
-                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -262,7 +359,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <h3 class="mt-2 text-lg font-medium text-gray-900">No upcoming sessions</h3>
-                                <p class="mt-1 text-sm text-gray-500">You don't have any upcoming sessions scheduled.</p>
+                                <p class="mt-1 text-sm text-gray-500">You don't have any sessions scheduled for future days.</p>
                                 <div class="mt-6">
                                     <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                         <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -282,18 +379,28 @@
                                     <li class="block hover:bg-gray-50">
                                         <div class="px-4 py-4 sm:px-6">
                                             <div class="flex items-center justify-between">
-                                                <p class="text-lg font-medium text-primary-600 truncate">
-                                                    {{ session.title }}
-                                                </p>
-                                                <div class="ml-2 flex-shrink-0 flex">
-                                                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                        {% if session.status == 'scheduled' %}bg-blue-100 text-blue-800
-                                                        {% elif session.status == 'live' %}bg-green-100 text-green-800
-                                                        {% elif session.status == 'completed' %}bg-gray-100 text-gray-800
-                                                        {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
-                                                        {% endif %}">
-                                                        {{ session.status|title }}
+                                                <div class="flex items-center">
+                                                    <p class="text-lg font-medium text-gray-700 truncate">
+                                                        {{ session.title }}
                                                     </p>
+                                                    <div class="ml-2 flex-shrink-0 flex">
+                                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                            {% if session.status == 'completed' %}bg-blue-100 text-blue-800
+                                                            {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
+                                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                            {{ session.status|title }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-2 flex-shrink-0 flex items-center">
+                                                    {% if session.status == 'completed' %}
+                                                    <a href="/session/{{ session.room_code }}/recording/" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                                        <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                                                        </svg>
+                                                        View Recording
+                                                    </a>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                             <div class="mt-2 sm:flex sm:justify-between">
@@ -308,13 +415,15 @@
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                                                         </svg>
-                                                        {{ session.booking_set.count }} Participants
+                                                        <span class="participant-counter">
+                                                            <span class="count-display font-semibold text-gray-600">{{ session.confirmed_bookings_count }}</span> / {{ session.max_participants }} Participants
+                                                        </span>
                                                     </p>
                                                     <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
                                                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
                                                         </svg>
-                                                        ${{ session.price }}
+                                                        {% if session.price > 0 %}₹{{ session.price }}{% else %}Free{% endif %}
                                                     </p>
                                                 </div>
                                             </div>
@@ -329,13 +438,13 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <h3 class="mt-2 text-lg font-medium text-gray-900">No past sessions</h3>
-                                <p class="mt-1 text-sm text-gray-500">You don't have any past sessions yet.</p>
+                                <p class="mt-1 text-sm text-gray-500">You haven't taught any sessions yet.</p>
                                 <div class="mt-6">
                                     <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                         <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                         </svg>
-                                        Create New Session
+                                        Create Your First Session
                                     </a>
                                 </div>
                             </div>
@@ -346,36 +455,41 @@
             `;
         }
     });
-
-    // Function to calculate time left until a session
-    function getTimeLeft(dateString) {
-        const now = new Date();
-        const sessionTime = new Date(dateString);
-        const diff = sessionTime - now;
-        
-        if (diff <= 0) {
-            return 'LIVE NOW';
-        }
-        
-        const minutes = Math.floor(diff / 60000);
-        if (minutes < 60) {
-            return minutes + ' min';
-        }
-        
-        const hours = Math.floor(minutes / 60);
-        const remainingMinutes = minutes % 60;
-        return hours + 'h ' + remainingMinutes + 'm';
-    }
 </script>
 
-<!-- Include participant counter script -->
-<script src="{% static 'js/participant-counter.js' %}"></script>
+<!-- Session Cancel Modal JavaScript -->
 <script>
-    // Initialize participant counters when the page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        if (window.participantCounter) {
-            window.participantCounter().init();
+    function confirmCancelSession(sessionId, sessionTitle) {
+        if (confirm(`Are you sure you want to cancel your session "${sessionTitle}"? This will notify all booked learners.`)) {
+            // Send an AJAX request to cancel the session
+            fetch(`/api/sessions/${sessionId}/cancel/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    reason: 'Cancelled by mentor'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Session Cancelled', 'Your session has been cancelled and learners have been notified.');
+                    // Delay for toast to be visible
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showToast('error', 'Error', data.error || 'There was an error cancelling the session.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'There was an error communicating with the server.');
+            });
         }
-    });
+    }
 </script>
 {% endblock %}
