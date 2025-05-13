@@ -1,0 +1,189 @@
+<header class="bg-white shadow-md sticky top-0 z-30" x-data="{ mobileMenuOpen: false, profileMenuOpen: false, notificationsOpen: false }">
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <!-- Logo -->
+            <div class="flex-shrink-0">
+                <a href="{% url 'home' %}" class="flex items-center space-x-2">
+                    <span class="text-3xl">🎓</span>
+                    <span class="text-xl font-bold text-primary-600 hidden sm:inline-block">PeerLearn</span>
+                </a>
+            </div>
+            
+            <!-- User menu -->
+            <div class="flex items-center space-x-4">
+                {% if user.is_authenticated %}
+                    <!-- Notifications bell -->
+                    <div class="relative" x-data="{ notificationCount: 0 }" x-init="connectNotificationWebSocket && connectNotificationWebSocket()">
+                        <button 
+                            @click="notificationsOpen = !notificationsOpen" 
+                            class="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full relative focus:outline-none"
+                            aria-label="View notifications"
+                        >
+                            <i data-feather="bell" class="w-5 h-5"></i>
+                            <span 
+                                x-show="notificationCount > 0" 
+                                x-text="notificationCount > 9 ? '9+' : notificationCount"
+                                class="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                            ></span>
+                        </button>
+                        
+                        <!-- Notifications dropdown -->
+                        <div 
+                            x-show="notificationsOpen" 
+                            @click.away="notificationsOpen = false"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="transform opacity-0 scale-95"
+                            x-transition:enter-end="transform opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="transform opacity-100 scale-100"
+                            x-transition:leave-end="transform opacity-0 scale-95"
+                            class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-40"
+                            style="display: none;"
+                        >
+                            <div class="px-4 py-2 border-b border-gray-200">
+                                <div class="flex justify-between items-center">
+                                    <h4 class="font-semibold">Notifications</h4>
+                                    <button 
+                                        class="text-sm text-primary-600 hover:text-primary-800"
+                                    >
+                                        Mark all as read
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="max-h-64 overflow-y-auto" id="notifications-list">
+                                <div class="py-10 text-center text-gray-500">
+                                    <i data-feather="bell-off" class="mx-auto mb-3 w-8 h-8"></i>
+                                    <p>No notifications yet</p>
+                                </div>
+                            </div>
+                            
+                            <template id="notification-template">
+                                <a href="" class="notification-item block px-4 py-2 hover:bg-gray-100 border-l-4 border-transparent hover:border-primary-600">
+                                    <p class="text-sm text-gray-800 notification-message"></p>
+                                    <p class="text-xs text-gray-500 mt-1 notification-time"></p>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- User dropdown -->
+                    <div class="relative">
+                        <button 
+                            @click="profileMenuOpen = !profileMenuOpen" 
+                            class="flex items-center space-x-2 focus:outline-none"
+                            aria-label="Open user menu"
+                        >
+                            <span class="hidden sm:block">
+                                <div class="text-sm text-gray-700">{{ user.get_full_name|default:user.username }}</div>
+                                <div class="text-xs text-gray-500">{{ user.get_role_display }}</div>
+                            </span>
+                            <div class="h-10 w-10 rounded-full bg-primary-600 text-white flex items-center justify-center overflow-hidden">
+                                {% if user.profile_picture %}
+                                    <img src="{{ user.profile_picture.url }}" alt="Profile" class="h-full w-full object-cover">
+                                {% else %}
+                                    {{ user.username|first|upper }}
+                                {% endif %}
+                            </div>
+                        </button>
+                        
+                        <!-- Profile dropdown menu -->
+                        <div 
+                            x-show="profileMenuOpen" 
+                            @click.away="profileMenuOpen = false"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="transform opacity-0 scale-95"
+                            x-transition:enter-end="transform opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="transform opacity-100 scale-100"
+                            x-transition:leave-end="transform opacity-0 scale-95"
+                            class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40"
+                            style="display: none;"
+                        >
+                            <a href="{{ user.get_dashboard_url }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                Dashboard
+                            </a>
+                            
+                            {% if user.is_learner %}
+                                <a href="{% url 'users:learner_activity' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    My Activity
+                                </a>
+                                <a href="{% url 'users:learner_profile_edit' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Edit Profile
+                                </a>
+                            {% elif user.is_mentor %}
+                                <a href="{% url 'sessions:create' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Create Session
+                                </a>
+                                <a href="{% url 'payments:mentor_earnings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    My Earnings
+                                </a>
+                                <a href="{% url 'users:mentor_profile_edit' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Edit Profile
+                                </a>
+                            {% elif user.is_admin_user %}
+                                <a href="{% url 'admin_panel:overview' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Admin Panel
+                                </a>
+                            {% endif %}
+                            
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a href="{% url 'users:logout' %}" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                Logout
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{% url 'users:login' %}" class="text-primary-600 hover:text-primary-800 font-medium">Login</a>
+                    <a href="{% url 'users:auth_selector' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                        Sign Up
+                    </a>
+                {% endif %}
+                
+                <!-- Mobile menu button -->
+                <button 
+                    @click="mobileMenuOpen = !mobileMenuOpen" 
+                    class="md:hidden p-2 rounded-md text-gray-600 hover:text-primary-600 hover:bg-gray-100 focus:outline-none"
+                    aria-label="Toggle mobile menu"
+                >
+                    <i data-feather="menu" class="w-5 h-5" x-show="!mobileMenuOpen"></i>
+                    <i data-feather="x" class="w-5 h-5" x-show="mobileMenuOpen" style="display: none;"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation Menu -->
+        <div 
+            x-show="mobileMenuOpen" 
+            x-transition:enter="transition ease-out duration-100"
+            x-transition:enter-start="transform opacity-0 scale-95"
+            x-transition:enter-end="transform opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-75"
+            x-transition:leave-start="transform opacity-100 scale-100"
+            x-transition:leave-end="transform opacity-0 scale-95"
+            class="md:hidden mt-3 py-3 border-t border-gray-200"
+            style="display: none;"
+        >
+            <nav class="grid gap-y-2">
+                <a href="{{ user.get_dashboard_url }}" class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md">Dashboard</a>
+                
+                {% if user.is_learner %}
+                    <a href="{% url 'users:learner_activity' %}" class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        My Activity
+                    </a>
+                {% elif user.is_mentor %}
+                    <a href="{% url 'sessions:create' %}" class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        Create Session
+                    </a>
+                    <a href="{% url 'payments:mentor_earnings' %}" class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        My Earnings
+                    </a>
+                {% endif %}
+                
+                <div class="border-t border-gray-200 my-2"></div>
+                <a href="{% url 'home' %}" class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md">Return to Home</a>
+                <a href="{% url 'users:logout' %}" class="px-3 py-2 text-red-600 hover:bg-gray-100 rounded-md">Logout</a>
+            </nav>
+        </div>
+    </div>
+</header>
