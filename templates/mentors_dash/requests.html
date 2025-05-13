@@ -124,12 +124,16 @@
                                 
                                 <!-- Modify Form -->
                                 <div x-show="showModifyForm" x-cloak class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200">
-                                    <form method="post" action="/modify-request/{{ request.id }}/" class="space-y-4">
+                                    <form method="post" action="{% url 'sessions:modify_request' request_id=request.id %}" class="space-y-4">
                                         {% csrf_token %}
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
+                                                <label for="counter_date" class="block text-sm font-medium text-gray-700">Proposed Date</label>
+                                                <input type="date" name="counter_date" id="counter_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                                            </div>
+                                            <div>
                                                 <label for="counter_time" class="block text-sm font-medium text-gray-700">Proposed Time</label>
-                                                <input type="datetime-local" name="counter_time" id="counter_time" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                                                <input type="time" name="counter_time" id="counter_time" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
                                             </div>
                                             <div>
                                                 <label for="counter_offer" class="block text-sm font-medium text-gray-700">Your Pricing</label>
