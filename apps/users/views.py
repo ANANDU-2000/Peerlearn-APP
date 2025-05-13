@@ -35,8 +35,8 @@ def auth_selector(request):
 
 def learner_signup(request):
     """View for learner registration."""
-    if request.method == 'POST':
-        form = LearnerSignUpForm(request.POST, request.FILES)
+    if session_req.method == 'POST':
+        form = LearnerSignUpForm(session_req.POST, session_req.FILES)
         if form.is_valid():
             user = form.save(commit=False)
             user.role = CustomUser.LEARNER
@@ -51,8 +51,8 @@ def learner_signup(request):
 
 def mentor_signup(request):
     """View for mentor registration."""
-    if request.method == 'POST':
-        form = MentorSignUpForm(request.POST, request.FILES)
+    if session_req.method == 'POST':
+        form = MentorSignUpForm(session_req.POST, session_req.FILES)
         if form.is_valid():
             user = form.save(commit=False)
             user.role = CustomUser.MENTOR
@@ -70,8 +70,8 @@ def mentor_signup(request):
 
 def check_email_exists(request):
     """API endpoint to check if an email already exists in the database."""
-    if request.method == 'GET':
-        email = request.GET.get('email', '')
+    if session_req.method == 'GET':
+        email = session_req.GET.get('email', '')
         exists = CustomUser.objects.filter(email=email).exists()
         
         # Also check if the email is valid with a simple format check
@@ -87,8 +87,8 @@ def check_email_exists(request):
 
 def login_view(request):
     """View for user login."""
-    if request.method == 'POST':
-        form = UserLoginForm(request.POST)
+    if session_req.method == 'POST':
+        form = UserLoginForm(session_req.POST)
         if form.is_valid():
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password')
@@ -149,7 +149,7 @@ class MentorDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         
         # Add rating form if user is a learner
-        if self.request.user.is_learner:
+        if self.session_req.user.is_learner:
             context['rating_form'] = RatingForm()
         
         # Add mentor's sessions
@@ -170,16 +170,16 @@ def rate_mentor(request, pk):
     """View to rate a mentor."""
     mentor = get_object_or_404(CustomUser, pk=pk, role=CustomUser.MENTOR)
     
-    if not request.user.is_learner:
+    if not session_req.user.is_learner:
         messages.error(request, 'Only learners can rate mentors.')
         return redirect('users:mentor_detail', pk=pk)
     
-    if request.method == 'POST':
-        form = RatingForm(request.POST)
+    if session_req.method == 'POST':
+        form = RatingForm(session_req.POST)
         if form.is_valid():
             rating, created = UserRating.objects.update_or_create(
                 mentor=mentor,
-                learner=request.user,
+                learner=session_req.user,
                 defaults={
                     'rating': form.cleaned_data.get('rating'),
                     'review': form.cleaned_data.get('review')
@@ -234,17 +234,17 @@ def get_top_mentors(user, limit=6):
 def learner_dashboard(request):
     """View for learner dashboard with tab navigation support."""
     # Check if user is authenticated first
-    if not request.user.is_authenticated:
+    if not session_req.user.is_authenticated:
         messages.error(request, 'You must be logged in to access the dashboard.')
         return redirect('users:login')
         
     # Then check if user is a learner
-    if not request.user.is_learner:
+    if not session_req.user.is_learner:
         messages.error(request, 'Access denied. This dashboard is for learners only.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     # Get active tab from query parameter, default to 'home'
-    active_tab = request.GET.get('tab', 'home')
+    active_tab = session_req.GET.get('tab', 'home')
     
     # Validate active tab value
     valid_tabs = ['home', 'activity', 'mentors', 'notifications', 'profile']
@@ -264,14 +264,14 @@ def learner_dashboard(request):
     trending_sessions = []
     
     # Try to fetch personalized recommendations
-    if hasattr(request.user, 'interests') and request.user.interests:
+    if hasattr(session_req.user, 'interests') and session_req.user.interests:
         # Convert interests string to list if stored as JSON string
-        user_interests = request.user.interests if isinstance(request.user.interests, list) else json.loads(request.user.interests or '[]')
+        user_interests = session_req.user.interests if isinstance(session_req.user.interests, list) else json.loads(session_req.user.interests or '[]')
         
         if user_interests:
             # Get upcoming sessions related to user interests or career goals
             time_filter = now - timezone.timedelta(hours=1)  # Include recently started sessions too
-            interest_filter = Q(topics__overlap=user_interests) | Q(title__icontains=request.user.career_goal) | Q(description__icontains=request.user.career_goal)
+            interest_filter = Q(topics__overlap=user_interests) | Q(title__icontains=session_req.user.career_goal) | Q(description__icontains=session_req.user.career_goal)
             status_filter = Q(status='scheduled') | Q(status='live')
             
             # Combined filter to avoid positional/keyword argument mixing
@@ -294,7 +294,7 @@ def learner_dashboard(request):
     
     # Mark sessions that are already booked by this learner
     booked_session_ids = Booking.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).values_list('session_id', flat=True)
     
     # Add attendee_count to recommended sessions
@@ -312,7 +312,7 @@ def learner_dashboard(request):
     
     # Add bookings to activities
     bookings = Booking.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('session', 'session__mentor').order_by('-created_at')[:10]
     
     for booking in bookings:
@@ -341,10 +341,9 @@ def learner_dashboard(request):
     
     # Add requests to activities
     session_requests = SessionRequest.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('mentor').order_by('-created_at')[:10]
     
-
     for session_req in session_requests:
         activity = {
             'type': 'request',
@@ -376,20 +375,18 @@ def learner_dashboard(request):
 
 
 
-
-
     # Sort activities by timestamp
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     
     # Get unread notifications count
     from apps.notifications.models import Notification
     unread_notifications_count = Notification.objects.filter(
-        user=request.user,
+        user=session_req.user,
         read=False
     ).count()
     
     # Get top mentors for recommendations
-    top_mentors = get_top_mentors(request.user, 6)
+    top_mentors = get_top_mentors(session_req.user, 6)
     
     # Add default rating values for mentors without them
     for mentor in top_mentors:
@@ -415,9 +412,9 @@ def learner_dashboard(request):
 @login_required
 def mentor_dashboard(request):
     """View for mentor dashboard."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     # Fetch summary data for the dashboard
     from apps.learning_sessions.models import Session, SessionRequest, Booking
@@ -427,18 +424,18 @@ def mentor_dashboard(request):
     
     context = {
         'active_tab': 'dashboard',
-        'total_sessions': Session.objects.filter(mentor=request.user).count(),
+        'total_sessions': Session.objects.filter(mentor=session_req.user).count(),
         'upcoming_sessions': Session.objects.filter(
-            mentor=request.user, 
+            mentor=session_req.user, 
             schedule__gt=timezone.now(),
             status='scheduled'
         ).count(),
         'pending_requests': SessionRequest.objects.filter(
-            mentor=request.user, 
+            mentor=session_req.user, 
             status='pending'
         ).count(),
         'earnings': Payment.objects.filter(
-            booking__session__mentor=request.user,
+            booking__session__mentor=session_req.user,
             status='completed'
         ).aggregate(Sum('amount'))['amount__sum'] or 0,
     }
@@ -454,7 +451,7 @@ class LearnerProfileUpdateView(UpdateView):
     success_url = reverse_lazy('learner_dashboard')
     
     def get_object(self):
-        return self.request.user
+        return self.session_req.user
     
     def form_valid(self, form):
         messages.success(self.request, 'Profile updated successfully!')
@@ -469,7 +466,7 @@ class MentorProfileUpdateView(UpdateView):
     success_url = reverse_lazy('mentor_dashboard')
     
     def get_object(self):
-        return self.request.user
+        return self.session_req.user
     
     def form_valid(self, form):
         messages.success(self.request, 'Profile updated successfully!')
@@ -478,18 +475,18 @@ class MentorProfileUpdateView(UpdateView):
 @login_required
 def learner_activity_partial(request):
     """Partial view for learner activity tab content to be loaded with AJAX."""
-    if not request.user.is_learner:
+    if not session_req.user.is_learner:
         return render(request, 'error.html', {'message': 'Access denied'}, status=403)
     
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
     
     bookings = Booking.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('session', 'session__mentor').order_by('-created_at')
     
     session_requests = SessionRequest.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('mentor').order_by('-created_at')
     
     # Create activities list for the combined view
@@ -514,17 +511,17 @@ def learner_activity_partial(request):
         activities.append(activity)
     
     # Add requests to activities
-    for request in session_requests:
+    for session_req in session_requests:
         activity = {
             'type': 'request',
             'type_color': 'indigo',
-            'title': request.title,
-            'mentor': request.mentor,
-            'timestamp': request.created_at,
-            'status': request.get_status_display(),
-            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
-            'description': request.description,
-            'id': request.id
+            'title': session_req.title,
+            'mentor': session_req.mentor,
+            'timestamp': session_req.created_at,
+            'status': session_req.get_status_display(),
+            'status_color': 'green' if session_req.status == 'accepted' else 'blue' if session_req.status == 'counter_offer' else 'yellow' if session_req.status == 'pending' else 'red',
+            'description': session_req.description,
+            'id': session_req.id
         }
         activities.append(activity)
     
@@ -537,19 +534,19 @@ def learner_activity_partial(request):
 
 def learner_activity(request):
     """View for learner activity page."""
-    if not request.user.is_learner:
+    if not session_req.user.is_learner:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
     
     bookings = Booking.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('session', 'session__mentor').order_by('-created_at')
     
     session_requests = SessionRequest.objects.filter(
-        learner=request.user
+        learner=session_req.user
     ).select_related('mentor').order_by('-created_at')
     
     # Create activities list for the combined view
@@ -581,21 +578,21 @@ def learner_activity(request):
         activities.append(activity)
     
     # Add requests to activities
-    for request in session_requests:
+    for session_req in session_requests:
         activity = {
             'type': 'request',
             'type_color': 'indigo',
-            'title': request.title,
-            'mentor': request.mentor,
-            'timestamp': request.created_at,
-            'status': request.get_status_display(),
-            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
-            'description': request.description,
-            'schedule': request.proposed_time,
-            'duration': request.duration,
-            'price': request.budget,
-            'request_id': request.id,
-            'can_confirm': request.status == 'counter_offer'
+            'title': session_req.title,
+            'mentor': session_req.mentor,
+            'timestamp': session_req.created_at,
+            'status': session_req.get_status_display(),
+            'status_color': 'green' if session_req.status == 'accepted' else 'blue' if session_req.status == 'counter_offer' else 'yellow' if session_req.status == 'pending' else 'red',
+            'description': session_req.description,
+            'schedule': session_req.proposed_time,
+            'duration': session_req.duration,
+            'price': session_req.budget,
+            'request_id': session_req.id,
+            'can_confirm': session_req.status == 'counter_offer'
         }
         activities.append(activity)
     
@@ -615,14 +612,14 @@ def learner_activity(request):
 @login_required
 def mentor_requests(request):
     """View for mentor requests tab."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.learning_sessions.models import SessionRequest
     
     # Get all session requests for this mentor
-    requests = SessionRequest.objects.filter(mentor=request.user).order_by('-created_at')
+    requests = SessionRequest.objects.filter(mentor=session_req.user).order_by('-created_at')
     
     context = {
         'active_tab': 'requests',
@@ -634,9 +631,9 @@ def mentor_requests(request):
 @login_required
 def mentor_sessions(request):
     """View for mentor sessions tab with enhanced functionality."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.learning_sessions.models import Session, Booking
     from django.utils import timezone
@@ -648,20 +645,20 @@ def mentor_sessions(request):
     
     # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
     today_sessions = Session.objects.filter(
-        mentor=request.user, 
+        mentor=session_req.user, 
         schedule__date=today,
         status__in=[Session.SCHEDULED, Session.LIVE]
     ).distinct().order_by('schedule')
     
     upcoming_sessions = Session.objects.filter(
-        mentor=request.user, 
+        mentor=session_req.user, 
         schedule__date__gt=today,
         status=Session.SCHEDULED
     ).distinct().order_by('schedule')
     
     past_sessions = Session.objects.filter(
-        models.Q(mentor=request.user, schedule__date__lt=today) |
-        models.Q(mentor=request.user, status__in=[Session.COMPLETED, Session.CANCELLED])
+        models.Q(mentor=session_req.user, schedule__date__lt=today) |
+        models.Q(mentor=session_req.user, status__in=[Session.COMPLETED, Session.CANCELLED])
     ).distinct().order_by('-schedule')
     
     # Add booking count and go-live status to each session
@@ -708,7 +705,7 @@ def mentor_sessions(request):
     
     context = {
         'active_tab': 'sessions',
-        'sub_tab': request.GET.get('tab', 'today'),
+        'sub_tab': session_req.GET.get('tab', 'today'),
         'today_sessions': today_sessions,
         'upcoming_sessions': upcoming_sessions,
         'past_sessions': past_sessions,
@@ -722,19 +719,19 @@ def mentor_sessions(request):
 @login_required
 def mentor_session_detail(request, session_id):
     """View for mentor session detail with enhanced management options."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.learning_sessions.models import Session, Booking
     from apps.notifications.models import Notification
     
     # Get the session
-    session = get_object_or_404(Session, id=session_id, mentor=request.user)
+    session = get_object_or_404(Session, id=session_id, mentor=session_req.user)
     
     # Process actions if any
-    if request.method == 'POST':
-        action = request.POST.get('action')
+    if session_req.method == 'POST':
+        action = session_req.POST.get('action')
         
         if action == 'cancel':
             # Cancel the session
@@ -835,11 +832,11 @@ def mentor_session_detail(request, session_id):
 def mentor_create_session(request):
     """
     View for mentor create session tab.
-    Now redirects to the advanced session creation page as per user request.
+    Now redirects to the advanced session creation page as per user session_req.
     """
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     # Always redirect to the advanced session creation page
     return redirect('users:mentor_create_advanced_session')
@@ -848,23 +845,23 @@ def mentor_create_session(request):
 @login_required
 def mentor_session_edit(request, session_id):
     """View for editing an existing session with enhanced UX."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.learning_sessions.models import Session
     from apps.learning_sessions.forms import SessionForm
     
     # Get the session
-    session = get_object_or_404(Session, id=session_id, mentor=request.user)
+    session = get_object_or_404(Session, id=session_id, mentor=session_req.user)
     
     # Check if session is editable
     if session.status in [Session.LIVE, Session.COMPLETED, Session.CANCELLED]:
         messages.error(request, f'Sessions that are {session.get_status_display().lower()} cannot be edited.')
         return redirect('users:mentor_session_detail', session_id=session.id)
         
-    if request.method == 'POST':
-        form = SessionForm(request.POST, instance=session)
+    if session_req.method == 'POST':
+        form = SessionForm(session_req.POST, instance=session)
         if form.is_valid():
             # Save the form but don't commit yet
             updated_session = form.save(commit=False)
@@ -894,23 +891,23 @@ def mentor_session_edit(request, session_id):
 @login_required
 def mentor_create_advanced_session(request):
     """View for advanced mentor create session page with step-by-step UI."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.learning_sessions.forms import SessionForm
     from apps.learning_sessions.models import Session
     from apps.notifications.models import Notification
     import uuid
     
-    if request.method == 'POST':
-        form = SessionForm(request.POST, request.FILES)
-        is_free = request.POST.get('is_free') == 'true'
+    if session_req.method == 'POST':
+        form = SessionForm(session_req.POST, session_req.FILES)
+        is_free = session_req.POST.get('is_free') == 'true'
         
         if form.is_valid():
             # Create the session but don't save it yet
             session = form.save(commit=False)
-            session.mentor = request.user
+            session.mentor = session_req.user
             session.status = 'scheduled'
             session.room_code = str(uuid.uuid4())
             
@@ -926,7 +923,7 @@ def mentor_create_advanced_session(request):
             
             # Create notification for mentor
             Notification.objects.create(
-                user=request.user,
+                user=session_req.user,
                 title='Session Created',
                 message=f'Your session "{session.title}" has been created successfully.',
                 notification_type='session_created',
@@ -948,9 +945,9 @@ def mentor_create_advanced_session(request):
 @login_required
 def mentor_earnings(request):
     """View for mentor earnings tab."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     from apps.payments.models import Payment, MentorPayout
     from django.db.models import Sum
@@ -963,20 +960,20 @@ def mentor_earnings(request):
     
     # Fetch payment data for charts
     monthly_earnings = Payment.objects.filter(
-        booking__session__mentor=request.user,
+        booking__session__mentor=session_req.user,
         status='completed',
         created_at__gte=month_start
     ).aggregate(Sum('amount'))['amount__sum'] or 0
     
     # Get payment history
     payments = Payment.objects.filter(
-        booking__session__mentor=request.user,
+        booking__session__mentor=session_req.user,
         status='completed'
     ).order_by('-created_at')
     
     # Get payout history
     payouts = MentorPayout.objects.filter(
-        mentor=request.user
+        mentor=session_req.user
     ).order_by('-created_at')
     
     context = {
@@ -991,13 +988,13 @@ def mentor_earnings(request):
 @login_required
 def mentor_profile(request):
     """View for mentor profile tab."""
-    if not request.user.is_mentor:
+    if not session_req.user.is_mentor:
         messages.error(request, 'Access denied.')
-        return redirect(request.user.get_dashboard_url())
+        return redirect(session_req.user.get_dashboard_url())
     
     context = {
         'active_tab': 'profile',
-        'user': request.user,
+        'user': session_req.user,
     }
     
     return render(request, 'mentors_dash/profile.html', context)
