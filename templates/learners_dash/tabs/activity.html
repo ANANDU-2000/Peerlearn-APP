@@ -19,6 +19,7 @@
 
         <!-- All Activities Tab -->
         <div x-show="activeSubtab === 'all'">
+            <div id="activity-content">
             {% if activities %}
                 <div class="space-y-4">
                     {% for activity in activities %}
@@ -181,6 +182,7 @@
                     </button>
                 </div>
             {% endif %}
+            </div>
         </div>
 
         <!-- Session Requests Tab -->

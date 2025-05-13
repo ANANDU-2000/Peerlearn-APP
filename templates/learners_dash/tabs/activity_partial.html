@@ -1,0 +1,162 @@
+{% if activities %}
+    <div class="space-y-4">
+        {% for activity in activities %}
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                <div class="p-4 sm:p-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex items-start space-x-3 mb-3 sm:mb-0">
+                            <!-- Activity Icon -->
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 rounded-full bg-{{ activity.type_color }}-100 flex items-center justify-center">
+                                    {% if activity.type == 'booking' %}
+                                        <i data-feather="calendar" class="w-5 h-5 text-{{ activity.type_color }}-600"></i>
+                                    {% elif activity.type == 'request' %}
+                                        <i data-feather="message-circle" class="w-5 h-5 text-{{ activity.type_color }}-600"></i>
+                                    {% elif activity.type == 'feedback' %}
+                                        <i data-feather="star" class="w-5 h-5 text-{{ activity.type_color }}-600"></i>
+                                    {% elif activity.type == 'payment' %}
+                                        <i data-feather="credit-card" class="w-5 h-5 text-{{ activity.type_color }}-600"></i>
+                                    {% else %}
+                                        <i data-feather="activity" class="w-5 h-5 text-{{ activity.type_color }}-600"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Activity Details -->
+                            <div>
+                                <h4 class="text-base font-medium text-gray-900">{{ activity.title }}</h4>
+                                <div class="mt-1 flex items-center text-sm text-gray-600">
+                                    {% if activity.mentor %}
+                                        <div class="flex items-center">
+                                            <span class="inline-block w-4 h-4 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center overflow-hidden mr-1">
+                                                {% if activity.mentor.profile_picture %}
+                                                    <img src="{{ activity.mentor.profile_picture.url }}" alt="Mentor" class="w-full h-full object-cover">
+                                                {% else %}
+                                                    {{ activity.mentor.first_name|first|upper }}
+                                                {% endif %}
+                                            </span>
+                                            <span>{{ activity.mentor.get_full_name }}</span>
+                                        </div>
+                                        <span class="mx-1">•</span>
+                                    {% endif %}
+                                    <span>{{ activity.timestamp|date:"M j, Y • g:i A" }}</span>
+                                    
+                                    <!-- Status Badge -->
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-{{ activity.status_color }}-100 text-{{ activity.status_color }}-800">
+                                        {{ activity.status }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex space-x-2">
+                            {% if activity.joinable %}
+                                <a href="/sessions/{{ activity.room_code }}/join/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <i data-feather="video" class="w-4 h-4 mr-1"></i> Join▶
+                                </a>
+                            {% endif %}
+                            
+                            {% if activity.can_confirm %}
+                                <form action="/sessions/requests/{{ activity.request_id }}/accept/" method="POST" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                        <i data-feather="check" class="w-4 h-4 mr-1"></i> Confirm▶
+                                    </button>
+                                </form>
+                            {% endif %}
+                            
+                            {% if activity.can_review and not activity.has_feedback %}
+                                <button data-feedback-session-id="{{ activity.booking_id }}" class="open-feedback-modal inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                    <i data-feather="star" class="w-4 h-4 mr-1"></i> Rate & Review
+                                </button>
+                            {% elif activity.has_feedback %}
+                                <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-600">
+                                    <i data-feather="check-circle" class="w-4 h-4 mr-1"></i> Reviewed
+                                </span>
+                            {% endif %}
+                            
+                            {% if activity.type == 'booking' and activity.can_cancel %}
+                                <button data-booking-id="{{ activity.booking_id }}" class="cancel-booking-btn inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <i data-feather="x" class="w-4 h-4 mr-1"></i> Cancel
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Info (collapsible) -->
+                    <div x-data="{ expanded: false }">
+                        <button @click="expanded = !expanded" class="mt-3 text-sm text-primary-600 hover:text-primary-800 flex items-center focus:outline-none">
+                            <span x-text="expanded ? 'Show less' : 'Show details'"></span>
+                            <i x-show="!expanded" data-feather="chevron-down" class="w-4 h-4 ml-1"></i>
+                            <i x-show="expanded" data-feather="chevron-up" class="w-4 h-4 ml-1"></i>
+                        </button>
+                        
+                        <div x-show="expanded" x-transition:enter="transition-all ease-out duration-300" x-transition:enter-start="opacity-0 max-h-0" x-transition:enter-end="opacity-100 max-h-96" x-transition:leave="transition-all ease-in duration-200" x-transition:leave-start="opacity-100 max-h-96" x-transition:leave-end="opacity-0 max-h-0" class="mt-3 overflow-hidden" style="display: none;">
+                            <div class="border-t border-gray-200 pt-3">
+                                <div class="text-sm text-gray-700 space-y-2">
+                                    {% if activity.description %}
+                                        <p>{{ activity.description }}</p>
+                                    {% endif %}
+                                    
+                                    {% if activity.schedule %}
+                                        <p class="flex items-center">
+                                            <i data-feather="clock" class="w-4 h-4 mr-1 text-gray-500"></i>
+                                            <span>{{ activity.schedule|date:"l, F j, Y • g:i A" }}</span>
+                                        </p>
+                                    {% endif %}
+                                    
+                                    {% if activity.duration %}
+                                        <p class="flex items-center">
+                                            <i data-feather="clock" class="w-4 h-4 mr-1 text-gray-500"></i>
+                                            <span>Duration: {{ activity.duration }} minutes</span>
+                                        </p>
+                                    {% endif %}
+                                    
+                                    {% if activity.topics %}
+                                        <div class="flex flex-wrap items-center gap-1">
+                                            <i data-feather="tag" class="w-4 h-4 mr-1 text-gray-500"></i>
+                                            {% for topic in activity.topics %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {{ topic }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if activity.price is not None %}
+                                        <p class="flex items-center">
+                                            <i data-feather="credit-card" class="w-4 h-4 mr-1 text-gray-500"></i>
+                                            <span>Price: {% if activity.price > 0 %}₹{{ activity.price }}{% else %}Free{% endif %}</span>
+                                        </p>
+                                    {% endif %}
+                                    
+                                    {% if activity.payment_status %}
+                                        <p class="flex items-center">
+                                            <i data-feather="credit-card" class="w-4 h-4 mr-1 text-gray-500"></i>
+                                            <span>Payment Status: {{ activity.payment_status }}</span>
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-12">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-feather="calendar" class="w-8 h-8 text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No activity yet</h3>
+        <p class="text-gray-600 max-w-md mx-auto">
+            You haven't booked any sessions or made any requests yet. Explore recommended sessions to get started.
+        </p>
+        <button @click="activeTab = 'recommended'" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <i data-feather="compass" class="w-4 h-4 mr-1"></i>
+            Browse Sessions
+        </button>
+    </div>
+{% endif %}

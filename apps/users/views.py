@@ -387,7 +387,7 @@ class MentorProfileUpdateView(UpdateView):
 def learner_activity_partial(request):
     """Partial view for learner activity tab content to be loaded with AJAX."""
     if not request.user.is_learner:
-        return HttpResponse("Access denied", status=403)
+        return render(request, 'error.html', {'message': 'Access denied'}, status=403)
     
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
