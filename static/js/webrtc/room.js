@@ -459,13 +459,43 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     
                     // First check if getUserMedia is supported
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                        throw new Error("getUserMedia is not supported in this browser");
+                        console.error("getUserMedia is not supported in this browser");
+                        showToast('error', 'Browser Not Supported', 'Your browser does not support camera access. Please try a modern browser like Chrome, Firefox, or Safari.');
+                        // Continue with audio-only as fallback
+                        showToast('info', 'Audio Only Mode', 'Continuing with audio-only mode due to camera limitations.');
+                        return false;
                     }
                     
                     // Check if browser is secure context (required for modern browsers)
                     if (!window.isSecureContext) {
                         console.warn("Not in secure context - getUserMedia might not work");
                         showToast('warning', 'Security Warning', 'Your browser may block camera access because this site isn\'t using HTTPS. Try connecting via HTTPS for better compatibility.');
+                    }
+                    
+                    // Get list of available devices first to check if we have cameras/mics
+                    let devices = [];
+                    try {
+                        devices = await navigator.mediaDevices.enumerateDevices();
+                        const hasCamera = devices.some(device => device.kind === 'videoinput');
+                        const hasMic = devices.some(device => device.kind === 'audioinput');
+                        
+                        console.log(`Available devices - Camera: ${hasCamera}, Microphone: ${hasMic}`);
+                        
+                        if (!hasCamera && !hasMic) {
+                            showToast('error', 'No Media Devices', 'No camera or microphone found. Please check your device connections.');
+                            return false;
+                        }
+                        
+                        if (!hasCamera) {
+                            showToast('warning', 'No Camera', 'No camera detected. Session will continue with audio only.');
+                        }
+                        
+                        if (!hasMic) {
+                            showToast('warning', 'No Microphone', 'No microphone detected. You won\'t be able to speak in the session.');
+                        }
+                    } catch (enumError) {
+                        console.warn("Could not enumerate devices:", enumError);
+                        // Continue anyway, getUserMedia will give more specific errors
                     }
                     
                     // Try multiple fallbacks in case of issues - start with simpler constraints first
@@ -511,17 +541,43 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             const mediaPromise = navigator.mediaDevices.getUserMedia(fallbackOptions[i]);
                             
                             // Wait for the media with a generous timeout
-                            stream = await mediaPromise;
+                            stream = await Promise.race([
+                                mediaPromise,
+                                new Promise((_, reject) => 
+                                    setTimeout(() => reject(new Error('Media access timeout')), 10000)
+                                )
+                            ]);
                             
                             console.log(`Successfully obtained media stream with option ${i+1}`);
                             
                             // If we got here, we have a working stream
                             this.localStream = stream;
                             
-                            // Set video enabled flag based on whether we have video
-                            this.videoEnabled = fallbackOptions[i].video !== false;
+                            // Check if we actually got video tracks
+                            const hasVideoTracks = stream.getVideoTracks().length > 0;
+                            this.videoEnabled = hasVideoTracks;
                             
-                            break;
+                            if (!hasVideoTracks && fallbackOptions[i].video !== false) {
+                                console.warn("No video tracks in stream despite requesting video");
+                                showToast('warning', 'Video Unavailable', 'Could not access your camera. Continuing with audio only.');
+                            }
+                            
+                            // Set up local video element if we have video
+                            if (hasVideoTracks) {
+                                const localVideoElement = document.getElementById('local-video');
+                                if (localVideoElement) {
+                                    localVideoElement.srcObject = stream;
+                                    localVideoElement.onloadedmetadata = () => {
+                                        localVideoElement.play().catch(e => console.error("Error playing local video:", e));
+                                    };
+                                }
+                            }
+                            
+                            // Update UI video status
+                            this.updateVideoStatus();
+                            
+                            // Successfully got media - return true
+                            return true;
                         } catch (error) {
                             lastError = error;
                             console.warn(`Failed with option ${i+1}:`, error.name, error.message);
@@ -531,17 +587,44 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             
                             // If this is a permission error, no need to try other options
                             if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                                showToast('error', 'Camera Permission Denied', 'You must allow camera and microphone access to join the session.');
+                                showToast('error', 'Camera Permission Denied', 'You must allow camera and microphone access to join the session. Please check your browser settings and try again.');
                                 throw error;
+                            }
+                            
+                            // If this is a device not found error, try audio only
+                            if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                                if (i < fallbackOptions.length - 1 && fallbackOptions[i+1].video === false) {
+                                    console.log("No camera found, will try audio-only next");
+                                    showToast('warning', 'Camera Not Found', 'No camera detected. Trying audio-only mode.');
+                                    continue;
+                                }
                             }
                         }
                     }
                     
                     // If we couldn't get a stream with any options
                     if (!this.localStream) {
-                        const errorMessage = lastError ? `${lastError.name}: ${lastError.message}` : "Unknown error";
-                        console.error("All getUserMedia options failed:", errorMessage);
-                        throw lastError || new Error("Could not acquire media stream with any constraints");
+                        console.error("Failed to get user media with all options");
+                        
+                        // Create a fallback audio-only stream as last resort
+                        try {
+                            console.log("Attempting audio-only fallback");
+                            this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                            this.videoEnabled = false;
+                            
+                            showToast('warning', 'Audio Only Mode', 'Using audio-only mode due to camera issues.');
+                            
+                            // Update UI
+                            this.updateVideoStatus();
+                            return true;
+                        } catch (finalError) {
+                            console.error("Final audio-only fallback also failed:", finalError);
+                            showToast('error', 'Connection Failed', 'Could not access microphone or camera. Please check your device permissions in browser settings.');
+                            
+                            const errorMessage = lastError ? `${lastError.name}: ${lastError.message}` : "Unknown error";
+                            console.error("All getUserMedia options failed:", errorMessage);
+                            return false;
+                        }
                     }
                     
                     // Log tracks for debugging
