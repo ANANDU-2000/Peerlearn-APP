@@ -3,7 +3,7 @@ WebSocket consumers for real-time session features.
 """
 
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
 
@@ -218,3 +218,99 @@ class SessionConsumer(AsyncWebsocketConsumer):
             ).exists()
         
         return False
+
+
+class SessionStatusConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Consumer for real-time session status updates in the dashboard.
+    """
+    
+    async def connect(self):
+        """
+        Called when the websocket is handshaking.
+        """
+        # Join session updates group
+        await self.channel_layer.group_add(
+            'session_updates',
+            self.channel_name
+        )
+        
+        # Accept the connection
+        await self.accept()
+        
+        # Send initial session status data
+        sessions = await self.get_active_sessions()
+        await self.send_json({
+            'type': 'sessions_update',
+            'sessions': sessions
+        })
+    
+    async def disconnect(self, close_code):
+        """
+        Called when the WebSocket closes.
+        """
+        # Leave session updates group
+        await self.channel_layer.group_discard(
+            'session_updates',
+            self.channel_name
+        )
+    
+    async def receive_json(self, content):
+        """
+        Called when we receive a JSON message from the client
+        """
+        message_type = content.get('type')
+        
+        if message_type == 'fetch_sessions':
+            # Client requests latest session data
+            sessions = await self.get_active_sessions()
+            await self.send_json({
+                'type': 'sessions_update',
+                'sessions': sessions
+            })
+    
+    async def session_update(self, event):
+        """
+        Called when there's an update to session status
+        """
+        # Forward the update to the client
+        await self.send_json(event)
+    
+    async def booking_update(self, event):
+        """
+        Called when there's an update to a booking
+        """
+        # Forward the update to the client
+        await self.send_json(event)
+    
+    @database_sync_to_async
+    def get_active_sessions(self):
+        """
+        Get all active sessions data from the database
+        """
+        sessions = []
+        try:
+            # Get upcoming and live sessions
+            upcoming_sessions = Session.objects.filter(
+                schedule__gte=timezone.now(),
+                status=Session.SCHEDULED
+            ).order_by('schedule')[:10]
+            
+            for session in upcoming_sessions:
+                attendees = session.booking_set.filter(status=Booking.CONFIRMED).count()
+                sessions.append({
+                    'id': session.id,
+                    'title': session.title,
+                    'mentor_name': session.mentor.get_full_name() or session.mentor.username,
+                    'schedule': session.schedule.isoformat(),
+                    'duration': session.duration,
+                    'price': float(session.price),
+                    'attendees': attendees,
+                    'max_participants': session.max_participants,
+                    'status': session.status,
+                    'room_code': session.room_code,
+                })
+        except Exception as e:
+            print(f"Error fetching session data: {e}")
+        
+        return sessions
