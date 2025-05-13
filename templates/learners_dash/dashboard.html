@@ -85,19 +85,56 @@
                             type: 'success'
                         }
                     }));
-                    // Reload the page to show updated bookings
-                    setTimeout(() => window.location.reload(), 1500);
+                    
+                    // Instead of reloading the page, update the booking status via AJAX
+                    if (data.booking_id) {
+                        fetch(`/api/bookings/${data.booking_id}/`)
+                            .then(response => response.json())
+                            .then(bookingData => {
+                                // Update UI to show the booking is confirmed
+                                const bookingElement = document.querySelector(`.booking-item[data-booking-id="${data.booking_id}"]`);
+                                if (bookingElement) {
+                                    bookingElement.querySelector('.booking-status').textContent = 'Confirmed';
+                                    bookingElement.querySelector('.booking-status').classList.remove('text-yellow-600');
+                                    bookingElement.querySelector('.booking-status').classList.add('text-green-600');
+                                }
+                                
+                                // Add this booking to the user's activity if in the activity tab
+                                const activityList = document.getElementById('bookings-list');
+                                if (activityList && bookingData) {
+                                    // If we have the booking data, update the activity list 
+                                    // without requiring a full page reload
+                                    updateActivityList(bookingData);
+                                }
+                            })
+                            .catch(error => console.error('Error fetching booking details:', error));
+                    }
                 }
             };
             
             socket.onclose = function(event) {
                 console.log('WebSocket connection closed');
-                // Attempt to reconnect after 5 seconds
-                setTimeout(() => {
-                    console.log('Attempting to reconnect WebSocket...');
-                    // Location reload will trigger reconnection
-                    window.location.reload();
-                }, 5000);
+                // Don't automatically refresh the page on connection close
+                // Just log the connection close
+                console.log('WebSocket disconnected. Real-time updates disabled.');
+                
+                // Set up polling instead of full page reload
+                setInterval(function() {
+                    fetch('/api/sessions/status/')
+                        .then(response => response.json())
+                        .then(data => {
+                            // Update UI with polled data
+                            if (data.sessions) {
+                                data.sessions.forEach(session => {
+                                    const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
+                                    if (sessionCard) {
+                                        updateSessionCardUI(sessionCard, session.status);
+                                    }
+                                });
+                            }
+                        })
+                        .catch(error => console.error('Error polling session status:', error));
+                }, 30000); // Poll every 30 seconds instead of forcing page reload
             };
             
             socket.onerror = function(error) {
@@ -120,6 +157,54 @@
                     })
                     .catch(error => console.error('Error polling session status:', error));
             }, 10000); // Poll every 10 seconds
+        }
+        
+        // Function to update activity list with new booking data
+        function updateActivityList(bookingData) {
+            const activityList = document.getElementById('bookings-list');
+            if (!activityList) return;
+            
+            // Create a new booking item element
+            const bookingItem = document.createElement('div');
+            bookingItem.className = 'booking-item flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white rounded-lg shadow-sm mb-3 border-l-4 border-primary-500';
+            bookingItem.setAttribute('data-booking-id', bookingData.id);
+            
+            // Format date for display
+            const bookingDate = new Date(bookingData.session.schedule);
+            const formattedDate = bookingDate.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            // Create booking item content
+            bookingItem.innerHTML = `
+                <div class="flex-1">
+                    <h4 class="text-lg font-medium text-gray-900">${bookingData.session.title}</h4>
+                    <div class="mt-1 text-sm text-gray-600">
+                        <p class="flex items-center"><i data-feather="calendar" class="w-4 h-4 mr-1"></i> ${formattedDate}</p>
+                        <p class="flex items-center mt-1"><i data-feather="user" class="w-4 h-4 mr-1"></i> ${bookingData.session.mentor.name}</p>
+                    </div>
+                </div>
+                <div class="mt-3 sm:mt-0 flex flex-col sm:items-end">
+                    <span class="booking-status text-green-600 font-medium">Confirmed</span>
+                    <span class="text-sm text-gray-500 mt-1">${bookingData.session.duration} minutes</span>
+                </div>
+            `;
+            
+            // Add the new booking to the top of the list
+            if (activityList.firstChild) {
+                activityList.insertBefore(bookingItem, activityList.firstChild);
+            } else {
+                activityList.appendChild(bookingItem);
+            }
+            
+            // Initialize Feather icons for the new element
+            if (window.feather) {
+                window.feather.replace({ 'class': 'w-4 h-4 mr-1' });
+            }
         }
         
         function updateSessionCardUI(card, status) {
