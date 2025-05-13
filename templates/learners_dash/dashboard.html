@@ -385,42 +385,17 @@
             
             sessionsContainer.innerHTML = sessionsHTML;
         };
-            sessions.forEach(session => {
-                const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
-                if (sessionCard) {
-                    // Update attendee count
-                    const countElement = sessionCard.querySelector('.attendee-count');
-                    if (countElement) {
-                        countElement.textContent = session.attendees;
-                    }
-                    
-                    // Update status
-                    updateSessionCardUI(sessionCard, session.status);
-                }
-            });
-        };
+
         
-        // Helper function to update booking display
-        const updateBookingDisplay = (bookingId) => {
-            fetch(`/sessions/api/bookings/${bookingId}/`)
-                .then(response => response.json())
-                .then(bookingData => {
-                    // Update UI to show the booking is confirmed
-                    const bookingElement = document.querySelector(`.booking-item[data-booking-id="${bookingId}"]`);
-                    if (bookingElement) {
-                        bookingElement.querySelector('.booking-status').textContent = 'Confirmed';
-                        bookingElement.querySelector('.booking-status').classList.remove('text-yellow-600');
-                        bookingElement.querySelector('.booking-status').classList.add('text-green-600');
-                    }
-                    
-                    // Add this booking to the user's activity if in the activity tab
-                    const activityList = document.getElementById('bookings-list');
-                    if (activityList && bookingData) {
-                        updateActivityList(bookingData);
-                    }
-                })
-                .catch(error => console.error('Error fetching booking details:', error));
-        };
+        // Document ready function to initialize WebSocket connection
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                setupWebSocket();
+            } catch (error) {
+                console.error('WebSocket initialization failed:', error);
+                setupPolling();
+            }
+        });
         
         // Helper function to show notifications
         const showNotification = (message, type = 'info') => {
@@ -428,9 +403,6 @@
                 detail: { message, type }
             }));
         };
-        
-        // Initialize WebSocket connection
-        setupWebSocket();
         
         // Function to update activity list with new booking data
         function updateActivityList(bookingData) {
