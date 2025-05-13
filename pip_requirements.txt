@@ -1,0 +1,93 @@
+# Core Framework
+Django==4.2.10
+djangorestframework==3.14.0
+django-filter==23.2
+django-cors-headers==4.3.0
+django-crispy-forms==2.0
+django-storages==1.14.2
+whitenoise==6.5.0
+
+# Real-time Communication
+channels==4.0.0
+channels-redis==4.1.0
+daphne==4.0.0
+websockets==11.0.3
+twisted[tls]==23.10.0
+
+# Database and Caching
+psycopg2-binary==2.9.9
+redis==5.0.1
+django-redis==5.4.0
+django-cache-memoize==0.1.10
+
+# Task Processing
+celery==5.3.4
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+flower==2.0.1  # Celery monitoring
+
+# Payment Processing
+razorpay==1.4.1
+stripe==7.7.0
+
+# Authentication and Security
+django-allauth==0.55.0
+django-otp==1.2.2
+django-two-factor-auth==1.15.3
+djangorestframework-simplejwt==5.3.0
+cryptography==41.0.4
+django-ratelimit==4.1.0
+
+# File Handling and Media
+Pillow==10.1.0
+django-imagekit==4.1.0
+sorl-thumbnail==12.10.0
+python-magic==0.4.27  # For file type detection
+
+# Email and Communication
+django-anymail==10.1
+twilio==8.9.1
+
+# Cloud Storage
+boto3==1.28.63
+django-storages[boto3]==1.14.2
+
+# Development and Debugging
+django-debug-toolbar==4.2.0
+django-extensions==3.2.3
+ipython==8.14.0
+pytest==7.4.0
+pytest-django==4.5.2
+coverage==7.3.0
+faker==19.6.0
+
+# Production
+gunicorn==21.2.0
+uvicorn==0.23.2
+supervisor==4.2.5
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+pytz==2023.3
+python-dateutil==2.8.2
+Markdown==3.4.4
+bleach==6.0.0  # For sanitizing HTML
+django-taggit==4.0.0
+django-rich==1.7.0
+django-cleanup==8.0.0
+
+# WebRTC and Media Processing
+aiortc==1.5.0  # Python WebRTC implementation
+av==11.0.0  # For media processing
+
+# Search
+django-haystack==3.2.1
+Whoosh==2.7.4
+
+# Frontend Tools (for reference, installed via npm)
+# - tailwindcss
+# - alpinejs
+# - chart.js
+# - feather-icons
+# - htmx
