@@ -266,6 +266,11 @@ class SessionRequest(models.Model):
         help_text=_('Counter proposed time from the mentor.')
     )
     
+    is_free = models.BooleanField(
+        default=False,
+        help_text=_('Whether this session is being offered for free.')
+    )
+    
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text=_('Date and time when the request was created.')

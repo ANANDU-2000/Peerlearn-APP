@@ -135,13 +135,21 @@
                                                 <label for="counter_time" class="block text-sm font-medium text-gray-700">Proposed Time</label>
                                                 <input type="time" name="counter_time" id="counter_time" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
                                             </div>
-                                            <div>
+                                            <div x-data="{ isFree: false }">
                                                 <label for="counter_offer" class="block text-sm font-medium text-gray-700">Your Pricing</label>
                                                 <div class="mt-1 relative rounded-md shadow-sm">
                                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                         <span class="text-gray-500 sm:text-sm">₹</span>
                                                     </div>
-                                                    <input type="number" min="1" step="0.01" name="counter_offer" id="counter_offer" class="block w-full pl-7 pr-12 border border-gray-300 rounded-md py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="0.00" value="{{ request.budget }}" required>
+                                                    <input type="number" min="0" step="0.01" name="counter_offer" id="counter_offer" class="block w-full pl-7 pr-12 border border-gray-300 rounded-md py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="0.00" value="{{ request.budget }}" x-bind:readonly="isFree" x-bind:required="!isFree">
+                                                </div>
+                                                <div class="mt-2">
+                                                    <div class="flex items-center">
+                                                        <input id="is_free_session" name="is_free_session" type="checkbox" x-model="isFree" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                                                        <label for="is_free_session" class="ml-2 block text-sm text-gray-900">
+                                                            This is a free session
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

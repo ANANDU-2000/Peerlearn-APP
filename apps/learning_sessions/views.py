@@ -639,12 +639,18 @@ def modify_session_request(request, request_id):
     )
     
     if request.method == 'POST':
-        counter_offer = request.POST.get('counter_offer')
         counter_date = request.POST.get('counter_date')
         counter_time = request.POST.get('counter_time')
         notes = request.POST.get('notes', '')
+        is_free_session = request.POST.get('is_free_session') == 'on'
         
-        if counter_offer and counter_date and counter_time:
+        # If it's a free session, set counter_offer to 0, otherwise get from POST
+        if is_free_session:
+            counter_offer = '0'
+        else:
+            counter_offer = request.POST.get('counter_offer')
+        
+        if counter_date and counter_time:
             try:
                 # Parse the counter date and time
                 counter_datetime = f"{counter_date} {counter_time}"
@@ -656,6 +662,7 @@ def modify_session_request(request, request_id):
                 session_request.counter_offer = Decimal(counter_offer)
                 session_request.counter_time = counter_datetime
                 session_request.mentor_notes = notes
+                session_request.is_free = is_free_session
                 session_request.save()
                 
                 # Notify the learner
