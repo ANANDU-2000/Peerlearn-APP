@@ -1,0 +1,82 @@
+NameError at /users/login/
+name 'session_req' is not defined
+Request Method:	GET
+Request URL:	http://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/users/login/
+Django Version:	5.2.1
+Exception Type:	NameError
+Exception Value:	
+name 'session_req' is not defined
+Exception Location:	/home/runner/workspace/apps/users/views.py, line 90, in login_view
+Raised during:	apps.users.views.login_view
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.11.10
+Python Path:	
+['/home/runner/workspace',
+ '.',
+ '/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/dfg63lldbvcj207iyr9z0xw21d8ax02n-python3.11-pip-24.0/lib/python3.11/site-packages',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python311.zip',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/nix/store/wblvmd5y7izx0z10d1w7ga7zc4apjxmb-python3.11-setuptools-75.1.1/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/setuptools/_vendor']
+Server time:	Tue, 13 May 2025 17:26:40 +0000
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/exception.py, line 42, in inner
+                response = await get_response(request)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/base.py, line 253, in _get_response_async
+                response = await wrapped_callback(
+                                 …
+Local vars
+/home/runner/workspace/apps/users/views.py, line 90, in login_view
+    if request.method == 'POST':
+           ^^^^^^^^^^^ …
+Local vars
+Request information
+USER
+AnonymousUser
+
+GET
+No GET data
+
+POST
+No POST data
+
+FILES
+No FILES data
+
+COOKIES
+Variable	Value
+csrftoken	
+'********************'
+META
+Variable	Value
+CSRF_COOKIE	
+'oHXs6DGa8MuGntxT7Zh7ZP5x0FXSvUyz'
+HTTP_ACCEPT	
+'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+HTTP_ACCEPT_ENCODING	
+'gzip, deflate, br, zstd'
+HTTP_ACCEPT_LANGUAGE	
+'en-US,en;q=0.9'
+HTTP_COOKIE	
+'********************'
+HTTP_HOST	
+'fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev'
+HTTP_REFERER	
+'https://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/'
+HTTP_SEC_CH_UA	
+'"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+HTTP_SEC_CH_UA_MOBILE	
+'?0'
+HTTP_SEC_CH_UA_PLATFORM	
+'"Windows"'
+HTTP_SEC_FETCH_DEST	
+'document'
+HTTP_SEC_FETCH_MODE	
+'navigate'
