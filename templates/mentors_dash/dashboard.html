@@ -3,6 +3,52 @@
 
 {% block title %}Mentor Dashboard - PeerLearn{% endblock %}
 
+{% block extra_head %}
+<script>
+    // Dashboard WebSocket handler for real-time updates
+    document.addEventListener('DOMContentLoaded', function() {
+        // Dashboard WebSocket message handler
+        window.handleDashboardWebSocketMessage = function(data) {
+            console.log('Dashboard received WebSocket message:', data);
+            
+            // Handle different message types
+            if (data.type === 'dashboard_data') {
+                updateDashboardData(data.data);
+            } else if (data.type === 'session_update') {
+                showToast(`Session ${data.action}: ${data.session.title}`, 'info');
+            } else if (data.type === 'booking_update') {
+                showToast(`Booking ${data.action}: ${data.booking.session ? data.booking.session.title : 'Unknown session'}`, 'info');
+            } else if (data.type === 'notification') {
+                showToast(data.notification.title, 'info');
+                updateNotificationCount();
+            }
+        };
+        
+        // Update notification count
+        function updateNotificationCount() {
+            if (window.dashboardSocket) {
+                const count = window.dashboardSocket.getNotificationCount();
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            }
+        }
+        
+        // Update dashboard data with received information
+        function updateDashboardData(data) {
+            console.log('Updating dashboard with data:', data);
+            // This will be implemented to update specific sections
+        }
+    });
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="min-h-screen bg-gray-50">
     <!-- Collapsible Sidebar for web -->
@@ -245,6 +291,51 @@
     <!-- Main content -->
     <div x-data class="md:flex md:flex-col md:flex-1 transition-all duration-300 ease-in-out" 
         :class="{'md:pl-64': localStorage.getItem('sidebar_collapsed') !== 'true', 'md:pl-20': localStorage.getItem('sidebar_collapsed') === 'true'}">
+        <!-- WebSocket connection status -->
+        <div class="fixed top-4 right-4 z-50 flex items-center space-x-2">
+            <div id="ws-connection-status" class="flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 transition-all duration-300 transform scale-0 opacity-0">
+                <span id="ws-status-dot" class="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>
+                <span id="ws-status-text">Disconnected</span>
+            </div>
+        </div>
+        
+        <script>
+            // Show WebSocket connection status when it changes
+            document.addEventListener('DOMContentLoaded', function() {
+                const statusContainer = document.getElementById('ws-connection-status');
+                const statusDot = document.getElementById('ws-status-dot');
+                const statusText = document.getElementById('ws-status-text');
+                
+                // Check connection status every second
+                setInterval(function() {
+                    if (window.dashboardSocket) {
+                        statusContainer.classList.remove('scale-0', 'opacity-0');
+                        statusContainer.classList.add('scale-100', 'opacity-100');
+                        
+                        if (window.dashboardSocket.connected) {
+                            statusDot.classList.remove('bg-red-500');
+                            statusDot.classList.add('bg-green-500');
+                            statusText.textContent = 'Connected';
+                            statusContainer.classList.add('bg-green-100', 'text-green-800');
+                            statusContainer.classList.remove('bg-red-100', 'text-red-800', 'bg-gray-100', 'text-gray-800');
+                            
+                            // Hide status indicator after 5 seconds
+                            setTimeout(function() {
+                                statusContainer.classList.remove('scale-100', 'opacity-100');
+                                statusContainer.classList.add('scale-0', 'opacity-0');
+                            }, 5000);
+                        } else {
+                            statusDot.classList.remove('bg-green-500');
+                            statusDot.classList.add('bg-red-500');
+                            statusText.textContent = 'Disconnected';
+                            statusContainer.classList.add('bg-red-100', 'text-red-800');
+                            statusContainer.classList.remove('bg-green-100', 'text-green-800', 'bg-gray-100', 'text-gray-800');
+                        }
+                    }
+                }, 1000);
+            });
+        </script>
+        
         <main class="flex-1">
             <div class="py-6">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
