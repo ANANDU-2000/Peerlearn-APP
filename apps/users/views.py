@@ -82,13 +82,31 @@ def login_view(request):
         if form.is_valid():
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password')
-            user = authenticate(username=email, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, 'Logged in successfully!')
-                return redirect(user.get_dashboard_url())
-            else:
-                messages.error(request, 'Invalid email or password.')
+            
+            # First, try to find the user by email
+            try:
+                user_obj = CustomUser.objects.get(email=email)
+                # Then authenticate with their username
+                user = authenticate(username=user_obj.username, password=password)
+                
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, 'Logged in successfully!')
+                    
+                    # Redirect based on role
+                    if user.is_mentor:
+                        return redirect('users:mentor_dashboard')
+                    elif user.is_learner:
+                        return redirect('users:learner_dashboard')
+                    else:
+                        return redirect('home')
+                else:
+                    messages.error(request, 'Invalid password.')
+            except CustomUser.DoesNotExist:
+                messages.error(request, 'No account found with this email.')
+        else:
+            # Form validation failed
+            messages.error(request, 'Please check your input and try again.')
     else:
         form = UserLoginForm()
     
