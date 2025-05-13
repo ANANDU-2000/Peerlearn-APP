@@ -208,13 +208,15 @@
                             <!-- Upcoming sessions -->
                             <div id="upcoming-sessions-content" class="sessions-tab-content" data-tab="upcoming">
                             {% if upcoming_sessions %}
-                            <div class="bg-white shadow overflow-hidden sm:rounded-md">
-                                <ul class="divide-y divide-gray-200">
+                            <div class="bg-white shadow overflow-hidden sm:rounded-md sessions-container">
+                                <ul class="divide-y divide-gray-200" id="sessions-list">
                                     {% for session in upcoming_sessions %}
-                                    <li x-data="{ 
+                                    <li id="session-{{ session.id }}" class="session-item" x-data="{ 
                                         countdown: '{{ session.countdown_str }}',
                                         showEditMenu: false,
                                         canEdit: {{ session.can_edit|lower }},
+                                        canGoLive: {{ session.can_go_live|lower }},
+                                        status: '{{ session.status }}',
                                         intervalId: null,
                                         target: new Date('{{ session.schedule|date:'c' }}'),
                                         now: new Date('{{ current_time }}'),
