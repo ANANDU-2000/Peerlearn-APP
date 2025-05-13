@@ -481,6 +481,20 @@ def learner_activity_partial(request):
     
     # Add bookings to activities
     for booking in bookings:
+        # Check if session is confirmed and has started (or is about to start in 15 minutes)
+        from django.utils import timezone
+        import datetime
+        
+        # Session is joinable if it's confirmed and the scheduled time is within a 4-hour window
+        # (15 minutes before to 3 hours 45 minutes after the start time)
+        now = timezone.now()
+        is_joinable = False
+        
+        if booking.status == 'confirmed' and booking.session.schedule:
+            time_diff = (booking.session.schedule - now).total_seconds() / 60
+            # Session is joinable 15 minutes before start time and until 3 hours 45 minutes after start
+            is_joinable = time_diff >= -15 and time_diff <= 225
+        
         activity = {
             'type': 'booking',
             'type_color': 'blue',
@@ -493,7 +507,11 @@ def learner_activity_partial(request):
             'can_review': booking.status == 'completed',
             'has_feedback': booking.feedback_submitted,
             'room_code': booking.session.room_code,
-            'id': booking.id
+            'joinable': is_joinable,
+            'id': booking.id,
+            'booking_id': booking.id,
+            'schedule': booking.session.schedule,
+            'duration': booking.session.duration
         }
         activities.append(activity)
     
