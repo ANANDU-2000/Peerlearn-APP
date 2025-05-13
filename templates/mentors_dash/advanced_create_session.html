@@ -939,7 +939,7 @@
                 }
                 
                 // Submit using the API client
-                ApiClient.createSession(formData)
+                apiClient.createSession(formData)
                     .then(response => {
                         if (!response || !response.success) {
                             // Handle validation errors
