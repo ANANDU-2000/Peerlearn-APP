@@ -88,7 +88,7 @@
                                             x-cloak
                                         >
                                             <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                                                <form method="post" action="/accept-request/{{ request.id }}/" class="block w-full">
+                                                <form method="post" action="{% url 'sessions:accept_request' request_id=request.id %}" class="block w-full">
                                                     {% csrf_token %}
                                                     <button 
                                                         type="submit" 
@@ -106,7 +106,7 @@
                                                 >
                                                     Modify & Offer
                                                 </button>
-                                                <form method="post" action="/reject-request/{{ request.id }}/" class="block w-full">
+                                                <form method="post" action="{% url 'sessions:reject_request' request_id=request.id %}" class="block w-full">
                                                     {% csrf_token %}
                                                     <button 
                                                         type="submit" 

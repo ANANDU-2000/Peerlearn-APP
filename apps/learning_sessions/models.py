@@ -180,12 +180,14 @@ class SessionRequest(models.Model):
     OFFERED = 'offered'
     ACCEPTED = 'accepted'
     DECLINED = 'declined'
+    COUNTERED = 'countered'
     
     STATUS_CHOICES = [
         (PENDING, _('Pending')),
         (OFFERED, _('Offered')),
         (ACCEPTED, _('Accepted')),
         (DECLINED, _('Declined')),
+        (COUNTERED, _('Countered')),
     ]
     
     learner = models.ForeignKey(
