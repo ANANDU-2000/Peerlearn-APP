@@ -5,6 +5,139 @@
 
 {% block extra_css %}
 <style>
+    /* Video room styles */
+    .participant-tile {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: #f3f4f6;
+    }
+    
+    .participant-tile video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background-color: #1f2937;
+    }
+    
+    .video-placeholder {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        background-color: #1f2937;
+        color: #9ca3af;
+    }
+    
+    .video-placeholder svg {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .main-video {
+        height: 400px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .video-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px;
+        background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+        color: white;
+    }
+    
+    .user-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .session-timer {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background-color: rgba(0,0,0,0.6);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .connection-status {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        background-color: rgba(0,0,0,0.6);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .status-dot.connected {
+        background-color: #10b981;
+    }
+    
+    .status-dot.connecting {
+        background-color: #f59e0b;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .status-dot.disconnected, .status-dot.error {
+        background-color: #ef4444;
+    }
+    
+    .controls-container {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        padding: 16px 0;
+    }
+    
+    .control-button {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-color: #f3f4f6;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .control-button svg {
+        width: 24px;
+        height: 24px;
+        color: #4b5563;
+    }
+    
+    .control-button:hover {
+        background-color: #e5e7eb;
+    }
+    
+    .control-button.active {
+        background-color: #ef4444;
+    }
+    
+    .control-button.active svg {
+        color: white;
+    }
+    
     /* Make the video container fill the available space */
     .video-container {
         position: relative;
@@ -21,14 +154,20 @@
         height: 100%;
         object-fit: cover;
     }
-
+    
     /* Media query for larger screens */
     @media (min-width: 768px) {
         .chat-container {
             height: calc(100vh - 150px);
         }
     }
-
+    
+    /* Chat section styles */
+    .chat-messages {
+        height: 400px;
+        overflow-y: auto;
+    }
+    
     /* Custom scrollbar for chat */
     .chat-messages::-webkit-scrollbar {
         width: 6px;
@@ -37,6 +176,34 @@
     .chat-messages::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 10px;
+    }
+    
+    /* Ensure local video is displayed properly */
+    #local-video {
+        transform: scaleX(-1); /* Mirror effect for self-view */
+    }
+    
+    /* Add styles for username labels on participant videos */
+    .username-label {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+        100% {
+            opacity: 1;
+        }
     }
 
     .chat-messages::-webkit-scrollbar-thumb {
