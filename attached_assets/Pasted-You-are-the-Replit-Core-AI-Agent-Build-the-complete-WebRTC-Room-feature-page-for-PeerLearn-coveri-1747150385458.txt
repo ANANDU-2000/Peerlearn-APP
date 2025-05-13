@@ -1,0 +1,65 @@
+You are the Replit Core AI Agent. Build the complete *WebRTC Room* feature page for PeerLearn—covering Mentor & Learner UIs, real-time flows, video controls, error handling, reconnection, analytics, and post-session feedback. Use Django+Channels+SQLite3+TailwindCSS+Alpine.js. Paste this spec to generate all code:
+
+ROUTE: /session/<room_code>/ (mentor or learner; server‐side auth + role check)
+
+1. PAGE LAYOUT  
+   • *Web*: two-column (video streams 70%, sidebar 30%)  
+   • *Mobile*: stacked full-width video, bottom toolbar
+
+2. PRE-LIVE LOBBY  
+   • Show session title, start countdown, list of “Waiting Learners” via WS learner.join  
+   • Mentor “Start Session ▶” button; Learner “Waiting for Mentor…” message  
+   • Toasts: “Alice is waiting in the room”
+
+3. REAL-TIME SIGNALING  
+   • Open WS ws://…/ws/sessions/{room_code}/  
+   • Exchange SDP offer/answer + ICE via Django Channels consumer  
+   • STUN/TURN from ENV; fallback to audio only  
+
+4. VIDEO STREAMS & CONTROLS  
+   • Two <video> elements (muted local, remote) with object-cover  
+   • Toolbar buttons:  
+     – Mute/unmute mic (toggles audio track)  
+     – Toggle camera (video track)  
+     – Share screen (replace video track)  
+     – Chat toggle (inline slide-in pane)  
+     – Whiteboard toggle (collaborative canvas via WS)  
+     – End Session ▶ (prompts confirmation)  
+   • Controls disabled until peer connection ready; spinner overlay “Connecting…”  
+
+5. LIVE METRICS & NOTIFICATIONS  
+   • Real-time attendee count badge (WS learner.join/learner.leave)  
+   • Elapsed timer (hh:mm:ss) with Alpine.js  
+   • Network quality indicator (update on ICE state events)  
+   • Toasts for join/leave, network drop/reconnect, media errors  
+
+6. ERROR HANDLING & RECONNECTION  
+   • WS disconnect → auto-retry with exponential backoff + toast “Reconnecting…”  
+   • ICE failure → show “Network issue, retrying media”  
+   • Media device error → prompt “Camera/mic unavailable” + audio-only fallback  
+   • Offline detection → banner “You’re offline. Session paused.”; auto-resume on reconnect  
+
+7. UNEXPECTED LEAVE & REJOIN  
+   • Detect page unload/crash → WS learner.leave; update attendee list  
+   • On rejoin within session window, re-negotiate peer connection automatically  
+   • Resume video & chat; maintain elapsed timer  
+
+8. END SESSION & FEEDBACK  
+   • Mentor “End Session” or auto-end at scheduled end_time → broadcast WS session.end  
+   • Stop media tracks; show post-session modal:  
+     – *Learner*: Rate Mentor (stars + comment)  
+     – *Mentor*: Upload Resources (file list) + Rate Learner  
+   • Save feedback to DB; toast “Thank you for your feedback”  
+   • Update Session.status='completed', record Session.duration, trigger Celery for revenue analytics and notifications  
+
+9. POST-SESSION UPDATES  
+   • WS notifications:{user_id} for rating reminder T+5m  
+   • Mentor Dashboard earnings auto-refresh via notifications:{mentor_id}  
+   • Learner Dashboard “My Activity” moves session to Past  
+
+10. SECURITY & QA  
+   • Server-side auth + role guard; CSRF on WS handshake  
+   • Pytest for signaling consumer, media error flows, reconnection  
+   • Accessiblity: ARIA labels, keyboard navigation
+
+Deliver templates (room.html), JS (WebRTC & WS logic), Channels consumer, and TailwindCSS styles to fully implement this robust live session experience.
