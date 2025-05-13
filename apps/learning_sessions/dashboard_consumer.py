@@ -187,6 +187,12 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             
             print(f"Processing WebSocket action: {action}")
             
+            # Handle message type if action is not specified
+            message_type = data.get('type')
+            if not action and message_type == 'get_data':
+                await self.send_dashboard_data()
+                return
+            
             if action == 'get_dashboard_data':
                 # Request dashboard data
                 try:
@@ -259,7 +265,7 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                 print(f"Unknown WebSocket action received: {action}")
                 await self.send(text_data=json.dumps({
                     'type': 'error',
-                    'message': f'Unknown action: {action}'
+                    'message': f'Unknown action: {action if action else "No action specified"}'
                 }))
                 
         except json.JSONDecodeError as json_err:
