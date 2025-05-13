@@ -188,7 +188,7 @@ def request_session(request, mentor_id):
 @login_required
 def request_session_api(request):
     """API endpoint for learners to request a session from a mentor."""
-    if not request.user.is_learner:
+    if not hasattr(request.user, 'role') or request.user.role != 'learner':
         return JsonResponse({'success': False, 'message': 'Only learners can request sessions.'})
     
     if request.method == 'POST':
@@ -208,7 +208,7 @@ def request_session_api(request):
             
             # Get mentor
             try:
-                mentor = CustomUser.objects.get(id=mentor_id, role=CustomUser.MENTOR)
+                mentor = CustomUser.objects.get(id=mentor_id, role='mentor')
             except CustomUser.DoesNotExist:
                 return JsonResponse({'success': False, 'message': 'Mentor not found.'})
             
