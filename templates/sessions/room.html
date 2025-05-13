@@ -294,40 +294,160 @@
                         
                         <!-- Session details -->
                         <div class="mt-8 bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900">Session Details</h3>
-                            <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3">
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Category</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ session.category }}</dd>
+                            <!-- Tabs for session details and participants -->
+                            <div x-data="{ activeTab: 'details' }">
+                                <div class="border-b border-gray-200">
+                                    <nav class="-mb-px flex space-x-8">
+                                        <button 
+                                            @click="activeTab = 'details'" 
+                                            :class="{ 'border-primary-500 text-primary-600': activeTab === 'details', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'details' }"
+                                            class="whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm"
+                                        >
+                                            Session Details
+                                        </button>
+                                        <button 
+                                            @click="activeTab = 'participants'" 
+                                            :class="{ 'border-primary-500 text-primary-600': activeTab === 'participants', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'participants' }"
+                                            class="whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm relative"
+                                        >
+                                            Participants
+                                            <span class="ml-2 bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full text-xs font-medium" x-text="otherParticipants.length + 1"></span>
+                                        </button>
+                                    </nav>
                                 </div>
                                 
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Duration</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ session.duration }} minutes</dd>
-                                </div>
-                                
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">
-                                        {% if user_role == 'mentor' %}Learner{% else %}Mentor{% endif %}
-                                    </dt>
-                                    <dd class="mt-1 text-sm text-gray-900">
-                                        {% if user_role == 'mentor' %}
-                                            {% for booking in session.bookings.all %}
-                                                {% if booking.status == 'confirmed' %}
-                                                    {{ booking.learner.get_full_name|default:booking.learner.username }}{% if not forloop.last %}, {% endif %}
+                                <!-- Session Details Tab Content -->
+                                <div x-show="activeTab === 'details'" class="pt-4">
+                                    <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3">
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Category</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">{{ session.category }}</dd>
+                                        </div>
+                                        
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Duration</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">{{ session.duration }} minutes</dd>
+                                        </div>
+                                        
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">
+                                                {% if user_role == 'mentor' %}Learner{% else %}Mentor{% endif %}
+                                            </dt>
+                                            <dd class="mt-1 text-sm text-gray-900">
+                                                {% if user_role == 'mentor' %}
+                                                    {% for booking in session.bookings.all %}
+                                                        {% if booking.status == 'confirmed' %}
+                                                            {{ booking.learner.get_full_name|default:booking.learner.username }}{% if not forloop.last %}, {% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    {{ session.mentor.get_full_name|default:session.mentor.username }}
                                                 {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{ session.mentor.get_full_name|default:session.mentor.username }}
-                                        {% endif %}
-                                    </dd>
+                                            </dd>
+                                        </div>
+                                        
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Scheduled Time</dt>
+                                            <dd class="mt-1 text-sm text-gray-900">{{ session.schedule|date:"F j, Y, g:i a" }}</dd>
+                                        </div>
+                                    </dl>
                                 </div>
                                 
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Scheduled Time</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ session.schedule|date:"F j, Y, g:i a" }}</dd>
+                                <!-- Participants Tab Content -->
+                                <div x-show="activeTab === 'participants'" class="pt-4">
+                                    <ul class="divide-y divide-gray-200">
+                                        <!-- Current user (self) -->
+                                        <li class="py-3 flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 font-semibold">
+                                                    <span x-text="USER_NAME.charAt(0).toUpperCase()"></span>
+                                                </div>
+                                            </div>
+                                            <div class="ml-3">
+                                                <p class="text-sm font-medium text-gray-900" x-text="USER_NAME + ' (You)'"></p>
+                                                <p class="text-xs text-gray-500" x-text="USER_ROLE.charAt(0).toUpperCase() + USER_ROLE.slice(1)"></p>
+                                            </div>
+                                            <div class="ml-auto flex items-center space-x-2">
+                                                <!-- Microphone status -->
+                                                <span x-show="audioEnabled" class="text-green-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                                    </svg>
+                                                </span>
+                                                <span x-show="!audioEnabled" class="text-red-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                                    </svg>
+                                                </span>
+                                                
+                                                <!-- Camera status -->
+                                                <span x-show="videoEnabled" class="text-green-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                </span>
+                                                <span x-show="!videoEnabled" class="text-red-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                                    </svg>
+                                                </span>
+                                                
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    Connected
+                                                </span>
+                                            </div>
+                                        </li>
+                                        
+                                        <!-- Other participants -->
+                                        <template x-for="participant in otherParticipants" :key="participant.id">
+                                            <li class="py-3 flex items-center">
+                                                <div class="flex-shrink-0">
+                                                    <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 font-semibold">
+                                                        <span x-text="participant.username.charAt(0).toUpperCase()"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <p class="text-sm font-medium text-gray-900" x-text="participant.username"></p>
+                                                    <p class="text-xs text-gray-500" x-text="participant.role.charAt(0).toUpperCase() + participant.role.slice(1)"></p>
+                                                </div>
+                                                <div class="ml-auto flex items-center space-x-2">
+                                                    <!-- Microphone status -->
+                                                    <span x-show="audioEnabled" class="text-green-500">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span x-show="!audioEnabled" class="text-red-500">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                                        </svg>
+                                                    </span>
+                                                    
+                                                    <!-- Camera status -->
+                                                    <span x-show="videoEnabled" class="text-green-500">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span x-show="!videoEnabled" class="text-red-500">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                                        </svg>
+                                                    </span>
+                                                    
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        Connected
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        </template>
+                                    </ul>
                                 </div>
-                            </dl>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -419,6 +539,12 @@
     const TURN_SERVER = "{{ TURN_SERVER|default:'' }}";
     const TURN_USERNAME = "{{ TURN_USERNAME|default:'' }}";
     const TURN_CREDENTIAL = "{{ TURN_CREDENTIAL|default:'' }}";
+    
+    // Make values accessible globally
+    window.USER_NAME = USER_NAME;
+    window.USER_ROLE = USER_ROLE;
+    window.USER_ID = USER_ID;
+    window.ROOM_CODE = ROOM_CODE;
     
     // Initialize Alpine.js webRTC room
     document.addEventListener('DOMContentLoaded', function() {

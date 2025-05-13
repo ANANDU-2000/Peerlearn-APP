@@ -15,7 +15,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             screenStream: null,
             mainStream: null,
             mainStreamUser: userName,
-            otherParticipants: [],
+            otherParticipants: [], // Array of connected participants
+            participantMediaStatus: {}, // Keep track of participants' media status
             chatMessages: [],
             newMessage: "",
             audioEnabled: true,
@@ -124,11 +125,18 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         case 'user_join':
                             // New user joined
                             if (message.user_id !== userId) {
-                                this.otherParticipants.push({
+                                const newParticipant = {
                                     id: message.user_id,
                                     username: message.username,
                                     role: message.role
-                                });
+                                };
+                                this.otherParticipants.push(newParticipant);
+                                
+                                // Initialize media status tracking for this participant
+                                this.participantMediaStatus[message.user_id] = {
+                                    audioEnabled: true,
+                                    videoEnabled: true
+                                };
                                 
                                 // Create peer connection for new user
                                 await this.createPeerConnection(message.user_id, message.username);
@@ -146,6 +154,16 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                     }));
                                 }
                                 
+                                // Send our current media state to the new participant
+                                this.websocket.send(JSON.stringify({
+                                    type: 'media_status',
+                                    target: message.user_id,
+                                    user_id: userId,
+                                    username: userName,
+                                    audioEnabled: this.audioEnabled,
+                                    videoEnabled: this.videoEnabled
+                                }));
+                                
                                 // Show toast
                                 showToast('info', 'User Joined', `${message.username} joined the session.`);
                             }
@@ -160,10 +178,15 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                     delete this.peerConnections[message.user_id];
                                 }
                                 
-                                // Remove from participants list
+                                // Remove from participants list and media status tracking
                                 this.otherParticipants = this.otherParticipants.filter(
                                     participant => participant.id !== message.user_id
                                 );
+                                
+                                // Remove from media status tracking
+                                if (this.participantMediaStatus[message.user_id]) {
+                                    delete this.participantMediaStatus[message.user_id];
+                                }
                                 
                                 // Show toast
                                 showToast('info', 'User Left', `${message.username} left the session.`);
