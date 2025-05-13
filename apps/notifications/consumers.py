@@ -3,10 +3,13 @@ WebSocket consumers for real-time notifications.
 """
 
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
 from .models import Notification
+
+logger = logging.getLogger(__name__)
 
 class NotificationConsumer(AsyncWebsocketConsumer):
     """
@@ -49,7 +52,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 self.notification_group_name,
                 self.channel_name
             )
-            logging.info(f"User removed from notification group: {self.notification_group_name}")
+            logger.info(f"User removed from notification group: {self.notification_group_name}")
     
     async def receive(self, text_data):
         """
