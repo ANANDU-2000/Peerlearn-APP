@@ -8,54 +8,137 @@
 <script>
     // Replace the main content in the dashboard
     document.addEventListener('DOMContentLoaded', function() {
-        const mainContent = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(1)');
+        const mainContent = document.querySelector('main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(1)');
         if (mainContent) {
             mainContent.innerHTML = `
                 <div class="flex items-center justify-between">
-                    <h1 class="text-2xl font-semibold text-gray-900">Create New Session</h1>
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Create Session</h1>
+                        <div class="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-800">New</div>
+                    </div>
                 </div>
             `;
         }
 
-        const mainContentBody = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(2)');
+        const mainContentBody = document.querySelector('main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(2)');
         if (mainContentBody) {
             mainContentBody.innerHTML = `
                 <div class="mt-6">
-                    <div class="md:grid md:grid-cols-3 md:gap-6">
-                        <div class="md:col-span-1">
-                            <div class="px-4 sm:px-0">
-                                <h3 class="text-lg font-medium leading-6 text-gray-900">Session Information</h3>
-                                <p class="mt-1 text-sm text-gray-600">
-                                    Create a new learning session for learners to book and attend. 
-                                    Fill in all the details to make your session more discoverable.
-                                </p>
-                                <div class="mt-6">
-                                    <div class="flex items-center">
-                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                        <p class="ml-2 text-sm text-gray-600">Real-time validation</p>
+                    <div class="md:grid md:grid-cols-12 md:gap-8">
+                        <!-- Left column with form -->
+                        <div class="md:col-span-8 space-y-6">
+                            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                                <div class="p-6 bg-white border-b border-gray-200">
+                                    <div class="flex items-center mb-6">
+                                        <div class="bg-gradient-to-r from-violet-500 to-violet-600 rounded-full p-2.5 mr-3">
+                                            <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M5.5 16a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 16h-8z" />
+                                            </svg>
+                                        </div>
+                                        <h3 class="text-lg font-medium leading-6 text-gray-900">Session Information</h3>
                                     </div>
-                                    <div class="flex items-center mt-2">
-                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                        <p class="ml-2 text-sm text-gray-600">Image preview</p>
+                            
+                                    <form action="{% url 'users:mentor_create_session' %}" method="post" enctype="multipart/form-data" x-data="sessionForm()">
+                                        {% csrf_token %}
+                                        <div class="space-y-6">
+                        
+                        <!-- Right column with live preview and tips -->
+                        <div class="md:col-span-4 md:mt-0 mt-8">
+                            <div class="sticky top-6 space-y-6">
+                                <!-- Session Preview Card -->
+                                <div class="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200">
+                                    <div class="relative">
+                                        <div x-show="!previewUrl" class="h-32 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white">
+                                            <svg class="h-12 w-12 opacity-75" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <img x-show="previewUrl" x-bind:src="previewUrl" class="h-32 w-full object-cover" alt="Session Preview">
+                                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-3">
+                                            <div class="text-xs font-medium">LIVE PREVIEW</div>
+                                        </div>
                                     </div>
-                                    <div class="flex items-center mt-2">
-                                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                        <p class="ml-2 text-sm text-gray-600">Topic suggestions</p>
+                                    <div class="p-4">
+                                        <h3 x-text="formData.title || 'Session Title'" class="text-lg font-medium text-gray-900 truncate"></h3>
+                                        
+                                        <div class="mt-2 flex flex-wrap gap-1.5 mb-3">
+                                            <template x-for="topic in (formData.topics ? formData.topics.split(',').map(t => t.trim()).filter(t => t) : [])" :key="topic">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                                    <span x-text="topic"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        
+                                        <div class="flex items-center text-sm text-gray-500 mt-3">
+                                            <svg class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span x-text="formData.duration ? formData.duration + ' min' : 'Duration'"></span>
+                                        </div>
+                                        
+                                        <div class="flex items-center text-sm text-gray-500 mt-1.5">
+                                            <svg class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span>{{ user.get_full_name }}</span>
+                                        </div>
+                                        
+                                        <div x-show="!formData.is_free" class="mt-3 flex items-end justify-between">
+                                            <div class="flex items-center">
+                                                <span x-text="formData.price ? '₹' + formData.price : '₹0'" class="text-xl font-bold text-gray-900"></span>
+                                            </div>
+                                            <div>
+                                                <div class="inline-flex rounded-md shadow-sm">
+                                                    <span class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600">
+                                                        Coming Soon
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tips Card -->
+                                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-5">
+                                    <h3 class="font-medium text-gray-900 mb-3">Tips for Success</h3>
+                                    <ul class="space-y-3 text-sm">
+                                        <li class="flex">
+                                            <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="text-gray-600">Use clear, descriptive titles that highlight what learners will gain</span>
+                                        </li>
+                                        <li class="flex">
+                                            <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="text-gray-600">Include relevant topics to help learners find your session</span>
+                                        </li>
+                                        <li class="flex">
+                                            <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="text-gray-600">Price your session competitively based on your expertise</span>
+                                        </li>
+                                        <li class="flex">
+                                            <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="text-gray-600">Detail prerequisites and learning outcomes</span>
+                                        </li>
+                                    </ul>
+                                    <div class="mt-4 pt-3 border-t border-gray-200">
+                                        <h4 class="text-sm font-medium text-gray-900 mb-2">Form Status</h4>
+                                        <div class="flex items-center">
+                                            <div class="flex-1 bg-gray-200 rounded-full h-2">
+                                                <div class="bg-green-500 h-2 rounded-full" :style="'width: ' + getFormCompletionPercentage() + '%'"></div>
+                                            </div>
+                                            <span class="ml-2 text-xs font-medium text-gray-500" x-text="getFormCompletionPercentage() + '%'"></span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-5 md:mt-0 md:col-span-2">
-                            <form action="{% url 'users:mentor_create_session' %}" method="post" enctype="multipart/form-data" x-data="sessionForm()">
-                                {% csrf_token %}
-                                <div class="shadow sm:rounded-md sm:overflow-hidden">
-                                    <div class="px-4 py-5 bg-white space-y-6 sm:p-6">
                                         <div>
                                             <label for="id_title" class="block text-sm font-medium text-gray-700">Session Title</label>
                                             <div class="mt-1 relative rounded-md shadow-sm">
@@ -271,8 +354,59 @@
                 'JavaScript', 'Python', 'Machine Learning', 'Web Development', 
                 'Data Science', 'React', 'Angular', 'Vue.js', 'Django', 'Flask',
                 'Node.js', 'Express', 'SQL', 'NoSQL', 'Docker', 'AWS', 'Git',
-                'DevOps', 'Design Patterns', 'Algorithm', 'Computer Science'
+                'DevOps', 'Design Patterns', 'Algorithms', 'Computer Science'
             ],
+            
+            addTopic(topic) {
+                if (!this.formData.topics) {
+                    this.formData.topics = topic;
+                } else if (!this.formData.topics.split(',').map(t => t.trim()).includes(topic)) {
+                    this.formData.topics += ', ' + topic;
+                }
+                this.validateTopics();
+            },
+            
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        this.thumbnailError = 'Image size should be less than 5MB';
+                        this.previewUrl = null;
+                        return;
+                    }
+                    
+                    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+                        this.thumbnailError = 'Only JPEG, PNG, and GIF images are allowed';
+                        this.previewUrl = null;
+                        return;
+                    }
+                    
+                    this.thumbnailError = '';
+                    this.previewUrl = URL.createObjectURL(file);
+                }
+            },
+            
+            getFormCompletionPercentage() {
+                const fields = [
+                    { name: 'title', value: this.formData.title, weight: 15 },
+                    { name: 'topics', value: this.formData.topics, weight: 15 },
+                    { name: 'description', value: this.formData.description, weight: 20 },
+                    { name: 'schedule', value: this.formData.schedule, weight: 15 },
+                    { name: 'duration', value: this.formData.duration, weight: 10 },
+                    { name: 'price', value: this.formData.is_free ? true : this.formData.price, weight: 10 },
+                    { name: 'max_participants', value: this.formData.max_participants, weight: 5 },
+                    { name: 'thumbnail', value: this.previewUrl, weight: 10 }
+                ];
+                
+                let completionScore = 0;
+                for (const field of fields) {
+                    if (field.value) {
+                        completionScore += field.weight;
+                    }
+                }
+                
+                return Math.min(100, completionScore);
+            },
             
             isFormValid() {
                 return !this.titleError && !this.topicsError && !this.descriptionError &&
