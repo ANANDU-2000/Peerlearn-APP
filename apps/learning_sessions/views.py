@@ -360,12 +360,12 @@ def book_session(request, session_id):
     
     if not request.user.is_learner:
         messages.error(request, 'Only learners can book sessions.')
-        return redirect('session_detail', pk=session_id)
+        return redirect('sessions:detail', pk=session_id)
     
     # Check if already booked
     if Booking.objects.filter(session=session, learner=request.user).exists():
         messages.info(request, 'You have already booked this session.')
-        return redirect('session_detail', pk=session_id)
+        return redirect('sessions:detail', pk=session_id)
     
     # Process the booking
     if request.method == 'POST':
@@ -388,7 +388,7 @@ def book_session(request, session_id):
                     link=f"/dashboard/mentor/"
                 )
                 
-                return redirect('session_detail', pk=session_id)
+                return redirect('sessions:detail', pk=session_id)
             else:
                 # Paid session - redirect to payment
                 return redirect('payment_create', booking_id=booking.id)
@@ -450,7 +450,7 @@ def session_room(request, room_code):
     # Check if session is live or scheduled
     if session.status not in [Session.LIVE, Session.SCHEDULED]:
         messages.error(request, 'This session is not available for joining.')
-        return redirect('session_detail', pk=session.id)
+        return redirect('sessions:detail', pk=session.id)
     
     # If mentor is joining and session is scheduled, make it live
     if user_role == 'mentor' and session.status == Session.SCHEDULED:

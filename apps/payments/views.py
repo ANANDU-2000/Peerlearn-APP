@@ -87,7 +87,7 @@ def payment_create(request, booking_id):
     
     except Exception as e:
         messages.error(request, f'Error creating payment: {str(e)}')
-        return redirect('session_detail', pk=booking.session.id)
+        return redirect('sessions:detail', pk=booking.session.id)
 
 @login_required
 def payment_detail(request, payment_id):
@@ -193,7 +193,7 @@ def payment_success(request, payment_id):
                     )
             
             messages.success(request, 'Payment successful! Your booking is confirmed.')
-            return redirect('session_detail', pk=payment.booking.session.id)
+            return redirect('sessions:detail', pk=payment.booking.session.id)
         else:
             messages.error(request, 'Payment was not completed. Please try again.')
             return redirect('payment_create', booking_id=payment.booking.id)
