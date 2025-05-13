@@ -25,6 +25,8 @@ urlpatterns = [
     path('accept-request/<int:request_id>/', views.accept_session_request, name='accept_request'),
     path('reject-request/<int:request_id>/', views.reject_session_request, name='reject_request'),
     path('modify-request/<int:request_id>/', views.modify_session_request, name='modify_request'),
+    path('requests/<int:request_id>/accept-counter/', views.accept_counter_offer, name='accept_counter_offer'),
+    path('requests/<int:request_id>/cancel/', views.cancel_session_request, name='cancel_request'),
     
     # Bookings
     path('<int:session_id>/book/', views.book_session, name='book'),

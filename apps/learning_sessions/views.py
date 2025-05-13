@@ -674,3 +674,85 @@ def modify_session_request(request, request_id):
     
     # If not POST or validation failed, redirect to the respond page
     return redirect('sessions:respond_to_request', request_id=request_id)
+
+
+@login_required
+def accept_counter_offer(request, request_id):
+    """View for learners to accept a counter offer from a mentor."""
+    session_request = get_object_or_404(
+        SessionRequest,
+        id=request_id,
+        learner=request.user,
+        status=SessionRequest.COUNTERED
+    )
+    
+    if request.method == 'POST':
+        # Create a session based on the counter offer
+        session = Session.objects.create(
+            mentor=session_request.mentor,
+            title=session_request.title,
+            description=session_request.description,
+            topics=[session_request.domain.name] if session_request.domain else [],
+            schedule=session_request.counter_time,
+            duration=session_request.duration,
+            price=session_request.counter_offer,
+            max_participants=1,  # One-to-one session by default
+            status=Session.SCHEDULED
+        )
+        
+        # Create a booking for the learner
+        booking = Booking.objects.create(
+            session=session,
+            learner=request.user,
+            status=Booking.CONFIRMED if session.is_free() else Booking.PENDING
+        )
+        
+        # Update the request status
+        session_request.status = SessionRequest.ACCEPTED
+        session_request.save()
+        
+        # Notify the mentor
+        Notification.objects.create(
+            user=session_request.mentor,
+            message=f"Your counter offer for session '{session_request.title}' has been accepted by {request.user.get_full_name()}.",
+            link=reverse('users:mentor_dashboard')
+        )
+        
+        if session.is_free():
+            messages.success(request, 'You have successfully booked this free session.')
+            return redirect('users:learner_dashboard')
+        else:
+            # Redirect to payment process
+            messages.success(request, 'Counter offer accepted. Please complete the payment to confirm your booking.')
+            return redirect('payments:process', booking_id=booking.id)
+    
+    # If not POST, redirect to dashboard
+    return redirect('users:learner_dashboard')
+
+
+@login_required
+def cancel_session_request(request, request_id):
+    """View for learners to cancel a session request."""
+    session_request = get_object_or_404(
+        SessionRequest,
+        id=request_id,
+        learner=request.user
+    )
+    
+    if request.method == 'POST':
+        # Add a note about cancellation
+        cancellation_reason = request.POST.get('reason', 'Cancelled by learner')
+        session_request.mentor_notes = f"{session_request.mentor_notes or ''}\n\nCancelled: {cancellation_reason}"
+        session_request.status = SessionRequest.DECLINED
+        session_request.save()
+        
+        # Notify the mentor
+        Notification.objects.create(
+            user=session_request.mentor,
+            message=f"A session request '{session_request.title}' has been cancelled by {request.user.get_full_name()}.",
+            link=reverse('users:mentor_requests')
+        )
+        
+        messages.success(request, 'Session request cancelled successfully.')
+    
+    return redirect('users:learner_dashboard')
