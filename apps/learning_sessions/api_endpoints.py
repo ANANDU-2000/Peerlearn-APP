@@ -289,12 +289,28 @@ def go_live_api(request, session_id):
                 'error': 'Only the mentor who created the session can start it'
             }, status=403)
         
-        # Check if session can be started (must be scheduled)
-        if session.status != 'scheduled':
-            return JsonResponse({
-                'success': False,
-                'error': f'Cannot start a session that is {session.get_status_display()}'
-            }, status=400)
+        # Parse request data to check for force parameter
+        try:
+            data = json.loads(request.body)
+            force = data.get('force', False)
+        except:
+            force = False
+            
+        # Check if session can be started (must be scheduled or we're forcing it)
+        if session.status != 'scheduled' and not force:
+            # If session is already live, just return room URL instead of error
+            if session.status == 'live':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Session is already live',
+                    'room_code': str(session.room_code),
+                    'room_url': f'/sessions/{session.room_code}/join/'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot start a session that is {session.get_status_display()}'
+                }, status=400)
         
         # Get confirmed bookings (if any, we'll notify them, but allow mentors to join even without bookings)
         confirmed_bookings = Booking.objects.filter(session=session, status='confirmed')
@@ -305,7 +321,7 @@ def go_live_api(request, session_id):
         time_until_session = session.schedule - timezone.now()
         
         # Only log the time info for debugging purposes
-        logger.info(f"Time until session {session_id}: {time_until_session.total_seconds()} seconds")
+        logger.info(f"Time until session {session_id}: {time_until_session.total_seconds()} seconds. Force: {force}")
         
         # Start a transaction to ensure all operations are atomic
         with transaction.atomic():

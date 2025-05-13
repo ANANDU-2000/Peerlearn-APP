@@ -484,7 +484,7 @@
             },
             
             /**
-             * Go Live - Put a session in live mode and redirect to room
+             * Go Live/Prepare Room - Put a session in live mode and redirect to room
              */
             goLive(sessionId) {
                 if (this.isBusy) return;
@@ -496,24 +496,36 @@
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': this.csrfToken
-                    }
+                    },
+                    body: JSON.stringify({
+                        force: true // Force go live even if time or booking conditions aren't met
+                    })
                 })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Failed to go live');
+                        throw new Error('Failed to prepare room');
                     }
                     return response.json();
                 })
                 .then(data => {
                     // Show success notification
-                    this.showToast(data.message || 'Session is now live! ✓', 'success');
+                    this.showToast(data.message || 'Room ready! Redirecting...', 'success');
+                    
+                    console.log("Go Live API response:", data);
+                    
+                    // Get room code from response
+                    const roomCode = data.room_code || data.session?.room_code;
+                    
+                    if (!roomCode) {
+                        throw new Error('No room code received from server');
+                    }
                     
                     // Redirect to session room
-                    window.location.href = data.room_url || `/sessions/${data.room_code}/join/`;
+                    window.location.href = `/sessions/${roomCode}/join/`;
                 })
                 .catch(error => {
-                    console.error('Error going live:', error);
-                    this.showToast('Failed to go live. Please try again.', 'error');
+                    console.error('Error preparing room:', error);
+                    this.showToast('Failed to prepare room. Please try again.', 'error');
                     this.isBusy = false;
                 });
             },

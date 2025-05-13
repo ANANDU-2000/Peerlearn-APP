@@ -19,8 +19,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             participantMediaStatus: {}, // Keep track of participants' media status
             chatMessages: [],
             newMessage: "",
-            audioEnabled: true,
-            videoEnabled: true,
+            isAudioEnabled: true, // Flag to track audio state
+            isVideoEnabled: true, // Flag to track video state
             isScreenSharing: false,
             sessionStatus: "connecting",
             sessionStartTime: null,
@@ -455,7 +455,7 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             // Request user media (camera and microphone)
             async requestUserMedia() {
                 try {
-                    console.log("Requesting access to camera and microphone...");
+                    console.log("Requesting access to camera and microphone - auto-start enabled");
                     
                     // First check if getUserMedia is supported
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
