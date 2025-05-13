@@ -2,7 +2,7 @@
 <div class="fixed inset-x-0 bottom-0 z-10 bg-white border-t border-gray-200 md:hidden">
     <div class="flex justify-around">
         <!-- Home -->
-        <a href="{% url 'learner_dashboard' %}?tab=home" 
+        <a href="{% url 'users:learner_dashboard' %}?tab=home" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="home"
            onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'home\')'); return false;">
@@ -11,7 +11,7 @@
         </a>
         
         <!-- Activity -->
-        <a href="{% url 'learner_dashboard' %}?tab=activity" 
+        <a href="{% url 'users:learner_dashboard' %}?tab=activity" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="activity"
            onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'activity\')'); return false;">
@@ -20,7 +20,7 @@
         </a>
         
         <!-- Mentors -->
-        <a href="{% url 'learner_dashboard' %}?tab=mentors" 
+        <a href="{% url 'users:learner_dashboard' %}?tab=mentors" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="mentors"
            onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'mentors\')'); return false;">
@@ -29,7 +29,7 @@
         </a>
         
         <!-- Notifications -->
-        <a href="{% url 'learner_dashboard' %}?tab=notifications" 
+        <a href="{% url 'users:learner_dashboard' %}?tab=notifications" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 relative"
            data-tab="notifications"
            onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'notifications\')'); return false;">
@@ -44,7 +44,7 @@
         </a>
         
         <!-- Profile -->
-        <a href="{% url 'learner_dashboard' %}?tab=profile" 
+        <a href="{% url 'users:learner_dashboard' %}?tab=profile" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="profile"
            onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'profile\')'); return false;">
