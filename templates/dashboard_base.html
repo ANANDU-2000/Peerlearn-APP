@@ -114,9 +114,21 @@
         }
     </style>
     
+    <!-- Toast notification script -->
+    <script src="{% static 'js/toasts.js' %}"></script>
+    
+    <!-- Dashboard WebSocket connection script -->
+    <script src="{% static 'js/dashboard-ws.js' %}"></script>
+    
     {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-screen flex flex-col bg-gray-50">
+    <!-- Store user ID for WebSocket connection -->
+    <input type="hidden" id="user-id" value="{{ request.user.id }}">
+    
+    <!-- WebSocket connection status indicator -->
+    <div id="ws-status-indicator" class="fixed bottom-4 right-4 w-3 h-3 rounded-full bg-red-500 z-50" title="Disconnected from real-time updates"></div>
+    
     {% include 'includes/dashboard_header.html' %}
     
     <main class="flex-grow">
