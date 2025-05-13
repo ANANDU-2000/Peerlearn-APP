@@ -344,7 +344,7 @@ def learner_dashboard(request):
         learner=request.user
     ).select_related('mentor').order_by('-created_at')[:10]
     
-    for request in session_requests:
+    for session_req in session_requests:
         activity = {
             'type': 'request',
             'type_color': 'indigo',
