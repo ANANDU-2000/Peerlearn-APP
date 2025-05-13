@@ -1,0 +1,53 @@
+You are the Replit Core AI Agent. Fix and complete the *post-publish → live room* flow in PeerLearn so that Mentors and Learners can reliably enter the same WebRTC room after scheduling, booking, and publishing. This prompt will generate all necessary code, templates, consumers, and JS logic.
+
+1. SESSION PUBLISH → DASHBOARD LINK  
+   • After Mentor clicks “Publish Session ▶” and backend save succeeds:  
+     – Redirect Mentor to /dashboard/mentor/my-sessions?tab=Upcoming  
+     – In the Upcoming list, each session card gains a *“Go Live ▶”* button.  
+     – Before T–15m: label = “Scheduled” gray badge; at T–15m and after clicking Publish if within window, button becomes enabled.
+
+2. MENTOR “GO LIVE” FLOW  
+   • Mentor clicks *Go Live ▶* on their session card:  
+     – Backend sets Session.status='live'.  
+     – Redirects to /session/<room_code>/.  
+     – Channels: send session.live event on sessions:{room_code}.
+
+3. LEARNER BOOKING → JOIN ROOM LINK  
+   • Learner Dashboard My Activity → Bookings tab: after booking (free or paid), each booked session card shows:  
+     – Gray badge “Booked” until T–5m before start; at T–5m changes to *“Join ▶”* button.  
+   • Learner clicks *Join ▶*:  
+     – Backend verifies Booking.confirmed and Session.status in [scheduled or live] and time window.  
+     – Redirects to /session/<room_code>/.  
+     – Channels send learner.join on sessions:{room_code}.
+
+4. WEBRTC ROOM PAGE (/session/<room_code>/)  
+   • Both Mentor and Learner land on the same template:  
+     – Check role and authorization server-side.  
+     – Initialize WS on ws://…/ws/sessions/{room_code}/ for signaling, chat, whiteboard, lobby events.  
+     – Show Pre-Live Lobby until both peers ready or Mentor clicks “Start Session ▶”.  
+     – On “Start Session ▶” or if session.status=live, start WebRTC negotiation.  
+     – Display dual video elements, toolbar (mute, cam, share screen, chat, whiteboard, end).  
+     – Handle STUN/TURN and media errors with fallback to audio + toast warnings.
+
+5. REAL-TIME UI UPDATES  
+   • *Mentor Dashboard*: in My Sessions tab subscribe to sessions:{mentor_id} to mark card LIVE and enable “Enter Room ▶” button.  
+   • *Learner Dashboard*: subscribe to sessions:{session_id} to toast “Mentor is live—Join ▶” when Mentor goes live.  
+   • Attendee count updates via learner.join / learner.leave events.
+
+6. ERROR HANDLING  
+   • Unauthorized access → redirect + toast “Access denied.”  
+   • Late join (past end_time) → toast “Session has ended.”  
+   • Media device fail → fallback UI + toast “Unable to access camera/mic.”  
+   • WS disconnect → retry/backoff + toast “Reconnecting…”  
+   • STUN/TURN fail → toast “Network issue—retrying media.”  
+
+7. NAVIGATION & FEEDBACK  
+   • After End Session: show feedback modal to both roles.  
+   • Mentor sees “Upload Resources” sheet.  
+   • Learner sees “Rate your Mentor” form.  
+
+8. DB & CONSUMER UPDATES  
+   • On Go Live: consumer sets Session.started_at; on End: set Session.ended_at, status=completed.  
+   • Save feedback models to SQLite3.  
+
+Use this spec to generate the missing glue: My Sessions “Go Live” button, Bookings “Join” button, /session/ view and template, Channels consumers, Alpine.js lobby logic, server redirects, and error messages—so 1-on-1 live teaching works flawlessly end-to-end.

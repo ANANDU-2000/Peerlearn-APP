@@ -617,16 +617,17 @@ def mentor_requests(request):
 
 @login_required
 def mentor_sessions(request):
-    """View for mentor sessions tab."""
+    """View for mentor sessions tab with enhanced functionality."""
     if not request.user.is_mentor:
         messages.error(request, 'Access denied.')
         return redirect(request.user.get_dashboard_url())
     
-    from apps.learning_sessions.models import Session
+    from apps.learning_sessions.models import Session, Booking
     from django.utils import timezone
     
-    # Get today's date
-    today = timezone.now().date()
+    # Get today's date and time
+    now = timezone.now()
+    today = now.date()
     
     # Fetch all sessions by this mentor
     today_sessions = Session.objects.filter(
@@ -644,6 +645,22 @@ def mentor_sessions(request):
         schedule__date__lt=today
     ).order_by('-schedule')
     
+    # Add booking count and go-live status to each session
+    for session_list in [today_sessions, upcoming_sessions, past_sessions]:
+        for session in session_list:
+            session.confirmed_bookings_count = Booking.objects.filter(
+                session=session, 
+                status=Booking.CONFIRMED
+            ).count()
+            
+            # Check if can go live (within 15 min of start time)
+            time_until_session = session.schedule - now
+            session.can_go_live = (
+                session.status == Session.SCHEDULED and 
+                time_until_session <= timezone.timedelta(minutes=15) and
+                time_until_session > timezone.timedelta(minutes=-session.duration)
+            )
+    
     context = {
         'active_tab': 'sessions',
         'sub_tab': request.GET.get('tab', 'today'),
@@ -653,6 +670,119 @@ def mentor_sessions(request):
     }
     
     return render(request, 'mentors_dash/sessions.html', context)
+
+
+@login_required
+def mentor_session_detail(request, session_id):
+    """View for mentor session detail with enhanced management options."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.models import Session, Booking
+    from apps.notifications.models import Notification
+    
+    # Get the session
+    session = get_object_or_404(Session, id=session_id, mentor=request.user)
+    
+    # Process actions if any
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'cancel':
+            # Cancel the session
+            if session.status == Session.SCHEDULED:
+                session.status = Session.CANCELLED
+                session.save()
+                
+                # Notify all learners with confirmed bookings
+                for booking in session.bookings.filter(status=Booking.CONFIRMED):
+                    booking.status = Booking.CANCELLED
+                    booking.cancellation_reason = "Session cancelled by mentor"
+                    booking.save()
+                    
+                    Notification.objects.create(
+                        user=booking.learner,
+                        message=f"Session '{session.title}' has been cancelled by the mentor.",
+                        notification_type='session_cancelled',
+                        reference_id=session.id,
+                        link=f"/dashboard/learner/activity/"
+                    )
+                
+                messages.success(request, 'Session cancelled successfully.')
+                return redirect('users:mentor_sessions')
+            else:
+                messages.error(request, 'Only scheduled sessions can be cancelled.')
+        
+        elif action == 'publish':
+            # Publish the session (make it visible to learners)
+            if session.status == Session.SCHEDULED:
+                # Make sure session is at least 15 minutes in the future
+                if session.schedule > timezone.now() + timezone.timedelta(minutes=15):
+                    # Send notifications to potential learners
+                    from apps.users.models import CustomUser
+                    
+                    # In a real implementation, this should be filtered to relevant users
+                    # and done through a background task for better performance
+                    for learner in CustomUser.objects.filter(role=CustomUser.LEARNER)[:10]:  # Limit to 10 for demo
+                        Notification.objects.create(
+                            user=learner,
+                            message=f"New session available: {session.title}",
+                            notification_type='new_session',
+                            reference_id=session.id,
+                            link=f"/sessions/{session.id}/"
+                        )
+                    
+                    messages.success(request, 'Session published successfully. Notifications sent to potential learners.')
+                else:
+                    messages.error(request, 'Session must be scheduled at least 15 minutes in the future to publish.')
+            else:
+                messages.error(request, 'Only scheduled sessions can be published.')
+        
+        elif action == 'go_live':
+            # Go live now - check if it's within the window (≤ 15 minutes before scheduled time)
+            time_until_session = session.schedule - timezone.now()
+            if session.status == Session.SCHEDULED and time_until_session <= timezone.timedelta(minutes=15):
+                session.status = Session.LIVE
+                session.save()
+                
+                # Notify all confirmed attendees
+                for booking in session.bookings.filter(status=Booking.CONFIRMED):
+                    Notification.objects.create(
+                        user=booking.learner,
+                        message=f"Session '{session.title}' is now live! Join now.",
+                        notification_type='session_live',
+                        reference_id=session.id,
+                        link=f"/session/{session.room_code}/"
+                    )
+                
+                # Redirect to the session room
+                return redirect('learning_sessions:room', room_code=session.room_code)
+            else:
+                messages.error(request, 'Session can only go live within 15 minutes of scheduled time.')
+        
+        # Refresh the session after actions
+        session = Session.objects.get(id=session_id)
+    
+    # Get bookings for this session
+    bookings = Booking.objects.filter(session=session).select_related('learner')
+    
+    # Determine if session can go live (≤ 15 minutes before scheduled time)
+    can_go_live = (
+        session.status == Session.SCHEDULED and 
+        session.schedule - timezone.now() <= timezone.timedelta(minutes=15) and
+        session.schedule - timezone.now() > timezone.timedelta(minutes=-session.duration)
+    )
+    
+    context = {
+        'active_tab': 'sessions',
+        'session': session,
+        'bookings': bookings,
+        'can_go_live': can_go_live,
+        'is_upcoming': session.schedule > timezone.now(),
+    }
+    
+    return render(request, 'mentors_dash/session_detail.html', context)
 
 @login_required
 def mentor_create_session(request):
