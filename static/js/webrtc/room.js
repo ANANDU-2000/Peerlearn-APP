@@ -839,7 +839,10 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             this.playNotificationSound();
                         }
                         
-                        // Show UI feedback
+                        // Show UI feedback using our dedicated method
+                        this.updateAudioStatus();
+                        
+                        // Also update the legacy UI elements if they exist
                         const audioToggleBtn = document.getElementById('toggle-audio-btn');
                         if (audioToggleBtn) {
                             const iconElement = audioToggleBtn.querySelector('svg');
@@ -941,6 +944,35 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 // Notify other participants about media status change
                 if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                     console.log("Sending media status update to peers due to video change");
+                    this.websocket.send(JSON.stringify({
+                        type: 'media_status',
+                        user_id: userId,
+                        username: userName,
+                        audioEnabled: this.audioEnabled,
+                        videoEnabled: this.videoEnabled
+                    }));
+                }
+            },
+            
+            // Update the UI to reflect audio status
+            updateAudioStatus() {
+                console.log("Updating audio status UI, audio enabled:", this.audioEnabled);
+                
+                // Update audio controls UI based on current state
+                const audioControlButton = document.getElementById('audio-control');
+                if (audioControlButton) {
+                    if (this.audioEnabled) {
+                        audioControlButton.classList.remove('active');
+                        audioControlButton.title = 'Mute microphone';
+                    } else {
+                        audioControlButton.classList.add('active');
+                        audioControlButton.title = 'Unmute microphone';
+                    }
+                }
+                
+                // Notify other participants about media status change
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log("Sending media status update to peers due to audio change");
                     this.websocket.send(JSON.stringify({
                         type: 'media_status',
                         user_id: userId,
