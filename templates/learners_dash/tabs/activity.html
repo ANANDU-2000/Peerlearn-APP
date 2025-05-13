@@ -249,8 +249,13 @@
                                         {% if request.status == 'counter_offer' %}
                                             <form action="{% url 'sessions:accept_counter_offer' request_id=request.id %}" method="POST" class="inline">
                                                 {% csrf_token %}
-                                                <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                                    <i data-feather="check" class="w-4 h-4 mr-1"></i> Accept Offer
+                                                <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white {% if request.is_free or request.counter_offer == 0 %}bg-green-600 hover:bg-green-700 focus:ring-green-500{% else %}bg-primary-600 hover:bg-primary-700 focus:ring-primary-500{% endif %} focus:outline-none focus:ring-2 focus:ring-offset-2">
+                                                    <i data-feather="check" class="w-4 h-4 mr-1"></i> 
+                                                    {% if request.is_free or request.counter_offer == 0 %}
+                                                        Accept Free Session
+                                                    {% else %}
+                                                        Accept Offer
+                                                    {% endif %}
                                                 </button>
                                             </form>
                                         {% endif %}
@@ -297,10 +302,16 @@
                                                 </p>
                                                 
                                                 {% if request.status == 'counter_offer' %}
-                                                    <div class="p-3 bg-blue-50 rounded-md mt-3">
-                                                        <h5 class="font-medium text-blue-900 mb-1">Counter Offer from {{ request.mentor.get_full_name }}</h5>
+                                                    <div class="p-3 {% if request.is_free or request.counter_offer == 0 %}bg-green-50{% else %}bg-blue-50{% endif %} rounded-md mt-3">
+                                                        <h5 class="font-medium {% if request.is_free or request.counter_offer == 0 %}text-green-900{% else %}text-blue-900{% endif %} mb-1">
+                                                            {% if request.is_free or request.counter_offer == 0 %}
+                                                                Free Session Offer from {{ request.mentor.get_full_name }}
+                                                            {% else %}
+                                                                Counter Offer from {{ request.mentor.get_full_name }}
+                                                            {% endif %}
+                                                        </h5>
                                                         {% if request.mentor_notes %}
-                                                            <p class="text-blue-800 mb-2">{{ request.mentor_notes }}</p>
+                                                            <p class="{% if request.is_free or request.counter_offer == 0 %}text-green-800{% else %}text-blue-800{% endif %} mb-2">{{ request.mentor_notes }}</p>
                                                         {% endif %}
                                                         <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-6">
                                                             <p class="flex items-center">
@@ -309,7 +320,11 @@
                                                             </p>
                                                             <p class="flex items-center mt-1 sm:mt-0">
                                                                 <i data-feather="credit-card" class="w-4 h-4 mr-1 text-blue-600"></i>
-                                                                <span>₹{{ request.counter_offer }}</span>
+                                                                {% if request.is_free or request.counter_offer == 0 %}
+                                                                    <span class="text-green-600 font-medium">Free Session</span>
+                                                                {% else %}
+                                                                    <span>₹{{ request.counter_offer }}</span>
+                                                                {% endif %}
                                                             </p>
                                                         </div>
                                                     </div>
