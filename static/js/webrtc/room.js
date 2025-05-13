@@ -128,7 +128,9 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 const newParticipant = {
                                     id: message.user_id,
                                     username: message.username,
-                                    role: message.role
+                                    role: message.role,
+                                    audioEnabled: true,  // Initialize with audio enabled
+                                    videoEnabled: true   // Initialize with video enabled
                                 };
                                 this.otherParticipants.push(newParticipant);
                                 
@@ -257,7 +259,30 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 this.participantMediaStatus[message.user_id].audioEnabled = message.audioEnabled;
                                 this.participantMediaStatus[message.user_id].videoEnabled = message.videoEnabled;
                                 
-                                // Update UI to show audio/video status indicators
+                                // Update the participant in the otherParticipants array to refresh the UI
+                                const participantIndex = this.otherParticipants.findIndex(p => p.id === message.user_id);
+                                if (participantIndex !== -1) {
+                                    // Create a new object reference to trigger Alpine.js reactivity
+                                    const updatedParticipant = {
+                                        ...this.otherParticipants[participantIndex],
+                                        audioEnabled: message.audioEnabled,
+                                        videoEnabled: message.videoEnabled
+                                    };
+                                    
+                                    // Replace the participant with the updated one
+                                    this.otherParticipants.splice(participantIndex, 1, updatedParticipant);
+                                }
+                                
+                                // Play notification sound for mute/unmute
+                                if (this.participantMediaStatus[message.user_id].prevAudioEnabled !== undefined && 
+                                    this.participantMediaStatus[message.user_id].prevAudioEnabled !== message.audioEnabled) {
+                                    this.playNotificationSound();
+                                }
+                                
+                                // Store previous state for future comparisons
+                                this.participantMediaStatus[message.user_id].prevAudioEnabled = message.audioEnabled;
+                                this.participantMediaStatus[message.user_id].prevVideoEnabled = message.videoEnabled;
+                                
                                 console.log(`Participant ${message.username} media status updated:`, 
                                     `audio=${message.audioEnabled}, video=${message.videoEnabled}`);
                             }
