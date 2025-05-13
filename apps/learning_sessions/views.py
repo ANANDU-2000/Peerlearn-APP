@@ -355,7 +355,7 @@ def cancel_booking(request, booking_id):
         )
         
         messages.success(request, 'Booking cancelled successfully.')
-        return redirect('learner_activity')
+        return redirect('users:learner_activity')
     
     return render(request, 'sessions/cancel_booking.html', {
         'booking': booking
@@ -421,7 +421,7 @@ def end_session(request, session_id):
     
     if session.status != Session.LIVE:
         messages.error(request, 'Only live sessions can be ended.')
-        return redirect('mentor_dashboard')
+        return redirect('users:mentor_dashboard')
     
     if request.method == 'POST':
         session.status = Session.COMPLETED
@@ -439,7 +439,7 @@ def end_session(request, session_id):
             )
         
         messages.success(request, 'Session ended successfully.')
-        return redirect('mentor_dashboard')
+        return redirect('users:mentor_dashboard')
     
     return render(request, 'sessions/end_session.html', {
         'session': session
@@ -476,7 +476,7 @@ def submit_feedback(request, booking_id):
             booking.save()
             
             messages.success(request, 'Feedback submitted successfully!')
-            return redirect('learner_activity')
+            return redirect('users:learner_activity')
     else:
         form = FeedbackForm()
     
