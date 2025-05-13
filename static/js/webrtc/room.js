@@ -567,8 +567,33 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 const localVideoElement = document.getElementById('local-video');
                                 if (localVideoElement) {
                                     localVideoElement.srcObject = stream;
+                                    // Set main stream to the local stream initially
+                                    this.mainStream = stream;
+                                    
+                                    // Auto-play the video when metadata is loaded
                                     localVideoElement.onloadedmetadata = () => {
-                                        localVideoElement.play().catch(e => console.error("Error playing local video:", e));
+                                        // Force autoplay even if browser has restrictions
+                                        localVideoElement.muted = true; // Mute to help with autoplay
+                                        const playPromise = localVideoElement.play();
+                                        
+                                        if (playPromise !== undefined) {
+                                            playPromise.then(() => {
+                                                console.log("Local video playback started successfully");
+                                                // Set main video source too
+                                                const mainVideoElement = document.getElementById('main-video');
+                                                if (mainVideoElement && !mainVideoElement.srcObject) {
+                                                    mainVideoElement.srcObject = stream;
+                                                    mainVideoElement.play().catch(e => console.error("Error playing main video:", e));
+                                                }
+                                            }).catch(e => {
+                                                console.error("Error auto-playing local video:", e);
+                                                // Try again with user interaction
+                                                showToast('warning', 'Video Playback Issue', 'Click anywhere on the screen to enable your camera view.');
+                                                document.addEventListener('click', () => {
+                                                    localVideoElement.play().catch(e => console.error("Error playing video after click:", e));
+                                                }, {once: true});
+                                            });
+                                        }
                                     };
                                 }
                             }
