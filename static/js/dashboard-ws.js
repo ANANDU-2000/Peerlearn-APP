@@ -29,8 +29,16 @@ const maxReconnectAttempts = 5;
  * @param {string} userId - User ID for WebSocket connection
  */
 function initDashboardWebSocket(userId) {
+    // Validate the user ID
+    if (!userId) {
+        console.debug('No user ID provided to initDashboardWebSocket. This is expected on public pages.');
+        return;
+    }
+    
     // Store user ID in a global variable
     window.USER_ID = userId;
+    
+    console.log('Initializing dashboard WebSocket for user:', window.USER_ID);
     
     // Connect to WebSocket
     connectDashboardWebSocket();
@@ -46,6 +54,12 @@ function initDashboardWebSocket(userId) {
  * Connect to dashboard WebSocket
  */
 function connectDashboardWebSocket() {
+    // Validate that USER_ID is available
+    if (!window.USER_ID) {
+        console.warn('Cannot connect dashboard WebSocket: No USER_ID available');
+        return;
+    }
+    
     // Close existing connection if any
     if (dashboardSocket && dashboardSocket.readyState !== WebSocket.CLOSED) {
         dashboardSocket.close();
@@ -56,6 +70,8 @@ function connectDashboardWebSocket() {
     const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${window.USER_ID}/`;
     
     try {
+        console.log(`Connecting to dashboard WebSocket at ${wsUrl}`);
+        
         // Create WebSocket connection
         dashboardSocket = new WebSocket(wsUrl);
         
@@ -216,12 +232,32 @@ function onDashboardSocketError(error) {
 /**
  * Send message to dashboard WebSocket
  * @param {Object} message - Message to send
+ * @returns {boolean} - Whether the message was sent
  */
 function sendDashboardMessage(message) {
-    if (dashboardSocket && dashboardSocket.readyState === WebSocket.OPEN) {
-        dashboardSocket.send(JSON.stringify(message));
+    // Check if we're on an authenticated page
+    if (!window.USER_ID) {
+        console.debug('No user ID available, dashboard message not sent');
+        return false;
+    }
+
+    if (!dashboardSocket) {
+        console.warn('Dashboard WebSocket not initialized, message not sent');
+        return false;
+    }
+    
+    if (dashboardSocket.readyState === WebSocket.OPEN) {
+        try {
+            const messageString = JSON.stringify(message);
+            dashboardSocket.send(messageString);
+            return true;
+        } catch (error) {
+            console.error('Error sending message to dashboard WebSocket:', error);
+            return false;
+        }
     } else {
-        console.warn('Dashboard WebSocket not open, message not sent:', message);
+        console.warn(`Dashboard WebSocket not open (state: ${dashboardSocket.readyState}), message not sent:`, message);
+        return false;
     }
 }
 

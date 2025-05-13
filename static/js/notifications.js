@@ -34,18 +34,20 @@ const maxReconnectAttempts = 5;
  * This is called from Alpine.js initialization
  */
 function initNotifications() {
+    // Check if we're on a page that should have notifications
+    // (public pages won't have user-id meta tag, and that's expected)
+    const userIdMeta = document.querySelector('meta[name="user-id"]');
+    if (!userIdMeta) {
+        console.debug('User ID meta tag not found - likely on a public page without authentication');
+        return; // Exit quietly - this is normal for public pages
+    }
+    
     // Get user ID from meta tag if not already set
     if (!window.USER_ID) {
-        const userIdMeta = document.querySelector('meta[name="user-id"]');
-        if (!userIdMeta) {
-            console.error('User ID meta tag not found, notifications system cannot initialize');
-            return;
-        }
-        
         // Store user ID in global variable
         window.USER_ID = userIdMeta.getAttribute('content');
         if (!window.USER_ID) {
-            console.error('User ID is empty, notifications system cannot initialize');
+            console.warn('User ID meta tag exists but is empty, notifications system cannot initialize');
             return;
         }
     }
