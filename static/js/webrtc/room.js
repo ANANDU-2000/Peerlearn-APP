@@ -1,930 +1,701 @@
 /**
- * WebRTC Room - Core implementation for PeerLearn live sessions
- * Handles video calls, screen sharing, chat, and reconnection
+ * PeerLearn WebRTC Room Implementation
+ * Handles WebRTC connections for live video sessions between mentors and learners
  */
 
-function webRTCRoom() {
-    return {
-        // State Variables
-        localStream: null,
-        screenStream: null,
-        peerConnection: null,
-        dataChannel: null,
-        websocket: null,
-        mainStream: null,
-        isScreenSharing: false,
-        audioEnabled: true,
-        videoEnabled: true,
-        connectionStatus: 'Connecting...',
-        connectionStatusClass: 'connecting',
-        sessionStatus: 'waiting',
-        sessionTimer: '00:00:00',
-        sessionStartTime: null,
-        timerInterval: null,
-        participants: [],
-        otherParticipants: [],
-        mainStreamUser: '',
-        chatMessages: [],
-        messageText: '',
-        chatOpen: false,
-        reconnectAttempts: 0,
-        maxReconnectAttempts: 10,
-        reconnectInterval: 1000, // Start with 1s, will use exponential backoff
-        
-        // STUN/TURN servers from environment variables or fallback
-        iceServers: [
-            { urls: STUN_SERVER || 'stun:stun.l.google.com:19302' }
-        ],
-        
-        /**
-         * Initialize the WebRTC room
-         */
-        async init() {
-            // Initialize user data
-            const currentUser = {
-                id: USER_ID,
-                name: USER_NAME,
-                role: USER_ROLE
-            };
+// Initialize the WebRTC room with Alpine.js
+function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
+    // Add Alpine.js data component
+    window.webRTCRoom = function() {
+        return {
+            // Connection state
+            websocket: null,
+            peerConnections: {},
+            localStream: null,
+            screenStream: null,
+            mainStream: null,
+            mainStreamUser: userName,
+            otherParticipants: [],
+            chatMessages: [],
+            newMessage: "",
+            audioEnabled: true,
+            videoEnabled: true,
+            isScreenSharing: false,
+            sessionStatus: "connecting",
+            sessionStartTime: null,
+            sessionDuration: 0,
+            sessionTimer: "00:00:00",
+            connectionStatus: "Connecting...",
+            connectionStatusClass: "connecting",
             
-            this.mainStreamUser = USER_ROLE === 'mentor' ? 'You (Mentor)' : 'You';
+            // Computed properties
+            get participantsLabel() {
+                const count = this.otherParticipants.length + 1; // +1 for self
+                return `${count} participant${count !== 1 ? 's' : ''} in session`;
+            },
             
-            // Add TURN server if available
-            if (TURN_SERVER && TURN_USERNAME && TURN_CREDENTIAL) {
-                this.iceServers.push({
-                    urls: TURN_SERVER,
-                    username: TURN_USERNAME,
-                    credential: TURN_CREDENTIAL
+            // Initialize
+            init() {
+                // Set up WebRTC
+                this.setupWebRTC();
+                
+                // Update session timer every second
+                this.updateSessionTimer();
+                setInterval(() => this.updateSessionTimer(), 1000);
+                
+                // Auto-scroll chat messages when new messages arrive
+                this.$watch('chatMessages', () => {
+                    setTimeout(() => {
+                        if (this.$refs.chatMessages) {
+                            this.$refs.chatMessages.scrollTop = this.$refs.chatMessages.scrollHeight;
+                        }
+                    }, 50);
                 });
-            }
-            
-            // Set up event listeners
-            window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
-            
-            // Connect to media devices
-            try {
-                await this.setupLocalMedia();
                 
-                // Connect to WebSocket
-                this.connectWebSocket();
-                
-                // Start session timer
-                this.startSessionTimer();
-                
-                // Set up auto-reconnection for offline/online events
-                window.addEventListener('online', this.handleOnline.bind(this));
-                window.addEventListener('offline', this.handleOffline.bind(this));
-            } catch (error) {
-                console.error('Error initializing WebRTC room:', error);
-                this.showToast('Error initializing video call. Please check your camera and microphone permissions.', 'error');
-                
-                // Fallback to audio-only mode
-                this.tryAudioOnlyFallback();
-            }
-        },
-        
-        /**
-         * Connect to the WebSocket server
-         */
-        connectWebSocket() {
-            // Close existing connection if any
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.websocket.close();
-            }
+                // Handle page unload (cleanup)
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            },
             
-            // Create the WebSocket URL
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/session/${ROOM_CODE}/`;
-            
-            this.websocket = new WebSocket(wsUrl);
-            
-            // WebSocket event handlers
-            this.websocket.onopen = this.handleWebSocketOpen.bind(this);
-            this.websocket.onmessage = this.handleWebSocketMessage.bind(this);
-            this.websocket.onclose = this.handleWebSocketClose.bind(this);
-            this.websocket.onerror = this.handleWebSocketError.bind(this);
-        },
-        
-        /**
-         * Handle WebSocket open event
-         */
-        handleWebSocketOpen() {
-            console.log('WebSocket connection established');
-            this.reconnectAttempts = 0;
-            this.reconnectInterval = 1000;
-            
-            // Send join message
-            this.sendWebSocketMessage({
-                type: 'join',
-                user: {
-                    id: USER_ID,
-                    name: USER_NAME,
-                    role: USER_ROLE
-                }
-            });
-            
-            // Setup peer connection after WebSocket is open
-            this.setupPeerConnection();
-        },
-        
-        /**
-         * Handle WebSocket close event
-         */
-        handleWebSocketClose(event) {
-            console.log(`WebSocket closed: ${event.code} ${event.reason}`);
-            
-            // Update connection status
-            this.connectionStatus = 'Disconnected';
-            this.connectionStatusClass = 'disconnected';
-            
-            // Show toast notification
-            this.showToast('Connection lost. Attempting to reconnect...', 'warning');
-            
-            // Attempt to reconnect with exponential backoff
-            if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                setTimeout(() => {
-                    this.reconnectAttempts++;
-                    this.reconnectInterval = Math.min(30000, this.reconnectInterval * 2); // Max 30s
-                    console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
-                    this.connectWebSocket();
-                }, this.reconnectInterval);
-            } else {
-                // Max attempts reached
-                this.showToast('Unable to reconnect. Please reload the page.', 'error');
-            }
-        },
-        
-        /**
-         * Handle WebSocket error event
-         */
-        handleWebSocketError(error) {
-            console.error('WebSocket error:', error);
-            // Update connection status
-            this.connectionStatus = 'Connection Error';
-            this.connectionStatusClass = 'disconnected';
-        },
-        
-        /**
-         * Handle WebSocket messages
-         */
-        handleWebSocketMessage(event) {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data.type);
-            
-            switch (data.type) {
-                case 'user_join':
-                    this.handleUserJoin(data);
-                    break;
-                case 'user_leave':
-                    this.handleUserLeave(data);
-                    break;
-                case 'offer':
-                    this.handleOffer(data);
-                    break;
-                case 'answer':
-                    this.handleAnswer(data);
-                    break;
-                case 'ice_candidate':
-                    this.handleIceCandidate(data);
-                    break;
-                case 'chat_message':
-                    this.handleChatMessage(data);
-                    break;
-                case 'session_end':
-                    this.handleSessionEnd();
-                    break;
-                case 'ping':
-                    // Respond with a pong to keep the connection alive
-                    this.sendWebSocketMessage({ type: 'pong' });
-                    break;
-                default:
-                    console.warn('Unknown message type:', data.type);
-            }
-        },
-        
-        /**
-         * Set up local media (camera and microphone)
-         */
-        async setupLocalMedia() {
-            try {
-                // Request access to media devices
-                this.localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+            // Set up WebRTC
+            async setupWebRTC() {
+                try {
+                    // Connect to WebSocket
+                    this.connectWebSocket(roomCode);
+                    
+                    // Request media permissions
+                    await this.requestUserMedia();
+                    
+                    // Update UI
+                    this.connectionStatus = "Connected";
+                    this.connectionStatusClass = "connected";
+                    this.sessionStatus = "live";
+                    
+                    // If mentor, update session status to live
+                    if (userRole === 'mentor') {
+                        this.updateSessionStatus('live');
                     }
-                });
+                } catch (error) {
+                    console.error("Error setting up WebRTC:", error);
+                    this.connectionStatus = "Error";
+                    this.connectionStatusClass = "error";
+                    
+                    // Show error toast
+                    showToast('error', 'Connection Error', 'Failed to connect to the session. Please try refreshing the page.');
+                }
+            },
+            
+            // Connect to WebSocket server
+            connectWebSocket(roomCode) {
+                // Create WebSocket connection
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
                 
-                // Set local stream as main stream initially
-                this.mainStream = this.localStream;
+                this.websocket = new WebSocket(wsUrl);
                 
-                // Set up video element after Vue has updated the DOM
-                this.$nextTick(() => {
-                    if (this.$refs.mainVideo) {
-                        this.$refs.mainVideo.srcObject = this.localStream;
+                // Set up event handlers
+                this.websocket.onopen = this.onWebSocketOpen.bind(this);
+                this.websocket.onmessage = this.onWebSocketMessage.bind(this);
+                this.websocket.onclose = this.onWebSocketClose.bind(this);
+                this.websocket.onerror = this.onWebSocketError.bind(this);
+            },
+            
+            // WebSocket open event handler
+            onWebSocketOpen(event) {
+                console.log("WebSocket connection established");
+                
+                // Send join message
+                this.websocket.send(JSON.stringify({
+                    type: 'join',
+                    user_id: userId,
+                    username: userName,
+                    role: userRole
+                }));
+            },
+            
+            // WebSocket message event handler
+            async onWebSocketMessage(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log("Received message:", message);
+                    
+                    switch (message.type) {
+                        case 'user_join':
+                            // New user joined
+                            if (message.user_id !== userId) {
+                                this.otherParticipants.push({
+                                    id: message.user_id,
+                                    username: message.username,
+                                    role: message.role
+                                });
+                                
+                                // Create peer connection for new user
+                                await this.createPeerConnection(message.user_id, message.username);
+                                
+                                // If we're the mentor or the other user is the mentor, send an offer
+                                if (userRole === 'mentor' || message.role === 'mentor') {
+                                    const offer = await this.peerConnections[message.user_id].createOffer();
+                                    await this.peerConnections[message.user_id].setLocalDescription(offer);
+                                    
+                                    this.websocket.send(JSON.stringify({
+                                        type: 'offer',
+                                        target: message.user_id,
+                                        user_id: userId,
+                                        sdp: this.peerConnections[message.user_id].localDescription
+                                    }));
+                                }
+                                
+                                // Show toast
+                                showToast('info', 'User Joined', `${message.username} joined the session.`);
+                            }
+                            break;
+                            
+                        case 'user_leave':
+                            // User left
+                            if (message.user_id !== userId) {
+                                // Remove peer connection
+                                if (this.peerConnections[message.user_id]) {
+                                    this.peerConnections[message.user_id].close();
+                                    delete this.peerConnections[message.user_id];
+                                }
+                                
+                                // Remove from participants list
+                                this.otherParticipants = this.otherParticipants.filter(
+                                    participant => participant.id !== message.user_id
+                                );
+                                
+                                // Show toast
+                                showToast('info', 'User Left', `${message.username} left the session.`);
+                            }
+                            break;
+                            
+                        case 'offer':
+                            // Received an offer
+                            if (message.target === userId) {
+                                // Create peer connection if it doesn't exist
+                                if (!this.peerConnections[message.user_id]) {
+                                    const username = this.otherParticipants.find(p => p.id === message.user_id)?.username || 'Unknown';
+                                    await this.createPeerConnection(message.user_id, username);
+                                }
+                                
+                                // Set remote description
+                                await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
+                                
+                                // Create answer
+                                const answer = await this.peerConnections[message.user_id].createAnswer();
+                                await this.peerConnections[message.user_id].setLocalDescription(answer);
+                                
+                                this.websocket.send(JSON.stringify({
+                                    type: 'answer',
+                                    target: message.user_id,
+                                    user_id: userId,
+                                    sdp: this.peerConnections[message.user_id].localDescription
+                                }));
+                            }
+                            break;
+                            
+                        case 'answer':
+                            // Received an answer to our offer
+                            if (message.target === userId && this.peerConnections[message.user_id]) {
+                                await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
+                            }
+                            break;
+                            
+                        case 'ice_candidate':
+                            // Received ICE candidate
+                            if (message.target === userId && this.peerConnections[message.user_id]) {
+                                await this.peerConnections[message.user_id].addIceCandidate(new RTCIceCandidate(message.candidate));
+                            }
+                            break;
+                            
+                        case 'chat_message':
+                            // Received chat message
+                            this.chatMessages.push({
+                                sender: message.username,
+                                content: message.content,
+                                timestamp: new Date()
+                            });
+                            
+                            // Play notification sound if not from self
+                            if (message.user_id !== userId) {
+                                this.playNotificationSound();
+                            }
+                            break;
+                            
+                        case 'session_ended':
+                            // Session was ended by the mentor
+                            if (message.user_id !== userId) {
+                                showToast('info', 'Session Ended', 'The session has been ended by the mentor.');
+                                setTimeout(() => {
+                                    window.location.href = userRole === 'mentor' ? '/users/dashboard/mentor/' : '/users/dashboard/learner/';
+                                }, 3000);
+                            }
+                            break;
                     }
-                });
-                
-                this.connectionStatus = 'Connected';
-                this.connectionStatusClass = 'connected';
-                
-                return true;
-            } catch (error) {
-                console.error('Error accessing media devices:', error);
-                
-                // Update connection status
-                this.connectionStatus = 'Media Error';
-                this.connectionStatusClass = 'disconnected';
-                
-                // Show specific error message based on error type
-                if (error.name === 'NotAllowedError') {
-                    this.showToast('Camera or microphone access denied. Please check your browser permissions.', 'error');
-                } else if (error.name === 'NotFoundError') {
-                    this.showToast('No camera or microphone found. Please connect a device.', 'error');
-                } else {
-                    this.showToast('Error accessing your camera and microphone.', 'error');
+                } catch (error) {
+                    console.error("Error handling signaling message:", error);
                 }
+            },
+            
+            // WebSocket close event handler
+            onWebSocketClose(event) {
+                console.log("WebSocket connection closed:", event);
                 
-                throw error;
-            }
-        },
-        
-        /**
-         * Attempt to connect with audio only if video fails
-         */
-        async tryAudioOnlyFallback() {
-            try {
-                console.log('Trying audio-only fallback');
-                this.localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
-                    video: false
-                });
+                if (event.code !== 1000) {
+                    // Unexpected close
+                    this.connectionStatus = "Disconnected";
+                    this.connectionStatusClass = "disconnected";
+                    
+                    showToast('error', 'Connection Lost', 'The connection to the session has been lost. Trying to reconnect...');
+                    
+                    // Try to reconnect after 5 seconds
+                    setTimeout(() => {
+                        this.connectWebSocket(roomCode);
+                    }, 5000);
+                }
+            },
+            
+            // WebSocket error event handler
+            onWebSocketError(error) {
+                console.error("WebSocket error:", error);
+                this.connectionStatus = "Error";
+                this.connectionStatusClass = "error";
                 
-                // Update state
-                this.videoEnabled = false;
-                this.mainStream = this.localStream;
-                
-                // Set up audio-only mode
-                this.$nextTick(() => {
-                    if (this.$refs.mainVideo) {
-                        this.$refs.mainVideo.srcObject = this.localStream;
+                showToast('error', 'Connection Error', 'An error occurred with the connection. Please try refreshing the page.');
+            },
+            
+            // Create a peer connection for a user
+            async createPeerConnection(userId, username) {
+                try {
+                    // ICE servers configuration
+                    const configuration = {
+                        iceServers: [
+                            { urls: iceServers.stun }
+                        ]
+                    };
+                    
+                    // Add TURN server if provided
+                    if (iceServers.turn) {
+                        configuration.iceServers.push({
+                            urls: iceServers.turn,
+                            username: iceServers.turnUsername,
+                            credential: iceServers.turnCredential
+                        });
                     }
-                });
-                
-                this.connectionStatus = 'Connected (Audio Only)';
-                this.connectionStatusClass = 'connected';
-                
-                // Connect to WebSocket after successful audio-only setup
-                this.connectWebSocket();
-                
-                // Show notification
-                this.showToast('Connected with audio only. Video is unavailable.', 'info');
-                
-                return true;
-            } catch (error) {
-                console.error('Audio-only fallback failed:', error);
-                this.connectionStatus = 'Connection Failed';
-                this.connectionStatusClass = 'disconnected';
-                this.showToast('Could not connect to audio. Please reload and try again.', 'error');
-                return false;
-            }
-        },
-        
-        /**
-         * Set up WebRTC peer connection
-         */
-        setupPeerConnection() {
-            // Create RTCPeerConnection with ICE servers
-            this.peerConnection = new RTCPeerConnection({
-                iceServers: this.iceServers
-            });
-            
-            // Add event listeners to peer connection
-            this.peerConnection.onicecandidate = this.handleICECandidate.bind(this);
-            this.peerConnection.oniceconnectionstatechange = this.handleICEConnectionStateChange.bind(this);
-            this.peerConnection.ontrack = this.handleTrack.bind(this);
-            
-            // Create data channel for chat
-            this.dataChannel = this.peerConnection.createDataChannel('chat', {
-                ordered: true
-            });
-            
-            this.dataChannel.onopen = () => console.log('Data channel open');
-            this.dataChannel.onclose = () => console.log('Data channel closed');
-            this.dataChannel.onmessage = this.handleDataChannelMessage.bind(this);
-            
-            // Add local media tracks to peer connection
-            if (this.localStream) {
-                this.localStream.getTracks().forEach(track => {
-                    this.peerConnection.addTrack(track, this.localStream);
-                });
-            }
-            
-            // Create and send offer if user is the mentor
-            if (USER_ROLE === 'mentor') {
-                this.createOffer();
-            }
-        },
-        
-        /**
-         * Create and send WebRTC offer
-         */
-        async createOffer() {
-            try {
-                const offer = await this.peerConnection.createOffer();
-                await this.peerConnection.setLocalDescription(offer);
-                
-                this.sendWebSocketMessage({
-                    type: 'offer',
-                    offer: this.peerConnection.localDescription
-                });
-            } catch (error) {
-                console.error('Error creating offer:', error);
-                this.showToast('Error establishing connection.', 'error');
-            }
-        },
-        
-        /**
-         * Handle received WebRTC offer
-         */
-        async handleOffer(data) {
-            try {
-                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await this.peerConnection.createAnswer();
-                await this.peerConnection.setLocalDescription(answer);
-                
-                this.sendWebSocketMessage({
-                    type: 'answer',
-                    answer: this.peerConnection.localDescription
-                });
-            } catch (error) {
-                console.error('Error handling offer:', error);
-                this.showToast('Error establishing connection.', 'error');
-            }
-        },
-        
-        /**
-         * Handle received WebRTC answer
-         */
-        async handleAnswer(data) {
-            try {
-                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            } catch (error) {
-                console.error('Error handling answer:', error);
-            }
-        },
-        
-        /**
-         * Handle ICE candidate event
-         */
-        handleICECandidate(event) {
-            if (event.candidate) {
-                this.sendWebSocketMessage({
-                    type: 'ice_candidate',
-                    candidate: event.candidate
-                });
-            }
-        },
-        
-        /**
-         * Handle received ICE candidate
-         */
-        async handleIceCandidate(data) {
-            try {
-                if (data.candidate && this.peerConnection) {
-                    await this.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-            } catch (error) {
-                console.error('Error adding ICE candidate:', error);
-            }
-        },
-        
-        /**
-         * Handle ICE connection state changes
-         */
-        handleICEConnectionStateChange() {
-            console.log('ICE connection state:', this.peerConnection.iceConnectionState);
-            
-            switch (this.peerConnection.iceConnectionState) {
-                case 'connected':
-                case 'completed':
-                    this.connectionStatus = 'Connected';
-                    this.connectionStatusClass = 'connected';
-                    break;
-                case 'disconnected':
-                    this.connectionStatus = 'Reconnecting...';
-                    this.connectionStatusClass = 'connecting';
-                    this.showToast('Connection issues detected. Attempting to reconnect...', 'warning');
-                    break;
-                case 'failed':
-                    this.connectionStatus = 'Connection Failed';
-                    this.connectionStatusClass = 'disconnected';
-                    this.showToast('Connection failed. Please try refreshing the page.', 'error');
-                    // Try to restart ICE
-                    this.restartIce();
-                    break;
-                case 'closed':
-                    this.connectionStatus = 'Disconnected';
-                    this.connectionStatusClass = 'disconnected';
-                    break;
-            }
-        },
-        
-        /**
-         * Restart ICE connection if it fails
-         */
-        async restartIce() {
-            try {
-                if (this.peerConnection && USER_ROLE === 'mentor') {
-                    const offer = await this.peerConnection.createOffer({ iceRestart: true });
-                    await this.peerConnection.setLocalDescription(offer);
                     
-                    this.sendWebSocketMessage({
-                        type: 'offer',
-                        offer: this.peerConnection.localDescription
-                    });
+                    // Create peer connection
+                    this.peerConnections[userId] = new RTCPeerConnection(configuration);
                     
-                    this.showToast('Attempting to reconnect media...', 'info');
-                }
-            } catch (error) {
-                console.error('Error restarting ICE:', error);
-            }
-        },
-        
-        /**
-         * Handle received media tracks
-         */
-        handleTrack(event) {
-            console.log('Remote track received:', event.track.kind);
-            
-            // Update participant list
-            const participant = {
-                id: 'remote',
-                name: USER_ROLE === 'mentor' ? 'Learner' : 'Mentor',
-                stream: event.streams[0]
-            };
-            
-            this.participants = [
-                ...this.participants.filter(p => p.id !== 'remote'),
-                participant
-            ];
-            
-            this.updateParticipantList();
-            
-            // Set up remote video element
-            this.$nextTick(() => {
-                const videoElement = document.getElementById('video-remote');
-                if (videoElement) {
-                    videoElement.srcObject = event.streams[0];
-                }
-            });
-        },
-        
-        /**
-         * Update the participant list in the UI
-         */
-        updateParticipantList() {
-            // Set other participants (excluding the currently displayed main stream)
-            this.otherParticipants = this.participants.filter(p => {
-                return p.stream !== this.mainStream;
-            });
-            
-            // Update participants label
-            this.participantsLabel = `${this.participants.length} participant${this.participants.length !== 1 ? 's' : ''}`;
-        },
-        
-        /**
-         * Handle user joining the session
-         */
-        handleUserJoin(data) {
-            console.log('User joined:', data.user);
-            
-            // Show notification
-            this.showToast(`${data.user.name} joined the session`, 'info');
-            
-            // Update session status if this is the first user to join besides current user
-            if (this.sessionStatus === 'waiting') {
-                this.sessionStatus = 'live';
-                this.showToast('Session is now live!', 'success');
-            }
-        },
-        
-        /**
-         * Handle user leaving the session
-         */
-        handleUserLeave(data) {
-            console.log('User left:', data.user);
-            
-            // Show notification
-            this.showToast(`${data.user.name} left the session`, 'info');
-            
-            // Clean up participant from the list
-            this.participants = this.participants.filter(p => p.id !== data.user.id);
-            this.updateParticipantList();
-        },
-        
-        /**
-         * Toggle audio mute/unmute
-         */
-        toggleAudio() {
-            if (this.localStream) {
-                const audioTracks = this.localStream.getAudioTracks();
-                if (audioTracks.length > 0) {
-                    audioTracks.forEach(track => {
-                        track.enabled = !track.enabled;
-                    });
-                    this.audioEnabled = audioTracks[0].enabled;
-                    
-                    // Notify others via data channel
-                    this.sendDataChannelMessage({
-                        type: 'media_status',
-                        audio: this.audioEnabled
-                    });
-                    
-                    // Show toast notification
-                    this.showToast(this.audioEnabled ? 'Microphone unmuted' : 'Microphone muted', 'info');
-                }
-            }
-        },
-        
-        /**
-         * Toggle video on/off
-         */
-        toggleVideo() {
-            if (this.localStream) {
-                const videoTracks = this.localStream.getVideoTracks();
-                if (videoTracks.length > 0) {
-                    videoTracks.forEach(track => {
-                        track.enabled = !track.enabled;
-                    });
-                    this.videoEnabled = videoTracks[0].enabled;
-                    
-                    // Notify others via data channel
-                    this.sendDataChannelMessage({
-                        type: 'media_status',
-                        video: this.videoEnabled
-                    });
-                    
-                    // Show toast notification
-                    this.showToast(this.videoEnabled ? 'Camera turned on' : 'Camera turned off', 'info');
-                }
-            }
-        },
-        
-        /**
-         * Share screen instead of camera
-         */
-        async shareScreen() {
-            try {
-                // Get screen capture stream
-                this.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        cursor: 'always'
-                    },
-                    audio: false
-                });
-                
-                // Update UI state
-                this.isScreenSharing = true;
-                
-                // Replace video track in peer connection
-                const videoTrack = this.screenStream.getVideoTracks()[0];
-                
-                // Get all senders for video
-                const senders = this.peerConnection.getSenders();
-                const videoSender = senders.find(sender => 
-                    sender.track && sender.track.kind === 'video'
-                );
-                
-                if (videoSender) {
-                    await videoSender.replaceTrack(videoTrack);
-                }
-                
-                // Update local display
-                this.mainStream = this.screenStream;
-                this.$nextTick(() => {
-                    if (this.$refs.mainVideo) {
-                        this.$refs.mainVideo.srcObject = this.screenStream;
+                    // Add local stream to peer connection
+                    if (this.localStream) {
+                        this.localStream.getTracks().forEach(track => {
+                            this.peerConnections[userId].addTrack(track, this.localStream);
+                        });
                     }
-                });
-                
-                // Show toast notification
-                this.showToast('Screen sharing started', 'success');
-                
-                // Handle screen sharing ended by user
-                videoTrack.onended = () => {
-                    this.stopShareScreen();
-                };
-            } catch (error) {
-                console.error('Error sharing screen:', error);
-                this.showToast('Screen sharing failed. Please try again.', 'error');
-                this.isScreenSharing = false;
-            }
-        },
-        
-        /**
-         * Stop screen sharing and revert to camera
-         */
-        async stopShareScreen() {
-            if (this.isScreenSharing && this.screenStream) {
-                // Stop all tracks in screen stream
-                this.screenStream.getTracks().forEach(track => track.stop());
-                
-                // Revert to camera video
-                if (this.localStream) {
-                    const videoTrack = this.localStream.getVideoTracks()[0];
-                    if (videoTrack && this.peerConnection) {
-                        // Find video sender
-                        const senders = this.peerConnection.getSenders();
-                        const videoSender = senders.find(sender => 
-                            sender.track && sender.track.kind === 'video'
-                        );
+                    
+                    // Handle ICE candidates
+                    this.peerConnections[userId].onicecandidate = (event) => {
+                        if (event.candidate) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'ice_candidate',
+                                target: userId,
+                                user_id: window.userId,
+                                candidate: event.candidate
+                            }));
+                        }
+                    };
+                    
+                    // Handle connection state changes
+                    this.peerConnections[userId].onconnectionstatechange = (event) => {
+                        console.log(`Connection state change for ${username}:`, this.peerConnections[userId].connectionState);
+                    };
+                    
+                    // Handle ICE connection state changes
+                    this.peerConnections[userId].oniceconnectionstatechange = (event) => {
+                        console.log(`ICE connection state change for ${username}:`, this.peerConnections[userId].iceConnectionState);
+                    };
+                    
+                    // Handle remote stream
+                    this.peerConnections[userId].ontrack = (event) => {
+                        console.log(`Received remote track from ${username}:`, event.streams[0]);
                         
-                        if (videoSender) {
-                            await videoSender.replaceTrack(videoTrack);
+                        // Find or create video element for this user
+                        let videoElement = document.getElementById(`video-${userId}`);
+                        if (!videoElement) {
+                            videoElement = document.createElement('video');
+                            videoElement.id = `video-${userId}`;
+                            videoElement.autoplay = true;
+                            videoElement.playsInline = true;
+                            videoElement.muted = false;
+                            videoElement.classList.add('remote-video');
+                            
+                            // Add video element to DOM
+                            const participantsContainer = document.getElementById('participants-videos');
+                            if (participantsContainer) {
+                                const videoContainer = document.createElement('div');
+                                videoContainer.classList.add('participant-tile');
+                                videoContainer.id = `video-container-${userId}`;
+                                
+                                const usernameLabel = document.createElement('div');
+                                usernameLabel.classList.add('username-label');
+                                usernameLabel.textContent = username;
+                                
+                                videoContainer.appendChild(videoElement);
+                                videoContainer.appendChild(usernameLabel);
+                                participantsContainer.appendChild(videoContainer);
+                            }
                         }
-                    }
+                        
+                        // Set remote stream
+                        videoElement.srcObject = event.streams[0];
+                    };
                     
-                    // Update local display
-                    this.mainStream = this.localStream;
-                    this.$nextTick(() => {
-                        if (this.$refs.mainVideo) {
-                            this.$refs.mainVideo.srcObject = this.localStream;
+                } catch (error) {
+                    console.error(`Error creating peer connection for ${username}:`, error);
+                    throw error;
+                }
+            },
+            
+            // Request user media (camera and microphone)
+            async requestUserMedia() {
+                try {
+                    // Request camera and microphone
+                    this.localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: true,
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
                         }
                     });
+                    
+                    // Set local video
+                    const localVideo = document.getElementById('local-video');
+                    if (localVideo) {
+                        localVideo.srcObject = this.localStream;
+                        localVideo.muted = true; // Mute local video to prevent echo
+                    }
+                    
+                    // Set main stream (initially local stream)
+                    this.mainStream = this.localStream;
+                    const mainVideo = this.$refs.mainVideo;
+                    if (mainVideo) {
+                        mainVideo.srcObject = this.mainStream;
+                        mainVideo.muted = true; // Mute main video when it's local stream
+                    }
+                    
+                    console.log("Local media stream acquired:", this.localStream);
+                    return this.localStream;
+                } catch (error) {
+                    console.error("Error requesting user media:", error);
+                    
+                    if (error.name === 'NotAllowedError') {
+                        showToast('error', 'Permission Denied', 'You need to grant camera and microphone permissions to join the session.');
+                    } else {
+                        showToast('error', 'Media Error', 'Could not access camera or microphone. Please check your device settings.');
+                    }
+                    
+                    throw error;
                 }
-                
-                // Update UI state
-                this.isScreenSharing = false;
-                this.screenStream = null;
-                
-                // Show toast notification
-                this.showToast('Screen sharing stopped', 'info');
-            }
-        },
-        
-        /**
-         * Switch which stream is shown in the main video
-         */
-        switchMainStream(participantId) {
-            const participant = this.participants.find(p => p.id === participantId);
-            if (participant && participant.stream) {
-                // Save previous main stream
-                const previousMain = this.mainStream;
-                
-                // Set new main stream
-                this.mainStream = participant.stream;
-                this.mainStreamUser = participant.name;
-                
-                // Update video element
-                this.$nextTick(() => {
+            },
+            
+            // Toggle audio mute
+            toggleAudio() {
+                if (this.localStream) {
+                    const audioTracks = this.localStream.getAudioTracks();
+                    if (audioTracks.length > 0) {
+                        this.audioEnabled = !this.audioEnabled;
+                        audioTracks.forEach(track => {
+                            track.enabled = this.audioEnabled;
+                        });
+                        
+                        // Notify other participants
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'audio_status',
+                                user_id: userId,
+                                enabled: this.audioEnabled
+                            }));
+                        }
+                    }
+                }
+            },
+            
+            // Toggle video
+            toggleVideo() {
+                if (this.localStream) {
+                    const videoTracks = this.localStream.getVideoTracks();
+                    if (videoTracks.length > 0) {
+                        this.videoEnabled = !this.videoEnabled;
+                        videoTracks.forEach(track => {
+                            track.enabled = this.videoEnabled;
+                        });
+                        
+                        // Notify other participants
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'video_status',
+                                user_id: userId,
+                                enabled: this.videoEnabled
+                            }));
+                        }
+                    }
+                }
+            },
+            
+            // Toggle screen sharing
+            async toggleScreenShare() {
+                if (this.isScreenSharing) {
+                    // Stop screen sharing
+                    if (this.screenStream) {
+                        this.screenStream.getTracks().forEach(track => {
+                            track.stop();
+                        });
+                        this.screenStream = null;
+                    }
+                    
+                    // Switch main view back to camera
+                    this.mainStream = this.localStream;
+                    this.mainStreamUser = userName;
+                    
                     if (this.$refs.mainVideo) {
                         this.$refs.mainVideo.srcObject = this.mainStream;
+                        this.$refs.mainVideo.muted = true;
                     }
-                });
-                
-                // Update participant list
-                this.updateParticipantList();
-            }
-        },
-        
-        /**
-         * Handle chat messages received through the data channel
-         */
-        handleDataChannelMessage(event) {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'chat') {
-                    this.handleChatMessage(data);
-                } else if (data.type === 'media_status') {
-                    // Handle remote media status changes
-                    console.log('Remote media status change:', data);
+                    
+                    // Update status
+                    this.isScreenSharing = false;
+                    
+                    // Notify other participants
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify({
+                            type: 'screen_share_stopped',
+                            user_id: userId
+                        }));
+                    }
+                } else {
+                    try {
+                        // Start screen sharing
+                        this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+                            video: {
+                                cursor: "always"
+                            },
+                            audio: false
+                        });
+                        
+                        // Switch main view to screen share
+                        this.mainStream = this.screenStream;
+                        this.mainStreamUser = `${userName}'s screen`;
+                        
+                        if (this.$refs.mainVideo) {
+                            this.$refs.mainVideo.srcObject = this.mainStream;
+                            this.$refs.mainVideo.muted = true;
+                        }
+                        
+                        // Update status
+                        this.isScreenSharing = true;
+                        
+                        // Handle the end of screen sharing
+                        this.screenStream.getVideoTracks()[0].onended = () => {
+                            this.toggleScreenShare();
+                        };
+                        
+                        // Add screen share track to all peer connections
+                        Object.keys(this.peerConnections).forEach(async (peerId) => {
+                            this.screenStream.getTracks().forEach(track => {
+                                this.peerConnections[peerId].addTrack(track, this.screenStream);
+                            });
+                        });
+                        
+                        // Notify other participants
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'screen_share_started',
+                                user_id: userId
+                            }));
+                        }
+                    } catch (error) {
+                        console.error("Error starting screen share:", error);
+                        
+                        if (error.name === 'NotAllowedError') {
+                            showToast('info', 'Screen Share Cancelled', 'You cancelled screen sharing.');
+                        } else {
+                            showToast('error', 'Screen Share Error', 'Could not start screen sharing. Please try again.');
+                        }
+                    }
                 }
-            } catch (error) {
-                console.error('Error parsing data channel message:', error);
-            }
-        },
-        
-        /**
-         * Send a message through the data channel
-         */
-        sendDataChannelMessage(data) {
-            if (this.dataChannel && this.dataChannel.readyState === 'open') {
-                this.dataChannel.send(JSON.stringify(data));
-            } else {
-                // Fallback to WebSocket if data channel isn't open
-                this.sendWebSocketMessage(data);
-            }
-        },
-        
-        /**
-         * Handle incoming chat messages
-         */
-        handleChatMessage(data) {
-            // Add message to chat history
-            this.chatMessages.push({
-                id: Date.now(),
-                sender: data.sender,
-                message: data.message,
-                time: new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+            },
+            
+            // Send chat message
+            sendChatMessage() {
+                if (this.newMessage.trim() === '') return;
+                
+                // Send via WebSocket
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.send(JSON.stringify({
+                        type: 'chat_message',
+                        user_id: userId,
+                        username: userName,
+                        content: this.newMessage.trim()
+                    }));
+                    
+                    // Add to local chat
+                    this.chatMessages.push({
+                        sender: userName,
+                        content: this.newMessage.trim(),
+                        timestamp: new Date()
+                    });
+                    
+                    // Clear input
+                    this.newMessage = '';
+                } else {
+                    showToast('error', 'Connection Error', 'Could not send message. Please check your connection.');
+                }
+            },
+            
+            // End session (for mentors only)
+            endSession() {
+                if (userRole !== 'mentor') return;
+                
+                if (confirm('Are you sure you want to end this session for all participants?')) {
+                    // Send end session message
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify({
+                            type: 'session_ended',
+                            user_id: userId,
+                            username: userName
+                        }));
+                    }
+                    
+                    // Update session status
+                    this.updateSessionStatus('completed');
+                    
+                    // Navigate to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/users/dashboard/mentor/';
+                    }, 1000);
+                }
+            },
+            
+            // Update session status
+            updateSessionStatus(status) {
+                // Only mentors can update session status
+                if (userRole !== 'mentor') return;
+                
+                // Send AJAX request to update session status
+                fetch(`/sessions/${roomCode}/update-status/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        status: status
+                    })
                 })
-            });
-            
-            // Auto-scroll chat to bottom
-            this.$nextTick(() => {
-                const chatContainer = document.querySelector('.chat-messages');
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-            });
-            
-            // Show notification if chat is not open
-            if (!this.chatOpen && data.sender !== USER_NAME) {
-                this.showToast(`New message from ${data.sender}`, 'info');
-            }
-        },
-        
-        /**
-         * Send a chat message
-         */
-        sendChatMessage() {
-            if (this.messageText.trim() === '') {
-                return;
-            }
-            
-            const message = {
-                type: 'chat_message',
-                sender: USER_NAME,
-                message: this.messageText.trim(),
-            };
-            
-            // Send via WebSocket
-            this.sendWebSocketMessage(message);
-            
-            // Also send via data channel if available
-            this.sendDataChannelMessage(message);
-            
-            // Clear input
-            this.messageText = '';
-        },
-        
-        /**
-         * Handle online event
-         */
-        handleOnline() {
-            console.log('Online event triggered');
-            this.showToast('Internet connection restored. Reconnecting...', 'info');
-            
-            // Reconnect WebSocket and rebuild peer connection
-            this.connectWebSocket();
-        },
-        
-        /**
-         * Handle offline event
-         */
-        handleOffline() {
-            console.log('Offline event triggered');
-            this.connectionStatus = 'Offline';
-            this.connectionStatusClass = 'disconnected';
-            this.showToast('Internet connection lost. Waiting to reconnect...', 'warning');
-        },
-        
-        /**
-         * End the session (mentor only)
-         */
-        endSession() {
-            if (USER_ROLE !== 'mentor') {
-                return;
-            }
-            
-            if (confirm('Are you sure you want to end this session for all participants?')) {
-                // Send session end message
-                this.sendWebSocketMessage({
-                    type: 'session_end'
-                });
-                
-                // Handle locally
-                this.handleSessionEnd();
-            }
-        },
-        
-        /**
-         * Handle session end event
-         */
-        handleSessionEnd() {
-            // Stop timer
-            if (this.timerInterval) {
-                clearInterval(this.timerInterval);
-            }
-            
-            // Update UI
-            this.sessionStatus = 'ended';
-            this.showToast('Session has ended', 'info');
-            
-            // Clean up media
-            this.cleanupMedia();
-            
-            // Show feedback form
-            this.$nextTick(() => {
-                // Use setTimeout to ensure DOM has updated
-                setTimeout(() => {
-                    const feedbackModal = document.getElementById('session-feedback-modal');
-                    if (feedbackModal) {
-                        // Using Alpine $dispatch to show modal
-                        feedbackModal.dispatchEvent(new CustomEvent('show-modal'));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.sessionStatus = status;
+                        console.log(`Session status updated to: ${status}`);
+                    } else {
+                        console.error('Failed to update session status:', data.error);
                     }
-                }, 1000);
-            });
-        },
-        
-        /**
-         * Clean up media streams and connections
-         */
-        cleanupMedia() {
-            // Stop local streams
-            if (this.localStream) {
-                this.localStream.getTracks().forEach(track => track.stop());
-            }
-            
-            if (this.screenStream) {
-                this.screenStream.getTracks().forEach(track => track.stop());
-            }
-            
-            // Close peer connection
-            if (this.peerConnection) {
-                this.peerConnection.close();
-            }
-            
-            // Close WebSocket
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.websocket.close();
-            }
-        },
-        
-        /**
-         * Handle page unload event
-         */
-        handleBeforeUnload(event) {
-            // Send leave message
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.sendWebSocketMessage({
-                    type: 'leave'
+                })
+                .catch(error => {
+                    console.error('Error updating session status:', error);
                 });
-            }
+            },
             
-            // Clean up media
-            this.cleanupMedia();
-        },
-        
-        /**
-         * Start the session timer
-         */
-        startSessionTimer() {
-            this.sessionStartTime = Date.now();
+            // Update session timer
+            updateSessionTimer() {
+                if (!this.sessionStartTime) {
+                    this.sessionStartTime = new Date();
+                }
+                
+                const now = new Date();
+                const elapsed = Math.floor((now - this.sessionStartTime) / 1000);
+                
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const seconds = elapsed % 60;
+                
+                this.sessionTimer = [
+                    hours.toString().padStart(2, '0'),
+                    minutes.toString().padStart(2, '0'),
+                    seconds.toString().padStart(2, '0')
+                ].join(':');
+                
+                // Warn 5 minutes before session ends
+                const remaining = this.sessionDuration * 60 - elapsed;
+                if (remaining === 300) { // 5 minutes = 300 seconds
+                    showToast('warning', 'Session Ending Soon', 'This session will end in 5 minutes.');
+                    this.playNotificationSound();
+                } else if (remaining === 60) { // 1 minute
+                    showToast('warning', 'Session Ending Soon', 'This session will end in 1 minute.');
+                    this.playNotificationSound();
+                } else if (remaining === 0) {
+                    if (userRole === 'mentor') {
+                        this.endSession();
+                    }
+                }
+            },
             
-            this.timerInterval = setInterval(() => {
-                const elapsed = Date.now() - this.sessionStartTime;
+            // Play notification sound
+            playNotificationSound() {
+                try {
+                    const audio = new Audio('/static/sounds/notification.mp3');
+                    audio.volume = 0.5;
+                    audio.play();
+                } catch (error) {
+                    console.error("Error playing notification sound:", error);
+                }
+            },
+            
+            // Get CSRF token from cookies
+            getCsrfToken() {
+                const name = 'csrftoken';
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            },
+            
+            // Clean up resources
+            cleanup() {
+                // Close all peer connections
+                Object.values(this.peerConnections).forEach(pc => {
+                    pc.close();
+                });
                 
-                // Format as HH:MM:SS
-                const seconds = Math.floor((elapsed / 1000) % 60).toString().padStart(2, '0');
-                const minutes = Math.floor((elapsed / (1000 * 60)) % 60).toString().padStart(2, '0');
-                const hours = Math.floor((elapsed / (1000 * 60 * 60))).toString().padStart(2, '0');
+                // Stop local stream
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(track => {
+                        track.stop();
+                    });
+                }
                 
-                this.sessionTimer = `${hours}:${minutes}:${seconds}`;
-            }, 1000);
-        },
-        
-        /**
-         * Send a message through the WebSocket
-         */
-        sendWebSocketMessage(data) {
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.websocket.send(JSON.stringify(data));
-            } else {
-                console.warn('WebSocket not open, message not sent:', data);
+                // Stop screen share stream
+                if (this.screenStream) {
+                    this.screenStream.getTracks().forEach(track => {
+                        track.stop();
+                    });
+                }
+                
+                // Close WebSocket
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.close();
+                }
             }
-        },
-        
-        /**
-         * Show a toast notification
-         */
-        showToast(message, type = 'info') {
-            if (window.showToast) {
-                window.showToast(message, type);
-            } else {
-                console.log('Toast:', message, type);
-            }
-        },
-        
-        /**
-         * Get participant label for UI
-         */
-        get participantsLabel() {
-            return `${this.participants.length + 1} participant${this.participants.length !== 0 ? 's' : ''}`;
-        }
+        };
     };
 }

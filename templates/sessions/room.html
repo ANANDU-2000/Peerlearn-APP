@@ -419,59 +419,28 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/toasts.js' %}"></script>
+<script src="{% static 'js/webrtc/room.js' %}"></script>
 <script>
-    // WebRTC room functionality with Alpine.js
-    function webRTCRoom() {
-        return {
-            // Connection state
-            websocket: null,
-            peerConnections: {},
-            localStream: null,
-            screenStream: null,
-            mainStream: null,
-            mainStreamUser: "{{ user_name }}",
-            otherParticipants: [],
-            chatMessages: [],
-            newMessage: "",
-            audioEnabled: true,
-            videoEnabled: true,
-            isScreenSharing: false,
-            sessionStatus: "{{ session.get_status_display|lower }}",
-            sessionStartTime: new Date("{{ session.schedule|date:'c' }}"),
-            sessionDuration: {{ session.duration }},
-            sessionTimer: "00:00:00",
-            connectionStatus: "Connecting...",
-            connectionStatusClass: "connecting",
-            
-            // Computed properties
-            get participantsLabel() {
-                const count = this.otherParticipants.length + 1; // +1 for self
-                return `${count} participant${count !== 1 ? 's' : ''} in session`;
-            },
-            
-            // Initialize
-            init() {
-                // Set up WebRTC
-                this.setupWebRTC();
-                
-                // Update session timer every second
-                this.updateSessionTimer();
-                setInterval(() => this.updateSessionTimer(), 1000);
-                
-                // Auto-scroll chat messages when new messages arrive
-                this.$watch('chatMessages', () => {
-                    setTimeout(() => {
-                        if (this.$refs.chatMessages) {
-                            this.$refs.chatMessages.scrollTop = this.$refs.chatMessages.scrollHeight;
-                        }
-                    }, 50);
-                });
-                
-                // Handle page unload (cleanup)
-                window.addEventListener('beforeunload', () => {
-                    this.cleanup();
-                });
-            },
+    // WebRTC room configuration
+    const ROOM_CODE = "{{ room_name }}";
+    const USER_ID = {{ user_id }};
+    const USER_NAME = "{{ user_name }}";
+    const USER_ROLE = "{{ user_role }}";
+    const STUN_SERVER = "{{ STUN_SERVER|default:'stun:stun.l.google.com:19302' }}";
+    const TURN_SERVER = "{{ TURN_SERVER|default:'' }}";
+    const TURN_USERNAME = "{{ TURN_USERNAME|default:'' }}";
+    const TURN_CREDENTIAL = "{{ TURN_CREDENTIAL|default:'' }}";
+// Initialize Alpine.js webRTC room
+document.addEventListener('DOMContentLoaded', function() {
+    // We'll initialize the room from the external room.js file
+    initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, {
+        stun: STUN_SERVER,
+        turn: TURN_SERVER,
+        turnUsername: TURN_USERNAME,
+        turnCredential: TURN_CREDENTIAL
+    });
+});
             
             // Set up WebRTC
             async setupWebRTC() {
