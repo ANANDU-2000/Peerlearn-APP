@@ -26,7 +26,7 @@ def session_status_api(request):
                     
                     for booking in bookings:
                         session = booking.session
-                        attendees = session.booking_set.filter(status='confirmed').count()
+                        attendees = session.bookings.filter(status='confirmed').count()
                         
                         session_data.append({
                             'id': session.id,
@@ -48,11 +48,11 @@ def session_status_api(request):
                         status='scheduled',
                         schedule__gte=timezone.now()
                     ).exclude(
-                        booking__learner=request.user
+                        bookings__learner=request.user
                     ).select_related('mentor').order_by('schedule')[:5]
                     
                     for session in upcoming_sessions:
-                        attendees = session.booking_set.filter(status='confirmed').count()
+                        attendees = session.bookings.filter(status='confirmed').count()
                         
                         if attendees < session.max_participants:
                             session_data.append({
@@ -74,10 +74,10 @@ def session_status_api(request):
                     sessions = Session.objects.filter(
                         mentor=request.user,
                         status__in=['scheduled', 'live']
-                    ).prefetch_related('booking_set')
+                    ).prefetch_related('bookings')
                     
                     for session in sessions:
-                        attendees = session.booking_set.filter(status='confirmed').count()
+                        attendees = session.bookings.filter(status='confirmed').count()
                         
                         session_data.append({
                             'id': session.id,
@@ -98,7 +98,7 @@ def session_status_api(request):
                     ).select_related('mentor').order_by('schedule')[:10]
                     
                     for session in sessions:
-                        attendees = session.booking_set.filter(status='confirmed').count()
+                        attendees = session.bookings.filter(status='confirmed').count()
                         
                         session_data.append({
                             'id': session.id,
@@ -120,7 +120,7 @@ def session_status_api(request):
                 ).select_related('mentor').order_by('schedule')[:5]
                 
                 for session in sessions:
-                    attendees = session.booking_set.filter(status='confirmed').count()
+                    attendees = session.bookings.filter(status='confirmed').count()
                     
                     session_data.append({
                         'id': session.id,
