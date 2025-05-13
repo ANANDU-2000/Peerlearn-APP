@@ -28,18 +28,16 @@ for pattern in notification_urlpatterns:
     print(f" - {pattern.pattern}")
 
 # Define a 404 catch-all handler for debugging
-def ws_404_handler(scope):
+async def ws_404_handler(scope, receive, send):
     """
     Handle WebSocket 404 errors by logging the URL that wasn't matched.
     """
-    async def asgi(receive, send):
-        print(f"WebSocket 404 - Path not found: {scope['path']}")
-        await send({
-            "type": "websocket.close",
-            "code": 4004,
-            "reason": "Path not found",
-        })
-    return asgi
+    print(f"WebSocket 404 - Path not found: {scope['path']}")
+    await send({
+        "type": "websocket.close",
+        "code": 4004,
+        "reason": "Path not found",
+    })
 
 # Combine all websocket URL patterns
 websocket_urlpatterns = [

@@ -244,7 +244,7 @@ def learner_dashboard(request):
         return redirect(request.user.get_dashboard_url())
     
     # Get active tab from query parameter, default to 'home'
-    active_tab = session_req.GET.get('tab', 'home')
+    active_tab = request.GET.get('tab', 'home')
     
     # Validate active tab value
     valid_tabs = ['home', 'activity', 'mentors', 'notifications', 'profile']
@@ -361,16 +361,6 @@ def learner_dashboard(request):
             'can_confirm': session_req.status == 'counter_offer'
         }
         activities.append(activity)
-
-
-
-
-
-
-
-
-
-
 
     # Sort activities by timestamp
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
