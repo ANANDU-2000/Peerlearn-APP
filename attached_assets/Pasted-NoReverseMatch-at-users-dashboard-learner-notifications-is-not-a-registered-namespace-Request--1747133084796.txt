@@ -1,0 +1,61 @@
+NoReverseMatch at /users/dashboard/learner/
+'notifications' is not a registered namespace
+Request Method:	GET
+Request URL:	http://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/users/dashboard/learner/
+Django Version:	5.2.1
+Exception Type:	NoReverseMatch
+Exception Value:	
+'notifications' is not a registered namespace
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/urls/base.py, line 92, in reverse
+Raised during:	apps.users.views.learner_dashboard
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.11.10
+Python Path:	
+['/home/runner/workspace',
+ '/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/dfg63lldbvcj207iyr9z0xw21d8ax02n-python3.11-pip-24.0/lib/python3.11/site-packages',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python311.zip',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/nix/store/wblvmd5y7izx0z10d1w7ga7zc4apjxmb-python3.11-setuptools-75.1.1/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/setuptools/_vendor']
+Server time:	Tue, 13 May 2025 10:44:25 +0000
+Error during template rendering
+In template /home/runner/workspace/templates/learners_dash/tabs/profile.html, error at line 101
+
+'notifications' is not a registered namespace
+91	                <h4 class="text-md font-medium text-gray-900 mb-3">Account Settings</h4>
+92	                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+93	                    <a href="{% url 'users:learner_profile_edit' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+94	                        <i data-feather="edit" class="w-4 h-4 mr-2"></i>
+95	                        Edit Profile
+96	                    </a>
+97	                    <a href="{% url 'admin:password_change' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+98	                        <i data-feather="lock" class="w-4 h-4 mr-2"></i>
+99	                        Change Password
+100	                    </a>
+101	                    <a href="{% url 'notifications:settings' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+102	                        <i data-feather="bell" class="w-4 h-4 mr-2"></i>
+103	                        Notification Settings
+104	                    </a>
+105	                    <a href="{% url 'payments:methods' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+106	                        <i data-feather="credit-card" class="w-4 h-4 mr-2"></i>
+107	                        Payment Methods
+108	                    </a>
+109	                </div>
+110	            </div>
+111	            
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/urls/base.py, line 81, in reverse
+                extra, resolver = resolver.namespace_dict[ns]
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+During handling of the above exception ('notifications'), another exception occurred:
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/exception.py, line 55, in inner
+                response = get_response(request)
+                               ^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/base.py, line 197, in _get_response
