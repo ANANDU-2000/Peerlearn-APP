@@ -184,6 +184,20 @@ class SessionConsumer(AsyncWebsocketConsumer):
                 }
             )
         
+        elif message_type == 'media_status':
+            # Media status update from a participant
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'media_status',
+                    'user_id': text_data_json.get('user_id'),
+                    'username': text_data_json.get('username'),
+                    'audioEnabled': text_data_json.get('audioEnabled'),
+                    'videoEnabled': text_data_json.get('videoEnabled'),
+                    'timestamp': timezone.now().isoformat(),
+                }
+            )
+        
         elif message_type == 'session_ended':
             # Session ended by mentor
             await self.channel_layer.group_send(
@@ -207,6 +221,20 @@ class SessionConsumer(AsyncWebsocketConsumer):
         
         # Send message to WebSocket
         await self.send(text_data=json.dumps(message))
+    
+    async def media_status(self, event):
+        """
+        Forward media status updates to clients.
+        """
+        # Send media status update to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'media_status',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'audioEnabled': event['audioEnabled'],
+            'videoEnabled': event['videoEnabled'],
+            'timestamp': event['timestamp'],
+        }))
     
     async def user_join(self, event):
         """
