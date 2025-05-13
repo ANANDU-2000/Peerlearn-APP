@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Find Mentors | PeerLearn{% endblock %}
+
+{% block content %}
+<div class="bg-white min-h-screen">
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <div class="border-b border-gray-200 pb-5 mb-5">
+                <h1 class="text-3xl font-bold leading-tight text-gray-900">Find Mentors</h1>
+                <p class="max-w-2xl text-sm text-gray-500 mt-2">
+                    Connect with expert mentors ready to share their knowledge and help you grow. Browse our diverse selection of mentors based on your learning needs.
+                </p>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="bg-white shadow rounded-lg p-6 mb-8">
+                <form method="get" action="{% url 'users:mentor_list' %}">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="query" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <input type="text" name="query" id="query" value="{{ request.GET.query|default:'' }}" 
+                                   class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                   placeholder="Search by name, expertise, or bio...">
+                        </div>
+                        <div>
+                            <label for="expertise" class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
+                            <select id="expertise" name="expertise" class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                <option value="">All Domains</option>
+                                {% for domain in domains %}
+                                    <option value="{{ domain }}" {% if request.GET.expertise == domain %}selected{% endif %}>{{ domain }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 w-full justify-center">
+                                <i data-feather="search" class="h-4 w-4 mr-2"></i>
+                                Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {% if mentors %}
+                <!-- Mentors Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for mentor in mentors %}
+                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden">
+                            <div class="p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-16 w-16 rounded-full overflow-hidden mr-4 bg-primary-100">
+                                        {% if mentor.profile_picture %}
+                                            <img src="{{ mentor.profile_picture.url }}" alt="{{ mentor.get_full_name }}" class="h-full w-full object-cover">
+                                        {% else %}
+                                            <div class="h-full w-full flex items-center justify-center text-primary-600">
+                                                <i data-feather="user" class="h-8 w-8"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">{{ mentor.get_full_name }}</h3>
+                                        
+                                        <!-- Rating -->
+                                        <div class="flex items-center mt-1">
+                                            <div class="flex text-yellow-400">
+                                                {% if mentor.avg_rating %}
+                                                    {% with ''|center:mentor.avg_rating|floatformat:"0"|make_list as stars %}
+                                                        {% for _ in stars %}
+                                                            <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                    
+                                                    {% with ''|center:5|make_list as empty_stars %}
+                                                        {% for _ in empty_stars|slice:mentor.avg_rating|floatformat:"0" %}
+                                                            <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    {% with ''|center:5|make_list as empty_stars %}
+                                                        {% for _ in empty_stars %}
+                                                            <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            </div>
+                                            <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count|default:"0" }})</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Domain tags -->
+                                <div class="mt-3 flex flex-wrap gap-1">
+                                    {% if mentor.expertise %}
+                                        {% for domain in mentor.expertise|split:"," %}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                                {{ domain|strip }}
+                                            </span>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Bio -->
+                                <div class="mt-3">
+                                    <p class="text-sm text-gray-600 line-clamp-3">{{ mentor.bio|default:"No bio available" }}</p>
+                                </div>
+                                
+                                <div class="mt-4 flex justify-between items-center">
+                                    <a href="{% url 'users:mentor_detail' mentor.id %}" class="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-800">
+                                        View Profile
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
+                                    
+                                    <div class="text-sm text-gray-500">
+                                        <i data-feather="users" class="inline-block h-4 w-4 mr-1"></i>
+                                        {{ mentor.students_taught|default:"0" }} students
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="mt-8 flex justify-center">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.expertise %}&expertise={{ request.GET.expertise }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Previous</span>
+                                <i data-feather="chevron-left" class="h-5 w-5"></i>
+                            </a>
+                        {% endif %}
+                        
+                        {% for i in paginator.page_range %}
+                            {% if page_obj.number == i %}
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-primary-50 text-sm font-medium text-primary-600">
+                                    {{ i }}
+                                </span>
+                            {% elif i > page_obj.number|add:"-3" and i < page_obj.number|add:"3" %}
+                                <a href="?page={{ i }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.expertise %}&expertise={{ request.GET.expertise }}{% endif %}" 
+                                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                    {{ i }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.expertise %}&expertise={{ request.GET.expertise }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Next</span>
+                                <i data-feather="chevron-right" class="h-5 w-5"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+                {% endif %}
+            {% else %}
+                <!-- No results -->
+                <div class="text-center py-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-2 text-lg font-medium text-gray-900">No mentors found</h3>
+                    <p class="mt-1 text-sm text-gray-500">We couldn't find any mentors matching your criteria. Try adjusting your filters.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'users:mentor_list' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Clear filters
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
