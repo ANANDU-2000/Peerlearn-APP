@@ -233,7 +233,7 @@ def learner_dashboard(request):
         combined_filter = status_filter & Q(schedule__gte=time_filter)
         
         trending_sessions = Session.objects.filter(combined_filter).annotate(
-            booking_count=Count('booking')
+            booking_count=Count('bookings')
         ).order_by('-booking_count')[:6]
     
     # Mark sessions that are already booked by this learner
