@@ -270,35 +270,121 @@
                 }
             }, 30000);
             
-            // Store socket and interval in window object for cleanup
-            window.socketConnection = {
-                socket,
-                pingInterval
+            // Return cleanup function
+            return () => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
+                }
+                clearInterval(pingInterval);
             };
         };
         
-        // Setup polling fallback
-        const setupPolling = () => {
-            // Clear existing polling interval if any
-            if (window.pollingInterval) {
-                clearInterval(window.pollingInterval);
-            }
+        // Polling fallback when WebSockets aren't available
+        function setupPolling() {
+            console.log('Setting up AJAX polling fallback for session updates');
+            let pollingInterval;
             
-            // Setup new polling
-            window.pollingInterval = setInterval(() => {
+            // Function to fetch session data via AJAX
+            const fetchSessionData = () => {
                 fetch('/sessions/api/status/')
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.sessions) {
                             updateSessionsDisplay(data.sessions);
                         }
                     })
-                    .catch(error => console.error('Error polling session status:', error));
-            }, 30000); // Poll every 30 seconds
+                    .catch(error => {
+                        console.error('Error fetching session data:', error);
+                    });
+            };
+            
+            // Initial fetch
+            fetchSessionData();
+            
+            // Set up polling interval (every 10 seconds)
+            pollingInterval = setInterval(fetchSessionData, 10000);
+            
+            // Return cleanup function
+            return () => {
+                clearInterval(pollingInterval);
+            };
         };
         
-        // Helper function to update sessions display
-        const updateSessionsDisplay = (sessions) => {
+        // Initialize WebSocket connection
+        try {
+            setupWebSocket();
+        } catch (error) {
+            console.error('WebSocket initialization failed:', error);
+            setupPolling();
+        }
+        
+        // Function to update the display with session data
+        function updateSessionsDisplay(sessions) {
+            // Implementation of session display update logic
+            console.log('Updating sessions display with data:', sessions);
+            
+            // If no sessions, show empty state
+            const sessionsContainer = document.getElementById('upcoming-sessions');
+            if (!sessions || sessions.length === 0) {
+                sessionsContainer.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-gray-500">No upcoming sessions found.</p>
+                        <a href="/sessions/browse/" class="mt-4 inline-block text-blue-600 hover:text-blue-800">Browse Available Sessions</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Update sessions in the UI
+            let sessionsHTML = '';
+            sessions.forEach(session => {
+                const sessionDate = new Date(session.schedule);
+                const formattedDate = sessionDate.toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                sessionsHTML += `
+                    <div class="session-card bg-white rounded-lg shadow-md p-4 mb-4 border-l-4 border-blue-500" 
+                         data-session-id="${session.id}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-semibold text-lg">${session.title}</h3>
+                                <p class="text-sm text-gray-600">${formattedDate}</p>
+                                <p class="text-sm text-gray-700 mt-2">
+                                    <span class="font-medium">Mentor:</span> ${session.mentor_name}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-2 py-1 text-xs rounded-full 
+                                    ${session.status === 'scheduled' ? 'bg-green-100 text-green-800' : 
+                                      session.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 
+                                      'bg-gray-100 text-gray-800'}">
+                                    ${session.status === 'scheduled' ? 'Scheduled' : 
+                                      session.status === 'in_progress' ? 'In Progress' : 
+                                      session.status === 'completed' ? 'Completed' : 'Unknown'}
+                                </span>
+                                ${session.status === 'in_progress' ? 
+                                    `<a href="/sessions/join/${session.id}/" 
+                                        class="mt-2 block px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded">
+                                        Join Now
+                                    </a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            sessionsContainer.innerHTML = sessionsHTML;
+        };
             sessions.forEach(session => {
                 const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
                 if (sessionCard) {
