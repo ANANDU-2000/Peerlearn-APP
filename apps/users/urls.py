@@ -3,8 +3,6 @@ URL patterns for the users app.
 """
 
 from django.urls import path
-from django.contrib.auth.views import LogoutView
-
 from . import views
 
 app_name = 'users'
@@ -12,7 +10,7 @@ app_name = 'users'
 urlpatterns = [
     # Authentication
     path('login/', views.login_view, name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
+    path('logout/', views.logout_view, name='logout'),
     path('signup/selector/', views.auth_selector, name='auth_selector'),
     path('signup/learner/', views.learner_signup, name='learner_signup'),
     path('signup/mentor/', views.mentor_signup, name='mentor_signup'),

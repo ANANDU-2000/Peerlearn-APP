@@ -3,7 +3,7 @@ Views for user authentication, registration and profile management.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, DetailView, UpdateView
 from django.urls import reverse_lazy
@@ -18,6 +18,15 @@ from .forms import (
     UserLoginForm, LearnerProfileForm, 
     MentorProfileForm, RatingForm
 )
+
+def logout_view(request):
+    """
+    Handle user logout and redirect to home page.
+    """
+    logout(request)
+    messages.success(request, "You have been successfully logged out.")
+    return redirect('home')
+
 
 def auth_selector(request):
     """View to select between learner and mentor registration/login."""
