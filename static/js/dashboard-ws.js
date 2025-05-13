@@ -419,32 +419,68 @@ function handleNotificationUpdate(data) {
  * @param {Object} data - Dashboard data
  */
 function handleDashboardData(data) {
-    console.log('Received dashboard data:', data);
+    console.log('Received dashboard data:', data.type, data);
     
     // Update various dashboard sections
     
-    // Update sessions list if present
+    // Determine the active tab
+    const activeTabElement = document.querySelector('.sub-tab.active');
+    const activeTab = activeTabElement ? activeTabElement.dataset.tab : 'today';
+    console.log('Active tab in handleDashboardData:', activeTab);
+    
+    // Update the appropriate sessions list based on active tab
+    if (data.data) {
+        if (data.data.today_sessions && activeTab === 'today') {
+            console.log('Updating today sessions:', data.data.today_sessions);
+            updateSessionsListUI(data.data.today_sessions, 'today');
+        }
+        if (data.data.upcoming_sessions && activeTab === 'upcoming') {
+            console.log('Updating upcoming sessions:', data.data.upcoming_sessions);
+            updateSessionsListUI(data.data.upcoming_sessions, 'upcoming');
+        }
+        if (data.data.past_sessions && activeTab === 'past') {
+            console.log('Updating past sessions:', data.data.past_sessions);
+            updateSessionsListUI(data.data.past_sessions, 'past');
+        }
+        
+        // Fallback to sessions property if specific tabs not available
+        if (data.data.sessions) {
+            console.log('Updating generic sessions list:', data.data.sessions);
+            updateSessionsListUI(data.data.sessions);
+        }
+    }
+    
+    // Legacy support for old format
     if (data.sessions) {
+        console.log('Updating sessions list (legacy format):', data.sessions);
         updateSessionsListUI(data.sessions);
     }
     
     // Update bookings list if present
-    if (data.bookings) {
+    if (data.data && data.data.bookings) {
+        updateBookingsListUI(data.data.bookings);
+    } else if (data.bookings) {
         updateBookingsListUI(data.bookings);
     }
     
     // Update session requests list if present
-    if (data.session_requests) {
+    if (data.data && data.data.session_requests) {
+        updateRequestsListUI(data.data.session_requests);
+    } else if (data.session_requests) {
         updateRequestsListUI(data.session_requests);
     }
     
     // Update stats if present
-    if (data.stats) {
+    if (data.data && data.data.stats) {
+        updateStatsUI(data.data.stats);
+    } else if (data.stats) {
         updateStatsUI(data.stats);
     }
     
     // Update earnings if present
-    if (data.earnings) {
+    if (data.data && data.data.earnings) {
+        updateEarningsUI(data.data.earnings);
+    } else if (data.earnings) {
         updateEarningsUI(data.earnings);
     }
 }
@@ -529,11 +565,43 @@ function refreshSessionsList() {
     // Make the function available globally so it can be called from other scripts
     window.refreshSessionsList = refreshSessionsList;
     
+    // Get the current active tab
+    let currentSubTab = 'today';
+    const activeTabElement = document.querySelector('.sub-tab.active');
+    if (activeTabElement) {
+        currentSubTab = activeTabElement.dataset.tab;
+    }
+    console.log('Current active tab:', currentSubTab);
+    
     // Detect if we're on the mentor or learner dashboard
     const onMentorDashboard = window.location.pathname.includes('/dashboard/mentor/');
     const onLearnerDashboard = window.location.pathname.includes('/dashboard/learner/');
     
-    // Option 1: Use API to get updated list
+    // First try to use the WebSocket for real-time updates if it's available
+    if (dashboardSocket && dashboardSocket.readyState === WebSocket.OPEN) {
+        console.log('Using WebSocket to refresh sessions for tab:', currentSubTab);
+        
+        // Request up-to-date dashboard data via WebSocket
+        sendDashboardMessage({
+            type: 'get_data',
+            data: {
+                tab: currentSubTab
+            }
+        });
+        
+        // Also specifically request session data
+        sendDashboardMessage({
+            type: 'get_sessions',
+            data: {
+                tab: currentSubTab
+            }
+        });
+        
+        // We'll let the WebSocket response handler update the UI
+        return;
+    }
+    
+    // Fallback to API if available
     if (window.apiClient) {
         console.log('Using API client to refresh sessions');
         // Use the appropriate API endpoint based on the dashboard
@@ -556,8 +624,8 @@ function refreshSessionsList() {
                 }
             });
     } else {
-        console.log('API client not available, refreshing page...');
-        // Option 2: Fallback to page reload but preserve the current tab
+        console.log('Neither WebSocket nor API client available, trying page refresh...');
+        // Fallback to page reload but preserve the current tab
         let sessionsContainer;
         
         if (onMentorDashboard) {
