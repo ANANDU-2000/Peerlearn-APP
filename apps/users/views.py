@@ -13,6 +13,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 import json
 
 from .models import CustomUser, UserRating
+from apps.learning_sessions.models import Session, Booking
 from .forms import (
     LearnerSignUpForm, MentorSignUpForm, 
     UserLoginForm, LearnerProfileForm, 
@@ -153,7 +154,8 @@ class MentorDetailView(DetailView):
         
         # Add mentor's sessions
         mentor = self.get_object()
-        context['upcoming_sessions'] = mentor.sessions.filter(
+        context['upcoming_sessions'] = Session.objects.filter(
+            mentor=mentor,
             status__in=['scheduled', 'live']
         ).order_by('schedule')
         
