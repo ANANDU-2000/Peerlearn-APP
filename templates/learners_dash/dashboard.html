@@ -1,28 +1,383 @@
-{% extends 'base.html' %}
+{% extends 'dashboard_base.html' %}
 
 {% block title %}Learner Dashboard - PeerLearn{% endblock %}
 
+{% block extra_head %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize countdown timers
+        function updateTimers() {
+            document.querySelectorAll('.session-countdown').forEach(function(element) {
+                const timestamp = parseInt(element.getAttribute('data-timestamp'));
+                const now = Math.floor(Date.now() / 1000);
+                const diff = timestamp - now;
+                
+                if (diff <= 0) {
+                    // Session is live or past
+                    if (diff > -3600) { // Within one hour of start
+                        element.innerHTML = '<span class="text-red-600 font-semibold animate-pulse">LIVE NOW</span>';
+                        element.classList.add('live');
+                    } else {
+                        element.innerHTML = 'Ended';
+                        element.classList.add('ended');
+                    }
+                    return;
+                }
+                
+                // Calculate days, hours, minutes, seconds
+                const days = Math.floor(diff / 86400);
+                const hours = Math.floor((diff % 86400) / 3600);
+                const minutes = Math.floor((diff % 3600) / 60);
+                const seconds = diff % 60;
+                
+                // Display the countdown
+                if (days > 0) {
+                    element.innerHTML = `${days}d ${hours}h ${minutes}m`;
+                } else if (hours > 0) {
+                    element.innerHTML = `${hours}h ${minutes}m ${seconds}s`;
+                } else {
+                    element.innerHTML = `${minutes}m ${seconds}s`;
+                    element.classList.add('urgent');
+                }
+            });
+        }
+        
+        // Initialize and update every second
+        updateTimers();
+        setInterval(updateTimers, 1000);
+        
+        // Connect to WebSocket for realtime updates
+        try {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.host}/ws/sessions/`;
+            const socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                console.log('WebSocket connection established');
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                // Update attendee count
+                if (data.type === 'attendee_update') {
+                    const countElement = document.querySelector(`.attendee-count[data-session-id="${data.session_id}"]`);
+                    if (countElement) {
+                        countElement.textContent = data.count;
+                    }
+                }
+                
+                // Update session status
+                else if (data.type === 'session_status_update') {
+                    const sessionCard = document.querySelector(`.session-card[data-session-id="${data.session_id}"]`);
+                    if (sessionCard) {
+                        sessionCard.setAttribute('data-status', data.status);
+                        // Update UI based on new status
+                        updateSessionCardUI(sessionCard, data.status);
+                    }
+                }
+                
+                // Handle booking confirmations
+                else if (data.type === 'booking_confirmation') {
+                    window.dispatchEvent(new CustomEvent('toast', {
+                        detail: {
+                            message: 'Your booking has been confirmed!',
+                            type: 'success'
+                        }
+                    }));
+                    // Reload the page to show updated bookings
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                console.log('WebSocket connection closed');
+                // Attempt to reconnect after 5 seconds
+                setTimeout(() => {
+                    console.log('Attempting to reconnect WebSocket...');
+                    // Location reload will trigger reconnection
+                    window.location.reload();
+                }, 5000);
+            };
+            
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        } catch (e) {
+            console.error('Error setting up WebSocket:', e);
+            // Fall back to polling
+            setInterval(function() {
+                fetch('/api/sessions/status/')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update UI with polled data
+                        data.sessions.forEach(session => {
+                            const sessionCard = document.querySelector(`.session-card[data-session-id="${session.id}"]`);
+                            if (sessionCard) {
+                                updateSessionCardUI(sessionCard, session.status);
+                            }
+                        });
+                    })
+                    .catch(error => console.error('Error polling session status:', error));
+            }, 10000); // Poll every 10 seconds
+        }
+        
+        function updateSessionCardUI(card, status) {
+            // Update card UI based on session status
+            card.querySelectorAll('.status-badge').forEach(badge => {
+                badge.classList.add('hidden');
+            });
+            
+            const statusBadge = card.querySelector(`.status-badge[data-status="${status}"]`);
+            if (statusBadge) {
+                statusBadge.classList.remove('hidden');
+            }
+            
+            // Update action buttons
+            if (status === 'live') {
+                const joinBtn = card.querySelector('.join-btn');
+                if (joinBtn) {
+                    joinBtn.classList.remove('hidden');
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen bg-gray-100">
-    <div class="py-10">
-        <header>
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h1 class="text-3xl font-bold leading-tight text-gray-900">Learner Dashboard</h1>
+<div class="bg-gray-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Dashboard Header -->
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Welcome, {{ user.first_name|default:user.username }}</h1>
+            <p class="mt-2 text-sm text-gray-600">
+                Discover and connect with expert mentors tailored to your learning needs.
+            </p>
+
+            <!-- Network Status Banner -->
+            <div x-data="{ isOffline: false }" x-init="
+                window.addEventListener('online', () => { isOffline = false });
+                window.addEventListener('offline', () => { isOffline = true });
+                isOffline = !navigator.onLine;
+            ">
+                <div x-show="isOffline" class="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 flex items-center" style="display: none;">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            You're offline. Working with cached data.
+                        </p>
+                    </div>
+                </div>
             </div>
-        </header>
-        <main>
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Replace with actual dashboard content -->
-                <div class="px-4 py-8 sm:px-0">
-                    <div class="border-4 border-dashed border-gray-200 rounded-lg h-96 p-6 flex items-center justify-center">
-                        <div class="text-center">
-                            <h3 class="text-lg font-medium text-gray-900">Welcome to your learner dashboard!</h3>
-                            <p class="mt-1 text-sm text-gray-500">This is a basic placeholder. The full dashboard is under development.</p>
+        </div>
+
+        <!-- Dashboard Tabs -->
+        <div x-data="{ activeTab: 'recommended' }">
+            <!-- Tab Navigation -->
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="-mb-px flex space-x-6 sm:space-x-8 overflow-x-auto hide-scrollbar">
+                    <button @click="activeTab = 'recommended'" :class="{'border-primary-600 text-primary-600': activeTab === 'recommended', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'recommended'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
+                        <i data-feather="compass" class="inline-block w-4 h-4 align-text-bottom"></i>
+                        Recommended
+                    </button>
+                    <button @click="activeTab = 'activity'" :class="{'border-primary-600 text-primary-600': activeTab === 'activity', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'activity'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
+                        <i data-feather="activity" class="inline-block w-4 h-4 align-text-bottom"></i>
+                        My Activity
+                    </button>
+                    <button @click="activeTab = 'profile'" :class="{'border-primary-600 text-primary-600': activeTab === 'profile', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
+                        <i data-feather="user" class="inline-block w-4 h-4 align-text-bottom"></i>
+                        Profile
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="mt-4">
+                <!-- Recommended Tab -->
+                <div x-show="activeTab === 'recommended'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                    {% include 'learners_dash/tabs/recommended.html' %}
+                </div>
+
+                <!-- Activity Tab -->
+                <div x-show="activeTab === 'activity'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
+                    {% include 'learners_dash/tabs/activity.html' %}
+                </div>
+
+                <!-- Profile Tab -->
+                <div x-show="activeTab === 'profile'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
+                    {% include 'learners_dash/tabs/profile.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Modal -->
+<div x-data="{ isOpen: false, sessionId: null, sessionData: {} }" 
+     @open-booking-modal.window="
+        isOpen = true; 
+        sessionId = $event.detail.sessionId;
+        sessionData = $event.detail.sessionData;
+     "
+     x-show="isOpen" 
+     class="fixed inset-0 z-50 overflow-y-auto" 
+     style="display: none;"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0">
+    
+    <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div x-show="isOpen" @click="isOpen = false" class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-75" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-75" x-transition:leave-end="opacity-0"></div>
+        
+        <!-- Modal panel -->
+        <div x-show="isOpen" class="inline-block w-full max-w-xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl sm:my-12" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button @click="isOpen = false" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="mt-2">
+                <h3 class="text-xl font-semibold text-gray-900" x-text="sessionData.title || 'Book Session'"></h3>
+                <div class="mt-4 space-y-4">
+                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <i data-feather="calendar" class="w-4 h-4"></i>
+                        <span x-text="sessionData.schedule || 'Loading...'"></span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <i data-feather="clock" class="w-4 h-4"></i>
+                        <span x-text="sessionData.duration ? sessionData.duration + ' minutes' : 'Loading...'"></span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <i data-feather="user" class="w-4 h-4"></i>
+                        <span x-text="sessionData.mentor_name || 'Loading...'"></span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-sm font-semibold text-primary-600">
+                        <i data-feather="tag" class="w-4 h-4"></i>
+                        <span x-text="sessionData.price ? '₹' + sessionData.price : 'Loading...'"></span>
+                    </div>
+                    
+                    <div class="pt-3 border-t border-gray-200">
+                        <h4 class="font-medium text-gray-900">Session Description</h4>
+                        <p class="mt-2 text-sm text-gray-600" x-text="sessionData.description || 'Loading session details...'"></p>
+                    </div>
+                    
+                    <div class="pt-3 border-t border-gray-200">
+                        <h4 class="font-medium text-gray-900">Topics Covered</h4>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="topic in sessionData.topics || []" :key="topic">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800" x-text="topic"></span>
+                            </template>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
+            
+            <div class="mt-6 sm:mt-8">
+                <div class="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 justify-end">
+                    <button @click="isOpen = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        Cancel
+                    </button>
+                    <form x-bind:action="'/sessions/' + sessionId + '/book/'" method="POST" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" x-bind:class="{'opacity-50 cursor-not-allowed': sessionData.is_booked}" x-bind:disabled="sessionData.is_booked" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            <span x-show="!sessionData.is_free">Pay & Book Now</span>
+                            <span x-show="sessionData.is_free">Book Now (Free)</span>
+                        </button>
+                    </form>
+                </div>
+                <p x-show="sessionData.is_booked" class="mt-2 text-sm text-center text-red-600">You have already booked this session.</p>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup booking buttons
+        document.querySelectorAll('.book-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const sessionId = this.getAttribute('data-session-id');
+                const sessionCard = document.querySelector(`.session-card[data-session-id="${sessionId}"]`);
+                
+                // Extract session data from the card
+                const sessionData = {
+                    title: sessionCard.querySelector('.session-title').textContent,
+                    description: sessionCard.getAttribute('data-description'),
+                    schedule: sessionCard.querySelector('.session-schedule').textContent,
+                    duration: sessionCard.getAttribute('data-duration'),
+                    mentor_name: sessionCard.querySelector('.mentor-name').textContent,
+                    price: sessionCard.getAttribute('data-price'),
+                    is_free: sessionCard.getAttribute('data-price') === '0',
+                    is_booked: sessionCard.getAttribute('data-is-booked') === 'true',
+                    topics: JSON.parse(sessionCard.getAttribute('data-topics') || '[]')
+                };
+                
+                // Open the booking modal with session data
+                window.dispatchEvent(new CustomEvent('open-booking-modal', {
+                    detail: {
+                        sessionId: sessionId,
+                        sessionData: sessionData
+                    }
+                }));
+            });
+        });
+        
+        // Handle offline storage
+        if ('localStorage' in window) {
+            // Save form data on change
+            document.querySelectorAll('.autosave-form input, .autosave-form textarea, .autosave-form select').forEach(input => {
+                input.addEventListener('change', function() {
+                    const form = this.closest('.autosave-form');
+                    const formId = form.getAttribute('id');
+                    const formData = new FormData(form);
+                    const formDataObj = {};
+                    
+                    formData.forEach((value, key) => {
+                        formDataObj[key] = value;
+                    });
+                    
+                    localStorage.setItem(`form_${formId}`, JSON.stringify(formDataObj));
+                });
+            });
+            
+            // Load saved form data
+            document.querySelectorAll('.autosave-form').forEach(form => {
+                const formId = form.getAttribute('id');
+                const savedData = localStorage.getItem(`form_${formId}`);
+                
+                if (savedData) {
+                    try {
+                        const formData = JSON.parse(savedData);
+                        
+                        for (const [key, value] of Object.entries(formData)) {
+                            const input = form.querySelector(`[name="${key}"]`);
+                            if (input) {
+                                if (input.type === 'checkbox') {
+                                    input.checked = value === 'on';
+                                } else {
+                                    input.value = value;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error loading saved form data:', e);
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

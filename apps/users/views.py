@@ -195,10 +195,130 @@ def learner_dashboard(request):
         messages.error(request, 'Access denied.')
         return redirect(request.user.get_dashboard_url())
     
-    # Get recommendations, bookings, and requests for the learner
-    # These will be fetched from the respective apps
+    # Get ML-based recommendations
+    from apps.learning_sessions.models import Session, Booking, SessionRequest
+    from django.db.models import Q, Count, Avg, F, ExpressionWrapper, fields
+    from django.utils import timezone
+    import json
     
-    return render(request, 'learners_dash/dashboard.html')
+    now = timezone.now()
+    
+    # Recommended sessions based on the learner's interests and career goal
+    recommended_sessions = []
+    trending_sessions = []
+    
+    # Try to fetch personalized recommendations
+    if hasattr(request.user, 'interests') and request.user.interests:
+        # Convert interests string to list if stored as JSON string
+        user_interests = request.user.interests if isinstance(request.user.interests, list) else json.loads(request.user.interests or '[]')
+        
+        if user_interests:
+            # Get upcoming sessions related to user interests or career goals
+            time_filter = now - timezone.timedelta(hours=1)  # Include recently started sessions too
+            interest_filter = Q(topics__overlap=user_interests) | Q(title__icontains=request.user.career_goal) | Q(description__icontains=request.user.career_goal)
+            status_filter = Q(status='scheduled') | Q(status='live')
+            
+            # Combined filter to avoid positional/keyword argument mixing
+            combined_filter = status_filter & Q(schedule__gte=time_filter) & interest_filter
+            
+            recommended_sessions = Session.objects.filter(combined_filter).distinct().order_by('schedule')[:6]
+    
+    # If no personalized recommendations, get trending sessions
+    if not recommended_sessions:
+        # Get trending sessions by number of bookings
+        time_filter = now - timezone.timedelta(hours=1)
+        status_filter = Q(status='scheduled') | Q(status='live')
+        
+        # Combined filter to avoid positional/keyword argument mixing
+        combined_filter = status_filter & Q(schedule__gte=time_filter)
+        
+        trending_sessions = Session.objects.filter(combined_filter).annotate(
+            booking_count=Count('booking')
+        ).order_by('-booking_count')[:6]
+    
+    # Mark sessions that are already booked by this learner
+    booked_session_ids = Booking.objects.filter(
+        learner=request.user
+    ).values_list('session_id', flat=True)
+    
+    # Add attendee_count to recommended sessions
+    for session in recommended_sessions:
+        session.attendee_count = Booking.objects.filter(session=session, status__in=['confirmed', 'completed']).count()
+        session.is_booked = session.id in booked_session_ids
+    
+    # Add attendee_count to trending sessions
+    for session in trending_sessions:
+        session.attendee_count = Booking.objects.filter(session=session, status__in=['confirmed', 'completed']).count()
+        session.is_booked = session.id in booked_session_ids
+    
+    # Get activities (consolidated from bookings and requests)
+    activities = []
+    
+    # Add bookings to activities
+    bookings = Booking.objects.filter(
+        learner=request.user
+    ).select_related('session', 'session__mentor').order_by('-created_at')[:10]
+    
+    for booking in bookings:
+        activity = {
+            'type': 'booking',
+            'type_color': 'green',
+            'title': booking.session.title,
+            'mentor': booking.session.mentor,
+            'timestamp': booking.created_at,
+            'status': booking.get_status_display(),
+            'status_color': 'green' if booking.status == 'confirmed' else 'gray' if booking.status == 'completed' else 'yellow' if booking.status == 'pending' else 'red',
+            'description': booking.session.description,
+            'schedule': booking.session.schedule,
+            'duration': booking.session.duration,
+            'topics': booking.session.topics,
+            'price': booking.session.price,
+            'payment_status': booking.payment.get_status_display() if hasattr(booking, 'payment') else None,
+            'booking_id': booking.id,
+            'joinable': booking.status == 'confirmed' and booking.session.status == 'live',
+            'can_cancel': booking.status == 'confirmed' and booking.session.status == 'scheduled',
+            'can_review': booking.status == 'completed',
+            'has_feedback': booking.feedback_submitted,
+            'room_code': booking.session.room_code,
+        }
+        activities.append(activity)
+    
+    # Add requests to activities
+    session_requests = SessionRequest.objects.filter(
+        learner=request.user
+    ).select_related('mentor').order_by('-created_at')[:10]
+    
+    for request in session_requests:
+        activity = {
+            'type': 'request',
+            'type_color': 'indigo',
+            'title': request.title,
+            'mentor': request.mentor,
+            'timestamp': request.created_at,
+            'status': request.get_status_display(),
+            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
+            'description': request.description,
+            'schedule': request.proposed_time,
+            'duration': request.duration,
+            'price': request.budget,
+            'request_id': request.id,
+            'can_confirm': request.status == 'counter_offer'
+        }
+        activities.append(activity)
+    
+    # Sort activities by timestamp
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    context = {
+        'recommended_sessions': recommended_sessions,
+        'trending_sessions': trending_sessions,
+        'activities': activities,
+        'session_requests': session_requests,
+        'bookings': bookings,
+        'active_tab': 'dashboard'
+    }
+    
+    return render(request, 'learners_dash/dashboard.html', context)
 
 @login_required
 def mentor_dashboard(request):
@@ -271,8 +391,75 @@ def learner_activity(request):
         return redirect(request.user.get_dashboard_url())
     
     # Get bookings and requests for the learner
+    from apps.learning_sessions.models import Booking, SessionRequest
     
-    return render(request, 'learners_dash/activity.html')
+    bookings = Booking.objects.filter(
+        learner=request.user
+    ).select_related('session', 'session__mentor').order_by('-created_at')
+    
+    session_requests = SessionRequest.objects.filter(
+        learner=request.user
+    ).select_related('mentor').order_by('-created_at')
+    
+    # Create activities list for the combined view
+    activities = []
+    
+    # Add bookings to activities
+    for booking in bookings:
+        activity = {
+            'type': 'booking',
+            'type_color': 'green',
+            'title': booking.session.title,
+            'mentor': booking.session.mentor,
+            'timestamp': booking.created_at,
+            'status': booking.get_status_display(),
+            'status_color': 'green' if booking.status == 'confirmed' else 'gray' if booking.status == 'completed' else 'yellow' if booking.status == 'pending' else 'red',
+            'description': booking.session.description,
+            'schedule': booking.session.schedule,
+            'duration': booking.session.duration,
+            'topics': booking.session.topics,
+            'price': booking.session.price,
+            'payment_status': booking.payment.get_status_display() if hasattr(booking, 'payment') else None,
+            'booking_id': booking.id,
+            'joinable': booking.status == 'confirmed' and booking.session.status == 'live',
+            'can_cancel': booking.status == 'confirmed' and booking.session.status == 'scheduled',
+            'can_review': booking.status == 'completed',
+            'has_feedback': booking.feedback_submitted,
+            'room_code': booking.session.room_code,
+        }
+        activities.append(activity)
+    
+    # Add requests to activities
+    for request in session_requests:
+        activity = {
+            'type': 'request',
+            'type_color': 'indigo',
+            'title': request.title,
+            'mentor': request.mentor,
+            'timestamp': request.created_at,
+            'status': request.get_status_display(),
+            'status_color': 'green' if request.status == 'accepted' else 'blue' if request.status == 'counter_offer' else 'yellow' if request.status == 'pending' else 'red',
+            'description': request.description,
+            'schedule': request.proposed_time,
+            'duration': request.duration,
+            'price': request.budget,
+            'request_id': request.id,
+            'can_confirm': request.status == 'counter_offer'
+        }
+        activities.append(activity)
+    
+    # Sort activities by timestamp
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    context = {
+        'activities': activities,
+        'session_requests': session_requests,
+        'bookings': bookings,
+        'active_tab': 'activity'
+    }
+    
+    # Use the dashboard template with the activity tab active
+    return render(request, 'learners_dash/dashboard.html', context)
 
 @login_required
 def mentor_requests(request):
