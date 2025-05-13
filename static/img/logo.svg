@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60" fill="none">
+  <rect width="200" height="60" rx="6" fill="#FFFFFF"/>
+  <path d="M35 15H25C22.2386 15 20 17.2386 20 20V30C20 32.7614 22.2386 35 25 35H35C37.7614 35 40 32.7614 40 30V20C40 17.2386 37.7614 15 35 15Z" fill="#2563EB"/>
+  <path d="M55 25H45C42.2386 25 40 27.2386 40 30V40C40 42.7614 42.2386 45 45 45H55C57.7614 45 60 42.7614 60 40V30C60 27.2386 57.7614 25 55 25Z" fill="#3B82F6"/>
+  <text x="65" y="32" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#2563EB">PeerLearn</text>
+  <text x="65" y="44" font-family="Arial, sans-serif" font-size="10" fill="#64748B">Personalized Learning</text>
+</svg>

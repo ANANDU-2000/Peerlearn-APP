@@ -1,141 +1,120 @@
 /**
- * Toast notification utility for PeerLearn
- * Provides consistent toast notifications throughout the application
+ * Toast notification system for PeerLearn
+ * Provides a standardized way to show notification toasts across the application
  */
 
-// Toast container
-let toastContainer = null;
+// Toast container setup
+let toastContainer;
 
-// Initialize toast container
-function initToastContainer() {
-    if (toastContainer) return;
-    
+document.addEventListener('DOMContentLoaded', function() {
     // Create toast container if it doesn't exist
-    toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-0 right-0 p-4 z-50 space-y-4 max-w-md w-full';
-    document.body.appendChild(toastContainer);
-}
+    if (!document.getElementById('toast-container')) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col items-end space-y-4';
+        document.body.appendChild(toastContainer);
+    } else {
+        toastContainer = document.getElementById('toast-container');
+    }
+});
 
 /**
  * Show a toast notification
- * @param {string} message - The message to display
- * @param {string} type - The type of toast (success, error, info, warning)
- * @param {number} duration - How long to display the toast in ms (0 for no auto-dismiss)
- * @returns {HTMLElement} - The toast element
+ * @param {string} message - Message to display
+ * @param {string} type - Type of toast: 'success', 'error', 'info', 'warning'
+ * @param {number} duration - Duration in milliseconds
  */
 function showToast(message, type = 'info', duration = 5000) {
-    initToastContainer();
+    if (!toastContainer) {
+        // Create container if it doesn't exist yet (page might still be loading)
+        toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col items-end space-y-4';
+            document.body.appendChild(toastContainer);
+        }
+    }
     
-    // Create toast
+    // Create toast element
     const toast = document.createElement('div');
-    toast.className = `transform translate-x-0 transition-all duration-300 ease-in-out 
-                      flex items-center justify-between p-4 mb-3 rounded-lg shadow-lg 
-                      text-white max-w-md w-full`;
+    toast.className = 'transform transition-all duration-300 ease-in-out translate-x-full';
+    toast.style.minWidth = '300px';
+    toast.style.maxWidth = '500px';
     
-    // Set background color based on type
-    switch (type) {
+    // Set appropriate styling based on toast type
+    let icon, bgColor, textColor;
+    switch(type) {
         case 'success':
-            toast.classList.add('bg-green-600');
+            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            bgColor = 'bg-green-100';
+            textColor = 'text-green-800';
             break;
         case 'error':
-            toast.classList.add('bg-red-600');
+            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            bgColor = 'bg-red-100';
+            textColor = 'text-red-800';
             break;
         case 'warning':
-            toast.classList.add('bg-yellow-600');
+            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+            bgColor = 'bg-yellow-100';
+            textColor = 'text-yellow-800';
             break;
-        case 'info':
-        default:
-            toast.classList.add('bg-blue-600');
-            break;
+        default: // info
+            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            bgColor = 'bg-blue-100';
+            textColor = 'text-blue-800';
     }
     
-    // Add icon based on type
-    let icon = '';
-    switch (type) {
-        case 'success':
-            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            break;
-        case 'error':
-            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-            break;
-        case 'warning':
-            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-            break;
-        case 'info':
-        default:
-            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-            break;
-    }
-    
-    // Set content
+    // Create toast inner HTML
     toast.innerHTML = `
-        <div class="flex items-center">
-            ${icon}
-            <div class="text-sm font-medium">${message}</div>
+        <div class="rounded-lg shadow-lg overflow-hidden ${bgColor} p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 ${textColor}">
+                    ${icon}
+                </div>
+                <div class="ml-3 w-0 flex-1 ${textColor}">
+                    <p class="text-sm font-medium">
+                        ${message}
+                    </p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button class="inline-flex ${textColor} focus:outline-none focus:text-gray-700">
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
-        <button type="button" class="ml-4 focus:outline-none">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </button>
     `;
     
     // Add to container
     toastContainer.appendChild(toast);
     
-    // Start with the toast translated
-    toast.style.transform = 'translateX(100%)';
-    
-    // Animate in
+    // Slide in animation
     setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
+        toast.classList.remove('translate-x-full');
+        toast.classList.add('translate-x-0');
     }, 10);
     
-    // Set up dismiss button
-    const dismissBtn = toast.querySelector('button');
-    dismissBtn.addEventListener('click', () => {
-        removeToast(toast);
-    });
-    
-    // Auto dismiss
-    if (duration > 0) {
+    // Setup close button
+    const closeButton = toast.querySelector('button');
+    const closeToast = () => {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-full');
         setTimeout(() => {
-            removeToast(toast);
-        }, duration);
-    }
+            toast.remove();
+        }, 300);
+    };
+    
+    closeButton.addEventListener('click', closeToast);
+    
+    // Auto close after duration
+    setTimeout(closeToast, duration);
     
     return toast;
 }
 
-/**
- * Remove a toast with animation
- * @param {HTMLElement} toast - The toast element to remove
- */
-function removeToast(toast) {
-    // If toast is already being removed, do nothing
-    if (toast.classList.contains('removing')) return;
-    
-    toast.classList.add('removing');
-    toast.style.transform = 'translateX(100%)';
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 300);
-}
-
-/**
- * Remove all toasts
- */
-function clearAllToasts() {
-    if (!toastContainer) return;
-    
-    // Get all toasts
-    const toasts = toastContainer.querySelectorAll('div');
-    toasts.forEach(toast => {
-        removeToast(toast);
-    });
-}
-
-// Make toast utility available globally
+// Make functions available globally
 window.showToast = showToast;
-window.clearAllToasts = clearAllToasts;

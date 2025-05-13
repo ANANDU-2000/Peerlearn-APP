@@ -1,17 +1,18 @@
 /**
  * API Client for PeerLearn
- * This file contains utility functions for interacting with the API
+ * Provides a standardized way to communicate with the backend API
  */
 
-// Helper to get CSRF token from cookies
+// Get CSRF token from cookies
 function getCsrfToken() {
+    const name = 'csrftoken';
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
-            if (cookie.substring(0, 'csrftoken='.length) === 'csrftoken=') {
-                cookieValue = decodeURIComponent(cookie.substring('csrftoken='.length));
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                 break;
             }
         }
@@ -19,154 +20,217 @@ function getCsrfToken() {
     return cookieValue;
 }
 
-// Show toast notification
-function showToast(message, type = 'success', duration = 5000) {
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-opacity duration-500 
-        ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`;
-    toast.style.opacity = '0';
-    toast.innerHTML = `
-        <div class="flex items-center">
-            ${type === 'success' 
-                ? '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' 
-                : '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'}
-            <span>${message}</span>
-        </div>
-        <button type="button" class="absolute top-1 right-1 text-white hover:text-gray-200" onclick="this.parentNode.remove()">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </button>
-    `;
-    document.body.appendChild(toast);
-    
-    // Fade in
-    setTimeout(() => {
-        toast.style.opacity = '1';
-    }, 10);
-    
-    // Auto remove after duration
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => {
-            toast.remove();
-        }, 500);
-    }, duration);
-}
-
-// Create error banner for network issues
-function createErrorBanner(message, retryCallback = null) {
-    const banner = document.createElement('div');
-    banner.className = 'fixed top-0 left-0 right-0 bg-red-600 text-white p-4 z-50 flex justify-between items-center';
-    banner.innerHTML = `
-        <div>${message}</div>
-        ${retryCallback ? `<button id="retry-btn" class="bg-white text-red-600 px-4 py-1 rounded hover:bg-gray-100">Retry ▶</button>` : ''}
-    `;
-    document.body.prepend(banner);
-    
-    if (retryCallback) {
-        document.getElementById('retry-btn').addEventListener('click', () => {
-            banner.remove();
-            retryCallback();
-        });
-    }
-    
-    return banner;
-}
-
-// API Client object
-const ApiClient = {
-    // Create a new session
-    createSession: async function(formData, maxRetries = 3) {
-        let retries = 0;
-        let banner = null;
-        
-        const attemptSubmit = async () => {
-            try {
-                const response = await fetch('/sessions/api/create/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': getCsrfToken()
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        // Success - show toast and redirect
-                        showToast('Session published successfully ✓', 'success');
-                        
-                        // Redirect after a short delay
-                        setTimeout(() => {
-                            window.location.href = data.session.redirect_url;
-                        }, 1000);
-                        
-                        return data;
-                    } else {
-                        // Server returned success=false
-                        showToast(data.errors.__all__[0] || 'Failed to publish session', 'error');
-                        return null;
-                    }
-                } else {
-                    // Handle specific error status codes
-                    if (response.status === 400) {
-                        // Validation errors
-                        const errors = await response.json();
-                        
-                        // Return the errors to display them in the form
-                        showToast('Failed to publish session—please fix errors.', 'error');
-                        return { success: false, errors: errors.errors };
-                    } else {
-                        throw new Error(`Server error: ${response.status}`);
-                    }
-                }
-            } catch (error) {
-                retries++;
-                console.error('Error submitting session:', error);
-                
-                if (retries < maxRetries) {
-                    // Create or update retry banner
-                    if (banner) banner.remove();
-                    
-                    banner = createErrorBanner(`Network error. Retrying in 5s... (${retries}/${maxRetries})`);
-                    
-                    // Wait 5 seconds and retry
-                    await new Promise(resolve => setTimeout(resolve, 5000));
-                    banner.remove();
-                    
-                    return attemptSubmit(); // Recursive retry
-                } else {
-                    // Max retries reached
-                    if (banner) banner.remove();
-                    banner = createErrorBanner('Failed to save. Network issues detected.', attemptSubmit);
-                    return { success: false, errors: { '__all__': ['Network error. Please try again.'] } };
-                }
-            }
+/**
+ * Make an API request with proper error handling and CSRF protection
+ * @param {string} url - The API endpoint URL
+ * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
+ * @param {Object} [data=null] - Request body data for POST/PUT requests
+ * @param {boolean} [withCredentials=true] - Whether to include credentials
+ * @returns {Promise} A promise that resolves with the API response
+ */
+async function apiRequest(url, method, data = null, withCredentials = true) {
+    try {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
         };
         
-        return attemptSubmit();
-    },
-    
-    // Get session details
-    getSessionDetails: async function(sessionId) {
-        try {
-            const response = await fetch(`/sessions/api/session/${sessionId}/`, {
-                method: 'GET',
-                headers: {
-                    'X-CSRFToken': getCsrfToken()
-                }
-            });
-            
-            if (response.ok) {
-                return await response.json();
-            } else {
-                console.error('Error fetching session details:', response.status);
-                return null;
-            }
-        } catch (error) {
-            console.error('Error fetching session details:', error);
-            return null;
+        // Add CSRF token for non-GET requests
+        if (method !== 'GET') {
+            headers['X-CSRFToken'] = getCsrfToken();
         }
+        
+        const options = {
+            method,
+            headers,
+            credentials: withCredentials ? 'include' : 'same-origin'
+        };
+        
+        if (data && method !== 'GET') {
+            options.body = JSON.stringify(data);
+        }
+        
+        const response = await fetch(url, options);
+        
+        // Check if the response is JSON
+        const contentType = response.headers.get('content-type');
+        const isJson = contentType && contentType.includes('application/json');
+        
+        // Parse response based on content type
+        let responseData;
+        if (isJson) {
+            responseData = await response.json();
+        } else {
+            responseData = await response.text();
+        }
+        
+        // Check for error responses
+        if (!response.ok) {
+            const error = new Error(isJson && responseData.detail ? responseData.detail : 'API request failed');
+            error.status = response.status;
+            error.data = responseData;
+            throw error;
+        }
+        
+        return responseData;
+    } catch (error) {
+        console.error('API request error:', error);
+        
+        // Show error toast if available
+        if (typeof showToast === 'function') {
+            const message = error.data && error.data.detail 
+                ? error.data.detail 
+                : 'An error occurred while communicating with the server.';
+            showToast(message, 'error');
+        }
+        
+        throw error;
     }
-};
+}
+
+/**
+ * Fetch a session by ID
+ * @param {number} sessionId - The session ID
+ * @returns {Promise} A promise that resolves with the session data
+ */
+async function fetchSession(sessionId) {
+    return apiRequest(`/api/sessions/${sessionId}/`, 'GET');
+}
+
+/**
+ * Create a new session
+ * @param {Object} sessionData - The session data
+ * @returns {Promise} A promise that resolves with the created session
+ */
+async function createSession(sessionData) {
+    return apiRequest('/api/sessions/create/', 'POST', sessionData);
+}
+
+/**
+ * Update an existing session
+ * @param {number} sessionId - The session ID
+ * @param {Object} sessionData - The updated session data
+ * @returns {Promise} A promise that resolves with the updated session
+ */
+async function updateSession(sessionId, sessionData) {
+    return apiRequest(`/api/sessions/${sessionId}/update/`, 'PUT', sessionData);
+}
+
+/**
+ * Delete a session
+ * @param {number} sessionId - The session ID
+ * @returns {Promise} A promise that resolves when the session is deleted
+ */
+async function deleteSession(sessionId) {
+    return apiRequest(`/api/sessions/${sessionId}/delete/`, 'DELETE');
+}
+
+/**
+ * Publish a session
+ * @param {number} sessionId - The session ID
+ * @returns {Promise} A promise that resolves when the session is published
+ */
+async function publishSession(sessionId) {
+    return apiRequest(`/api/sessions/${sessionId}/publish/`, 'POST');
+}
+
+/**
+ * Cancel a session
+ * @param {number} sessionId - The session ID
+ * @param {string} reason - Cancellation reason
+ * @returns {Promise} A promise that resolves when the session is cancelled
+ */
+async function cancelSession(sessionId, reason) {
+    return apiRequest(`/api/sessions/${sessionId}/cancel/`, 'POST', { reason });
+}
+
+/**
+ * Book a session
+ * @param {number} sessionId - The session ID
+ * @returns {Promise} A promise that resolves with the booking data
+ */
+async function bookSession(sessionId) {
+    return apiRequest(`/api/sessions/${sessionId}/book/`, 'POST');
+}
+
+/**
+ * Cancel a booking
+ * @param {number} bookingId - The booking ID
+ * @param {string} reason - Cancellation reason
+ * @returns {Promise} A promise that resolves when the booking is cancelled
+ */
+async function cancelBooking(bookingId, reason) {
+    return apiRequest(`/api/bookings/${bookingId}/cancel/`, 'POST', { reason });
+}
+
+/**
+ * Fetch notifications
+ * @param {boolean} [unreadOnly=false] - Whether to fetch only unread notifications
+ * @returns {Promise} A promise that resolves with the notifications data
+ */
+async function fetchNotifications(unreadOnly = false) {
+    return apiRequest(`/api/notifications/?unread_only=${unreadOnly ? 1 : 0}`, 'GET');
+}
+
+/**
+ * Mark a notification as read
+ * @param {number} notificationId - The notification ID
+ * @returns {Promise} A promise that resolves when the notification is marked as read
+ */
+async function markNotificationRead(notificationId) {
+    return apiRequest(`/api/notifications/${notificationId}/read/`, 'POST');
+}
+
+/**
+ * Mark all notifications as read
+ * @returns {Promise} A promise that resolves when all notifications are marked as read
+ */
+async function markAllNotificationsRead() {
+    return apiRequest('/api/notifications/read-all/', 'POST');
+}
+
+/**
+ * Submit session request
+ * @param {Object} requestData - The session request data
+ * @returns {Promise} A promise that resolves with the created request
+ */
+async function submitSessionRequest(requestData) {
+    return apiRequest('/api/session-requests/create/', 'POST', requestData);
+}
+
+/**
+ * Respond to session request
+ * @param {number} requestId - The request ID
+ * @param {Object} responseData - The response data
+ * @returns {Promise} A promise that resolves with the updated request
+ */
+async function respondToSessionRequest(requestId, responseData) {
+    return apiRequest(`/api/session-requests/${requestId}/respond/`, 'POST', responseData);
+}
+
+/**
+ * Submit feedback for a session
+ * @param {number} bookingId - The booking ID
+ * @param {Object} feedbackData - The feedback data
+ * @returns {Promise} A promise that resolves when the feedback is submitted
+ */
+async function submitFeedback(bookingId, feedbackData) {
+    return apiRequest(`/api/bookings/${bookingId}/feedback/`, 'POST', feedbackData);
+}
+
+// Make functions available globally
+window.apiRequest = apiRequest;
+window.fetchSession = fetchSession;
+window.createSession = createSession;
+window.updateSession = updateSession;
+window.deleteSession = deleteSession;
+window.publishSession = publishSession;
+window.cancelSession = cancelSession;
+window.bookSession = bookSession;
+window.cancelBooking = cancelBooking;
+window.fetchNotifications = fetchNotifications;
+window.markNotificationRead = markNotificationRead;
+window.markAllNotificationsRead = markAllNotificationsRead;
+window.submitSessionRequest = submitSessionRequest;
+window.respondToSessionRequest = respondToSessionRequest;
+window.submitFeedback = submitFeedback;

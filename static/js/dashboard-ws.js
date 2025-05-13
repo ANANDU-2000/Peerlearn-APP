@@ -1,465 +1,329 @@
 /**
- * Dashboard WebSocket Client for PeerLearn
- * Handles WebSocket connections for real-time updates in the dashboard
- * Updated with enhanced debugging and connection logic
+ * Dashboard WebSocket connection management for PeerLearn
+ * Establishes and maintains WebSocket connections to receive real-time updates
  */
 
-class DashboardSocket {
-    constructor(userId, onMessageCallback = null) {
-        this.userId = userId;
-        this.socket = null;
-        this.connected = false;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10; // Increased from 5 to 10
-        this.reconnectDelay = 2000; // Start with 2 seconds instead of 3
-        this.onMessageCallback = onMessageCallback;
-        
-        // Notification counts for different types
-        this.unreadNotifications = 0;
-        this.pendingRequests = 0;
-        this.upcomingSessions = 0;
-        
-        // Bind methods to this
-        this.connect = this.connect.bind(this);
-        this.onOpen = this.onOpen.bind(this);
-        this.onMessage = this.onMessage.bind(this);
-        this.onClose = this.onClose.bind(this);
-        this.onError = this.onError.bind(this);
-        this.reconnect = this.reconnect.bind(this);
-        this.getNotificationCount = this.getNotificationCount.bind(this);
-        
-        // Debug logging
-        console.log('DashboardSocket initialized with userId:', userId);
+let dashboardSocket = null;
+let isReconnecting = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 2000;
+let pingInterval = null;
+
+/**
+ * Initialize dashboard WebSocket connection
+ * @param {string} userId - The ID of the current user
+ */
+function initDashboardWebSocket(userId) {
+    if (!userId) {
+        console.error('User ID not provided. Cannot initialize dashboard WebSocket.');
+        return;
     }
-    
-    /**
-     * Connect to the WebSocket server
-     */
-    connect() {
-        if (this.socket && (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)) {
-            console.log('WebSocket already connected or connecting. State:', this.getReadyStateText(this.socket.readyState));
-            return;
-        }
-        
-        // Close any existing socket that might be in a closing or closed state
-        if (this.socket) {
-            try {
-                this.socket.close();
-            } catch (err) {
-                console.warn('Error closing existing socket:', err);
-            }
-        }
-        
-        // Log WebSocket support
-        if (!window.WebSocket) {
-            console.error('WebSocket is not supported by this browser!');
-            if (window.showToast) {
-                window.showToast('Your browser does not support real-time updates', 'error', 0);
-            }
-            return;
-        }
-        
-        // Determine WebSocket protocol
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Use alternate URL format without path if the normal URL fails
-        const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${this.userId}/`;
-        
-        try {
-            console.log(`WebSocket connecting to: ${wsUrl}`);
-            
-            // Create new WebSocket connection
-            this.socket = new WebSocket(wsUrl);
-            
-            // Set up event handlers
-            this.socket.onopen = this.onOpen;
-            this.socket.onmessage = this.onMessage;
-            this.socket.onclose = this.onClose;
-            this.socket.onerror = this.onError;
-            
-            // Update UI to show connecting state
-            const statusIndicator = document.getElementById('ws-status-indicator');
-            if (statusIndicator) {
-                statusIndicator.classList.remove('bg-green-500', 'bg-red-500');
-                statusIndicator.classList.add('bg-yellow-500');
-                statusIndicator.setAttribute('title', 'Connecting to real-time updates...');
-            }
-            
-            if (window.showToast) {
-                window.showToast('Connecting to real-time updates...', 'info', 3000);
-            }
-            
-        } catch (error) {
-            console.error('Error creating WebSocket:', error);
-            this.reconnect();
-        }
+
+    // Close existing connection if any
+    if (dashboardSocket) {
+        dashboardSocket.close();
+        dashboardSocket = null;
     }
+
+    // Determine WebSocket protocol (ws or wss)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${userId}/`;
     
-    /**
-     * Helper method to get text representation of WebSocket readyState
-     */
-    getReadyStateText(readyState) {
-        switch (readyState) {
-            case WebSocket.CONNECTING: return 'CONNECTING';
-            case WebSocket.OPEN: return 'OPEN';
-            case WebSocket.CLOSING: return 'CLOSING';
-            case WebSocket.CLOSED: return 'CLOSED';
-            default: return 'UNKNOWN';
-        }
-    }
+    // Create new WebSocket connection
+    dashboardSocket = new WebSocket(wsUrl);
     
-    /**
-     * Handle WebSocket open event
-     */
-    onOpen(event) {
-        console.log('WebSocket connected');
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.reconnectDelay = 2000; // Reset to initial value
+    // Setup event handlers
+    dashboardSocket.onopen = function(e) {
+        console.log('Dashboard WebSocket connection established');
+        showToast('Connected to real-time updates', 'success');
         
-        // Update connected status indicator if it exists
-        const statusIndicator = document.getElementById('ws-status-indicator');
-        if (statusIndicator) {
-            statusIndicator.classList.remove('bg-red-500', 'bg-yellow-500');
-            statusIndicator.classList.add('bg-green-500');
-            statusIndicator.setAttribute('title', 'Connected to real-time updates');
-        }
+        // Reset reconnection state
+        isReconnecting = false;
+        reconnectAttempts = 0;
         
-        // Add a toast notification
-        if (window.showToast) {
-            window.showToast('Connected to real-time updates', 'success', 3000);
-        }
-        
-        // Request dashboard data once connected
-        this.requestDashboardData();
+        // Request initial dashboard data
+        dashboardSocket.send(JSON.stringify({
+            'type': 'request_dashboard_data'
+        }));
         
         // Start ping interval to keep connection alive
-        this.startPingInterval();
+        startPingInterval();
+    };
+    
+    dashboardSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        // Handle different message types
+        switch(data.type) {
+            case 'session_update':
+                handleSessionUpdate(data);
+                break;
+            case 'booking_update':
+                handleBookingUpdate(data);
+                break;
+            case 'notification_update':
+                handleNotificationUpdate(data);
+                break;
+            case 'session_request_update':
+                handleSessionRequestUpdate(data);
+                break;
+            case 'dashboard_data':
+                handleDashboardData(data);
+                break;
+            case 'pong':
+                // Ping response received, connection is alive
+                break;
+            default:
+                console.log('Unknown message type:', data.type);
+        }
+    };
+    
+    dashboardSocket.onclose = function(e) {
+        console.log('Dashboard WebSocket connection closed');
+        clearInterval(pingInterval);
+        
+        // Attempt to reconnect if not closing deliberately
+        if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            isReconnecting = true;
+            setTimeout(() => {
+                reconnectAttempts++;
+                console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+                initDashboardWebSocket(userId);
+            }, RECONNECT_DELAY);
+        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            showToast('Connection lost. Please refresh the page.', 'error');
+        }
+    };
+    
+    dashboardSocket.onerror = function(e) {
+        console.error('Dashboard WebSocket error:', e);
+    };
+}
+
+/**
+ * Start ping interval to keep connection alive
+ */
+function startPingInterval() {
+    // Clear existing interval if any
+    if (pingInterval) {
+        clearInterval(pingInterval);
     }
     
-    /**
-     * Start ping interval to keep connection alive
-     */
-    startPingInterval() {
-        // Clear any existing ping interval
-        if (this.pingInterval) {
-            clearInterval(this.pingInterval);
+    // Send ping every 30 seconds
+    pingInterval = setInterval(() => {
+        if (dashboardSocket && dashboardSocket.readyState === WebSocket.OPEN) {
+            dashboardSocket.send(JSON.stringify({ 'type': 'ping' }));
         }
-        
-        // Set up new ping interval (every 30 seconds)
-        this.pingInterval = setInterval(() => {
-            if (this.connected && this.socket && this.socket.readyState === WebSocket.OPEN) {
-                try {
-                    console.log('Sending ping to keep connection alive');
-                    this.socket.send(JSON.stringify({
-                        action: 'ping',
-                        session_id: Math.floor(Math.random() * 1000000),
-                        timestamp: new Date().toISOString()
-                    }));
-                } catch (error) {
-                    console.error('Error sending ping:', error);
-                }
-            } else if (this.socket && this.socket.readyState !== WebSocket.OPEN) {
-                console.log(`Connection not open. Current state: ${this.getReadyStateText(this.socket.readyState)}`);
-                this.reconnect();
-            }
-        }, 30000); // 30 seconds
-        
-        console.log('Started ping interval');
+    }, 30000);
+}
+
+/**
+ * Handle session update message
+ * @param {Object} data - The session update data
+ */
+function handleSessionUpdate(data) {
+    // Refresh session list if available
+    if (typeof refreshSessionList === 'function') {
+        refreshSessionList();
     }
     
-    /**
-     * Request dashboard data from the server
-     */
-    requestDashboardData() {
-        if (!this.connected || !this.socket) {
-            console.error('WebSocket not connected');
-            return;
-        }
-        
-        try {
-            console.log('Requesting dashboard data');
-            this.socket.send(JSON.stringify({
-                action: 'get_dashboard_data'
-            }));
-        } catch (error) {
-            console.error('Error requesting dashboard data:', error);
-        }
+    // Update session stats if available
+    updateSessionStats(data.stats);
+    
+    // Show notification
+    showToast(data.message || 'Session updated', 'info');
+}
+
+/**
+ * Handle booking update message
+ * @param {Object} data - The booking update data
+ */
+function handleBookingUpdate(data) {
+    // Refresh booking list if available
+    if (typeof refreshBookingList === 'function') {
+        refreshBookingList();
     }
     
-    /**
-     * Handle WebSocket message event
-     */
-    onMessage(event) {
-        try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
-            
-            // Update counts and UI based on message type
-            if (data.type === 'unread_notifications') {
-                this.unreadNotifications = data.notifications.length;
-                this.updateNotificationBadge();
-            } 
-            else if (data.type === 'notification') {
-                this.unreadNotifications++;
-                this.updateNotificationBadge();
-                
-                // Show toast for new notification
-                if (window.showToast) {
-                    window.showToast(data.notification.title, 'info', 5000);
-                }
-            }
-            else if (data.type === 'session_update') {
-                // Handle session updates
-                const session = data.session;
-                const action = data.action;
-                
-                // Call user-provided callback if exists
-                if (this.onMessageCallback) {
-                    this.onMessageCallback(data);
-                }
-                
-                // Show toast for session updates
-                if (window.showToast) {
-                    if (action === 'created') {
-                        window.showToast(`New session created: ${session.title}`, 'success');
-                    } else if (action === 'updated') {
-                        window.showToast(`Session updated: ${session.title}`, 'info');
-                    } else if (action === 'cancelled') {
-                        window.showToast(`Session cancelled: ${session.title}`, 'warning');
-                    }
-                }
-            }
-            else if (data.type === 'booking_update') {
-                // Handle booking updates
-                const booking = data.booking;
-                const action = data.action;
-                
-                // Call user-provided callback if exists
-                if (this.onMessageCallback) {
-                    this.onMessageCallback(data);
-                }
-                
-                // Show toast for booking updates
-                if (window.showToast && booking.session) {
-                    if (action === 'created') {
-                        window.showToast(`New booking for: ${booking.session.title}`, 'success');
-                    } else if (action === 'cancelled') {
-                        window.showToast(`Booking cancelled for: ${booking.session.title}`, 'warning');
-                    } else if (action === 'confirmed') {
-                        window.showToast(`Booking confirmed for: ${booking.session.title}`, 'success');
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-        }
+    // Update booking stats if available
+    updateBookingStats(data.stats);
+    
+    // Show notification
+    showToast(data.message || 'Booking updated', 'info');
+}
+
+/**
+ * Handle notification update message
+ * @param {Object} data - The notification update data
+ */
+function handleNotificationUpdate(data) {
+    // Update notification count
+    updateNotificationCount(data.count);
+    
+    // Refresh notification list if available
+    if (typeof refreshNotifications === 'function') {
+        refreshNotifications();
     }
     
-    /**
-     * Handle WebSocket close event
-     */
-    onClose(event) {
-        console.log(`WebSocket disconnected: Code=${event.code}, Reason="${event.reason || 'No reason provided'}"`);
-        this.connected = false;
-        
-        // Update connected status indicator if it exists
-        const statusIndicator = document.getElementById('ws-status-indicator');
-        if (statusIndicator) {
-            statusIndicator.classList.remove('bg-green-500', 'bg-yellow-500');
-            statusIndicator.classList.add('bg-red-500');
-            statusIndicator.setAttribute('title', `Disconnected: ${this.getCloseReasonText(event.code)}`);
-        }
-        
-        // Show specific close reason toast
-        if (window.showToast) {
-            // Different messages based on close reason
-            if (event.code === 1000) {
-                window.showToast('Connection closed normally', 'info', 3000);
-            } else if (event.code === 1001) {
-                window.showToast('Connection closed: Page navigation', 'info', 3000);
-            } else if (event.code === 1006) {
-                window.showToast('Connection lost. Attempting to reconnect...', 'warning', 3000);
-            } else if (event.code === 4001) {
-                window.showToast('Authentication required. Please refresh the page.', 'error', 0);
-            } else if (event.code === 4004) {
-                window.showToast('Server connection issue. Reconnecting...', 'warning', 3000);
-            } else {
-                window.showToast(`Connection closed (${event.code}). Reconnecting...`, 'warning', 3000);
-            }
-        }
-        
-        // Attempt to reconnect for all abnormal closures
-        if (event.code !== 1000 && event.code !== 1001) {
-            this.reconnect();
-        }
-    }
-    
-    /**
-     * Get user-friendly text for WebSocket close code
-     */
-    getCloseReasonText(code) {
-        const reasons = {
-            1000: 'Normal closure',
-            1001: 'Going away (page navigation)',
-            1002: 'Protocol error',
-            1003: 'Unsupported data',
-            1005: 'No status received',
-            1006: 'Abnormal closure (connection lost)',
-            1007: 'Invalid frame payload data',
-            1008: 'Policy violation',
-            1009: 'Message too big',
-            1010: 'Mandatory extension missing',
-            1011: 'Internal server error',
-            1012: 'Service restart',
-            1013: 'Try again later',
-            1015: 'TLS handshake error',
-            4000: 'General application error',
-            4001: 'Not authenticated',
-            4002: 'No channel layer',
-            4003: 'Authentication mismatch',
-            4004: 'URL path not found',
-            4005: 'Group join error'
-        };
-        return reasons[code] || `Unknown reason (${code})`;
-    }
-    
-    /**
-     * Handle WebSocket error event
-     */
-    onError(error) {
-        console.error('WebSocket error:', error);
-        
-        // Update status indicator
-        const statusIndicator = document.getElementById('ws-status-indicator');
-        if (statusIndicator) {
-            statusIndicator.classList.remove('bg-green-500', 'bg-yellow-500');
-            statusIndicator.classList.add('bg-red-500');
-            statusIndicator.setAttribute('title', 'Connection error');
-        }
-        
-        // Show error toast
-        if (window.showToast) {
-            window.showToast('Connection error. Trying to reconnect...', 'error', 3000);
-        }
-        
-        // Note: We don't need to call reconnect() here as the onclose handler will be called after an error
-    }
-    
-    /**
-     * Attempt to reconnect to the WebSocket server
-     */
-    reconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.log('Max reconnect attempts reached');
-            
-            // Update status indicator
-            const statusIndicator = document.getElementById('ws-status-indicator');
-            if (statusIndicator) {
-                statusIndicator.setAttribute('title', 'Max reconnection attempts reached');
-            }
-            
-            // Show error toast
-            if (window.showToast) {
-                window.showToast('Could not connect to real-time updates. Please refresh the page or try again later.', 'error', 0);
-            }
-            
-            return;
-        }
-        
-        this.reconnectAttempts++;
-        
-        // Exponential backoff with maximum limit
-        const backoffFactor = Math.min(Math.pow(1.5, this.reconnectAttempts - 1), 5);
-        const delay = Math.min(this.reconnectDelay * backoffFactor, 30000); // Max 30 seconds
-        
-        console.log(`Reconnecting in ${Math.round(delay/1000)} seconds (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        
-        // Update status indicator
-        const statusIndicator = document.getElementById('ws-status-indicator');
-        if (statusIndicator) {
-            statusIndicator.setAttribute('title', `Reconnecting in ${Math.round(delay/1000)}s (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        }
-        
-        setTimeout(() => {
-            console.log('Attempting to reconnect...');
-            this.connect();
-        }, delay);
-    }
-    
-    /**
-     * Update the notification badge count in the UI
-     */
-    updateNotificationBadge() {
-        const badge = document.getElementById('notification-badge');
-        if (badge) {
-            if (this.unreadNotifications > 0) {
-                badge.textContent = this.unreadNotifications;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-    }
-    
-    /**
-     * Get the current notification count
-     */
-    getNotificationCount() {
-        return this.unreadNotifications;
-    }
-    
-    /**
-     * Mark a notification as read
-     */
-    markNotificationRead(notificationId) {
-        if (!this.connected || !this.socket) {
-            console.error('WebSocket not connected');
-            return;
-        }
-        
-        this.socket.send(JSON.stringify({
-            action: 'mark_notification_read',
-            notification_id: notificationId
-        }));
-    }
-    
-    /**
-     * Mark all notifications as read
-     */
-    markAllNotificationsRead() {
-        if (!this.connected || !this.socket) {
-            console.error('WebSocket not connected');
-            return;
-        }
-        
-        this.socket.send(JSON.stringify({
-            action: 'mark_all_notifications_read'
-        }));
-        
-        this.unreadNotifications = 0;
-        this.updateNotificationBadge();
+    // Show toast for new notification
+    if (data.notification && data.notification.message) {
+        showToast(data.notification.message, 'info');
     }
 }
 
-// Create a global instance if we have a user ID
-document.addEventListener('DOMContentLoaded', function() {
-    const userIdElement = document.getElementById('user-id');
-    
-    if (userIdElement) {
-        const userId = userIdElement.value;
-        
-        if (userId) {
-            // Create global instance
-            window.dashboardSocket = new DashboardSocket(userId, function(data) {
-                // This callback will be called for all messages
-                // We can dispatch to relevant page handlers if needed
-                if (window.handleDashboardWebSocketMessage) {
-                    window.handleDashboardWebSocketMessage(data);
-                }
-            });
-            
-            // Connect to WebSocket
-            window.dashboardSocket.connect();
-        }
+/**
+ * Handle session request update message
+ * @param {Object} data - The session request update data
+ */
+function handleSessionRequestUpdate(data) {
+    // Refresh session request list if available
+    if (typeof refreshSessionRequestList === 'function') {
+        refreshSessionRequestList();
     }
-});
+    
+    // Show notification
+    showToast(data.message || 'Session request updated', 'info');
+}
+
+/**
+ * Handle dashboard data message
+ * @param {Object} data - The dashboard data
+ */
+function handleDashboardData(data) {
+    console.log('Received dashboard data:', data);
+    
+    // Process dashboard data based on user type
+    if (data.user_type === 'mentor') {
+        handleMentorDashboardData(data);
+    } else if (data.user_type === 'learner') {
+        handleLearnerDashboardData(data);
+    }
+}
+
+/**
+ * Handle mentor dashboard data
+ * @param {Object} data - The mentor dashboard data
+ */
+function handleMentorDashboardData(data) {
+    // Update dashboard stats
+    if (data.stats) {
+        document.getElementById('total-sessions')?.textContent = data.stats.total_sessions || 0;
+        document.getElementById('published-sessions')?.textContent = data.stats.published_sessions || 0;
+        document.getElementById('active-bookings')?.textContent = data.stats.active_bookings || 0;
+        document.getElementById('pending-requests')?.textContent = data.stats.pending_requests || 0;
+        document.getElementById('total-earnings')?.textContent = data.stats.total_earnings || '₹0';
+    }
+    
+    // Update session lists if applicable
+    if (data.sessions && typeof updateSessionsList === 'function') {
+        updateSessionsList(data.sessions);
+    }
+    
+    // Update booking lists if applicable
+    if (data.bookings && typeof updateBookingsList === 'function') {
+        updateBookingsList(data.bookings);
+    }
+    
+    // Update session request lists if applicable
+    if (data.session_requests && typeof updateSessionRequestsList === 'function') {
+        updateSessionRequestsList(data.session_requests);
+    }
+}
+
+/**
+ * Handle learner dashboard data
+ * @param {Object} data - The learner dashboard data
+ */
+function handleLearnerDashboardData(data) {
+    // Update dashboard stats
+    if (data.stats) {
+        document.getElementById('total-bookings')?.textContent = data.stats.total_bookings || 0;
+        document.getElementById('upcoming-sessions')?.textContent = data.stats.upcoming_sessions || 0;
+        document.getElementById('completed-sessions')?.textContent = data.stats.completed_sessions || 0;
+        document.getElementById('pending-requests')?.textContent = data.stats.pending_requests || 0;
+    }
+    
+    // Update booking lists if applicable
+    if (data.bookings && typeof updateBookingsList === 'function') {
+        updateBookingsList(data.bookings);
+    }
+    
+    // Update session request lists if applicable
+    if (data.session_requests && typeof updateSessionRequestsList === 'function') {
+        updateSessionRequestsList(data.session_requests);
+    }
+}
+
+/**
+ * Update notification count in UI
+ * @param {number} count - The number of unread notifications
+ */
+function updateNotificationCount(count) {
+    const notificationCountElements = document.querySelectorAll('.notification-count');
+    
+    notificationCountElements.forEach(el => {
+        el.textContent = count;
+        
+        // Toggle visibility based on count
+        if (count > 0) {
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+}
+
+/**
+ * Update session stats in the dashboard
+ * @param {Object} stats - Session statistics
+ */
+function updateSessionStats(stats) {
+    if (!stats) return;
+    
+    // Update stats in dashboard if elements exist
+    document.getElementById('total-sessions')?.textContent = stats.total || 0;
+    document.getElementById('published-sessions')?.textContent = stats.published || 0;
+    document.getElementById('draft-sessions')?.textContent = stats.draft || 0;
+}
+
+/**
+ * Update booking stats in the dashboard
+ * @param {Object} stats - Booking statistics
+ */
+function updateBookingStats(stats) {
+    if (!stats) return;
+    
+    // Update stats in dashboard if elements exist
+    document.getElementById('active-bookings')?.textContent = stats.active || 0;
+    document.getElementById('completed-bookings')?.textContent = stats.completed || 0;
+    document.getElementById('cancelled-bookings')?.textContent = stats.cancelled || 0;
+}
+
+/**
+ * Mark a notification as read
+ * @param {string} notificationId - The ID of the notification
+ */
+function markNotificationAsRead(notificationId) {
+    if (dashboardSocket && dashboardSocket.readyState === WebSocket.OPEN) {
+        dashboardSocket.send(JSON.stringify({
+            'type': 'mark_notification_read',
+            'notification_id': notificationId
+        }));
+    }
+}
+
+/**
+ * Mark all notifications as read
+ */
+function markAllNotificationsAsRead() {
+    if (dashboardSocket && dashboardSocket.readyState === WebSocket.OPEN) {
+        dashboardSocket.send(JSON.stringify({
+            'type': 'mark_all_notifications_read'
+        }));
+    }
+}
+
+// Make functions available globally
+window.initDashboardWebSocket = initDashboardWebSocket;
+window.markNotificationAsRead = markNotificationAsRead;
+window.markAllNotificationsAsRead = markAllNotificationsAsRead;
