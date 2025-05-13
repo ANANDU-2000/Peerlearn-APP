@@ -4,29 +4,23 @@
 {% block title %}My Sessions - Mentor Dashboard - PeerLearn{% endblock %}
 
 {% block content %}
-<script>
-    // Replace the main content in the dashboard
-    document.addEventListener('DOMContentLoaded', function() {
-        const mainContent = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(1)');
-        if (mainContent) {
-            mainContent.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <h1 class="text-2xl font-semibold text-gray-900">My Sessions</h1>
-                    <div class="hidden md:flex space-x-3">
-                        <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            Create Session
-                        </a>
-                    </div>
+<div class="min-h-screen bg-gray-50 md:pl-64">
+    <main>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-semibold text-gray-900">My Sessions</h1>
+                <div class="hidden md:flex space-x-3">
+                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create Session
+                    </a>
                 </div>
-            `;
-        }
-
-        const mainContentBody = document.querySelector('.md\\:pl-64 main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(2)');
-        if (mainContentBody) {
-            mainContentBody.innerHTML = `
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+            <!-- Sessions content starts here -->
                 <div class="mt-4">
                     <!-- Session tabs -->
                     <div class="sm:hidden">
@@ -57,6 +51,7 @@
                     <div class="mt-6">
                         {% if sub_tab == 'today' %}
                             <!-- Today's sessions -->
+                            <div id="today-sessions-content" class="sessions-tab-content" data-tab="today">
                             {% if today_sessions %}
                             <div class="bg-white shadow overflow-hidden sm:rounded-md">
                                 <ul class="divide-y divide-gray-200">
@@ -480,4 +475,206 @@
         }
     }
 </script>
+
+{% block extra_js %}
+<script>
+    // Initialize and handle real-time updates for sessions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mark tabs with class for easier selection
+        const tabLinks = document.querySelectorAll('.border-b-2');
+        tabLinks.forEach(link => {
+            link.classList.add('sessions-tab-link');
+        });
+        
+        // Mark tab content sections with data attributes
+        const todayContent = document.querySelector('#today-sessions-content');
+        if (todayContent) todayContent.setAttribute('data-tab', 'today');
+        
+        const upcomingContent = document.querySelector('#upcoming-sessions-content');
+        if (upcomingContent) upcomingContent.setAttribute('data-tab', 'upcoming');
+        
+        const pastContent = document.querySelector('#past-sessions-content');
+        if (pastContent) pastContent.setAttribute('data-tab', 'past');
+        
+        // Set classes for tab content
+        const allContents = document.querySelectorAll('[data-tab]');
+        allContents.forEach(content => {
+            content.classList.add('sessions-tab-content');
+        });
+        
+        // Set up event listeners for the tab links
+        setupSessionTabHandlers();
+        
+        // Initialize session timers
+        initializeSessionTimers();
+    });
+    
+    // Set up event handlers for session tabs
+    function setupSessionTabHandlers() {
+        const tabLinks = document.querySelectorAll('.sessions-tab-link');
+        tabLinks.forEach(link => {
+            link.addEventListener('click', handleTabClick);
+        });
+    }
+    
+    // Handle tab click to update content without page reload
+    function handleTabClick(event) {
+        event.preventDefault();
+        
+        // Get the tab value from the href
+        const url = new URL(event.currentTarget.href);
+        const tabValue = url.searchParams.get('tab');
+        
+        // Update URL without reloading page
+        window.history.pushState({tab: tabValue}, '', event.currentTarget.href);
+        
+        // Update active tab indicator
+        updateActiveTabUI(tabValue);
+        
+        // No need for AJAX here since the content is already in the page
+        // Just show/hide the appropriate tab content
+        showTabContent(tabValue);
+    }
+    
+    // Update the active tab indicator in the UI
+    function updateActiveTabUI(activeTab) {
+        const tabLinks = document.querySelectorAll('.sessions-tab-link');
+        
+        tabLinks.forEach(link => {
+            const url = new URL(link.href);
+            const tabValue = url.searchParams.get('tab');
+            
+            if (tabValue === activeTab) {
+                link.classList.add('border-primary-500', 'text-primary-600');
+                link.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            } else {
+                link.classList.remove('border-primary-500', 'text-primary-600');
+                link.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            }
+        });
+        
+        // Update mobile selector if present
+        const mobileSelector = document.getElementById('tabs');
+        if (mobileSelector) {
+            mobileSelector.value = activeTab;
+        }
+    }
+    
+    // Show the content for the selected tab
+    function showTabContent(activeTab) {
+        const allTabContents = document.querySelectorAll('.sessions-tab-content');
+        
+        allTabContents.forEach(content => {
+            if (content.getAttribute('data-tab') === activeTab) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Initialize timers for session countdowns
+    function initializeSessionTimers() {
+        // Add data attributes to all session items
+        document.querySelectorAll('.session-item').forEach(item => {
+            const sessionId = item.getAttribute('id').replace('session-', '');
+            const countdownElement = item.querySelector('.session-countdown');
+            
+            if (countdownElement) {
+                // Set attributes for timer updates
+                countdownElement.setAttribute('data-session-id', sessionId);
+                countdownElement.setAttribute('data-countdown', 'true');
+                
+                // Extract schedule datetime from existing format
+                const scheduleText = item.querySelector('.session-schedule').getAttribute('datetime');
+                countdownElement.setAttribute('data-target', scheduleText);
+                
+                // Get duration from duration badge
+                const durationText = item.querySelector('.session-duration').textContent;
+                const duration = parseInt(durationText.match(/\d+/)[0]);
+                countdownElement.setAttribute('data-duration', duration);
+                
+                // Get status from status badge
+                const statusText = item.querySelector('.session-status').textContent.toLowerCase();
+                countdownElement.setAttribute('data-status', statusText);
+            }
+        });
+        
+        // Start timers
+        const sessionTimers = document.querySelectorAll('[data-countdown]');
+        
+        sessionTimers.forEach(timer => {
+            const sessionId = timer.getAttribute('data-session-id');
+            const targetTime = new Date(timer.getAttribute('data-target'));
+            const duration = parseInt(timer.getAttribute('data-duration'));
+            const status = timer.getAttribute('data-status');
+            
+            // Set up interval to update the timer
+            updateSessionTimer(timer, targetTime, duration, status);
+            const intervalId = setInterval(() => {
+                updateSessionTimer(timer, targetTime, duration, status);
+            }, 1000);
+            
+            // Store the interval ID to clear it when needed
+            timer.setAttribute('data-interval-id', intervalId);
+        });
+    }
+    
+    // Update a single session timer display
+    function updateSessionTimer(timerElement, targetTime, durationMinutes, status) {
+        const now = new Date();
+        
+        if (status === 'live') {
+            // Session is live, count down remaining time
+            const endTime = new Date(targetTime.getTime() + (durationMinutes * 60000));
+            const remaining = endTime - now;
+            
+            if (remaining <= 0) {
+                timerElement.textContent = '00:00:00';
+                const intervalId = timerElement.getAttribute('data-interval-id');
+                if (intervalId) {
+                    clearInterval(parseInt(intervalId));
+                }
+                return;
+            }
+            
+            // Format remaining time
+            const hours = Math.floor(remaining / 3600000);
+            const minutes = Math.floor((remaining % 3600000) / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+            timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            // Session is scheduled, count down until start
+            const timeUntil = targetTime - now;
+            
+            if (timeUntil <= 0) {
+                timerElement.textContent = 'LIVE NOW';
+                // Check if we need to update the UI to show Go Live button
+                const sessionItem = timerElement.closest('.session-item');
+                const goLiveButton = sessionItem.querySelector('.go-live-button');
+                if (goLiveButton) {
+                    goLiveButton.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Check if within 15 minutes of start time
+            if (timeUntil <= 15 * 60 * 1000) {
+                const sessionItem = timerElement.closest('.session-item');
+                const goLiveButton = sessionItem.querySelector('.go-live-button');
+                if (goLiveButton) {
+                    goLiveButton.classList.remove('hidden');
+                }
+            }
+            
+            // Format countdown
+            const hours = Math.floor(timeUntil / 3600000);
+            const minutes = Math.floor((timeUntil % 3600000) / 60000);
+            const seconds = Math.floor((timeUntil % 60000) / 1000);
+            timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+</script>
+{% endblock %}
+
 {% endblock %}
