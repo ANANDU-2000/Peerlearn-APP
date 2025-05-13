@@ -153,7 +153,7 @@ class MentorDetailView(DetailView):
         
         # Add mentor's sessions
         mentor = self.get_object()
-        context['upcoming_sessions'] = mentor.session_set.filter(
+        context['upcoming_sessions'] = mentor.sessions.filter(
             status__in=['scheduled', 'live']
         ).order_by('schedule')
         
