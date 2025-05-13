@@ -1,11 +1,12 @@
 <!-- Mobile Bottom Navigation -->
 <div class="fixed inset-x-0 bottom-0 z-10 bg-white border-t border-gray-200 md:hidden">
-    <div class="flex justify-around" x-data="{ activeTab: window.location.pathname.includes('/dashboard/learner') ? 'home' : '' }">
+    <div class="flex justify-around">
         <!-- Home -->
-        <a href="{% url 'learner_dashboard' %}" 
-           class="flex flex-col items-center justify-center w-full py-2"
+        <a href="#" 
+           class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
+           data-tab="home"
            :class="{'text-primary-600': activeTab === 'home', 'text-gray-500': activeTab !== 'home'}"
-           @click="activeTab = 'home'">
+           @click.prevent="setActiveTab('home')">
             <i data-feather="home" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Home</span>
         </a>

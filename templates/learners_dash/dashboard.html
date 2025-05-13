@@ -27,6 +27,39 @@
     }
 </style>
 <script>
+    // Get active tab from URL parameter
+    function getActiveTabFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        return ['home', 'activity', 'mentors', 'notifications', 'profile'].includes(tab) ? tab : '{{ active_tab }}';
+    }
+    
+    // Initialize Alpine.js data for tab management
+    window.initializeAlpineData = function() {
+        return {
+            activeTab: getActiveTabFromURL() || 'home',
+            setActiveTab(tab) {
+                this.activeTab = tab;
+                // Update URL without page reload
+                const url = new URL(window.location);
+                url.searchParams.set('tab', tab);
+                window.history.pushState({}, '', url);
+                
+                // Update mobile nav if it exists
+                const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
+                mobileNavItems.forEach(item => {
+                    if (item.dataset.tab === tab) {
+                        item.classList.add('text-primary-600');
+                        item.classList.remove('text-gray-500');
+                    } else {
+                        item.classList.remove('text-primary-600');
+                        item.classList.add('text-gray-500');
+                    }
+                });
+            }
+        };
+    };
+    
     document.addEventListener('DOMContentLoaded', function() {
         // Function to refresh activity content with AJAX
         function refreshActivityContent() {
@@ -397,20 +430,35 @@
         </div>
 
         <!-- Dashboard Tabs -->
-        <div x-data="{ activeTab: 'recommended' }">
+        <div x-data="initializeAlpineData()">
             <!-- Tab Navigation -->
-            <div class="border-b border-gray-200 mb-6">
-                <nav class="-mb-px flex space-x-6 sm:space-x-8 overflow-x-auto hide-scrollbar">
-                    <button @click="activeTab = 'recommended'" :class="{'border-primary-600 text-primary-600': activeTab === 'recommended', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'recommended'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
-                        <i data-feather="compass" class="inline-block w-4 h-4 align-text-bottom"></i>
-                        Recommended
+            <div class="hidden md:block border-b border-gray-200 mb-6">
+                <nav class="-mb-px flex space-x-8 overflow-x-auto hide-scrollbar">
+                    <button @click="setActiveTab('home')" :class="{'border-primary-600 text-primary-600': activeTab === 'home', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'home'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i data-feather="home" class="inline-block w-4 h-4 mr-1 align-text-bottom"></i>
+                        Home
                     </button>
-                    <button @click="activeTab = 'activity'" :class="{'border-primary-600 text-primary-600': activeTab === 'activity', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'activity'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
-                        <i data-feather="activity" class="inline-block w-4 h-4 align-text-bottom"></i>
-                        My Activity
+                    <button @click="setActiveTab('activity')" :class="{'border-primary-600 text-primary-600': activeTab === 'activity', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'activity'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i data-feather="activity" class="inline-block w-4 h-4 mr-1 align-text-bottom"></i>
+                        Activity
                     </button>
-                    <button @click="activeTab = 'profile'" :class="{'border-primary-600 text-primary-600': activeTab === 'profile', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors">
-                        <i data-feather="user" class="inline-block w-4 h-4 align-text-bottom"></i>
+                    <button @click="setActiveTab('mentors')" :class="{'border-primary-600 text-primary-600': activeTab === 'mentors', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'mentors'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i data-feather="users" class="inline-block w-4 h-4 mr-1 align-text-bottom"></i>
+                        Mentors
+                    </button>
+                    <button @click="setActiveTab('notifications')" :class="{'border-primary-600 text-primary-600': activeTab === 'notifications', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'notifications'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors relative">
+                        <i data-feather="bell" class="inline-block w-4 h-4 mr-1 align-text-bottom"></i>
+                        Notifications
+                        {% if unread_notifications_count > 0 %}
+                        <span class="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4">
+                            <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-xs text-white justify-center items-center">
+                                {{ unread_notifications_count }}
+                            </span>
+                        </span>
+                        {% endif %}
+                    </button>
+                    <button @click="setActiveTab('profile')" :class="{'border-primary-600 text-primary-600': activeTab === 'profile', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}" class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i data-feather="user" class="inline-block w-4 h-4 mr-1 align-text-bottom"></i>
                         Profile
                     </button>
                 </nav>
@@ -418,14 +466,24 @@
 
             <!-- Tab Content -->
             <div class="mt-4">
-                <!-- Recommended Tab -->
-                <div x-show="activeTab === 'recommended'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
-                    {% include 'learners_dash/tabs/recommended.html' %}
+                <!-- Home Tab -->
+                <div x-show="activeTab === 'home'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                    {% include 'learners_dash/tabs/home.html' %}
                 </div>
 
                 <!-- Activity Tab -->
                 <div x-show="activeTab === 'activity'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
                     {% include 'learners_dash/tabs/activity.html' %}
+                </div>
+                
+                <!-- Mentors Tab -->
+                <div x-show="activeTab === 'mentors'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
+                    {% include 'learners_dash/tabs/mentors.html' %}
+                </div>
+                
+                <!-- Notifications Tab -->
+                <div x-show="activeTab === 'notifications'" x-transition:enter="transition-opacity duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
+                    {% include 'learners_dash/tabs/notifications.html' %}
                 </div>
 
                 <!-- Profile Tab -->
@@ -433,6 +491,9 @@
                     {% include 'learners_dash/tabs/profile.html' %}
                 </div>
             </div>
+            
+            <!-- Bottom mobile navigation spacer -->
+            <div class="block md:hidden mobile-nav-spacer"></div>
         </div>
     </div>
 </div>
