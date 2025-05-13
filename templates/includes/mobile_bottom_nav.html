@@ -2,41 +2,37 @@
 <div class="fixed inset-x-0 bottom-0 z-10 bg-white border-t border-gray-200 md:hidden">
     <div class="flex justify-around">
         <!-- Home -->
-        <a href="#" 
+        <a href="{% url 'learner_dashboard' %}?tab=home" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="home"
-           :class="{'text-primary-600': activeTab === 'home', 'text-gray-500': activeTab !== 'home'}"
-           @click.prevent="setActiveTab('home')">
+           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'home\')'); return false;">
             <i data-feather="home" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Home</span>
         </a>
         
         <!-- Activity -->
-        <a href="#" 
+        <a href="{% url 'learner_dashboard' %}?tab=activity" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="activity"
-           :class="{'text-primary-600': activeTab === 'activity', 'text-gray-500': activeTab !== 'activity'}"
-           @click.prevent="setActiveTab('activity')">
+           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'activity\')'); return false;">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Activity</span>
         </a>
         
         <!-- Mentors -->
-        <a href="#" 
+        <a href="{% url 'learner_dashboard' %}?tab=mentors" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="mentors"
-           :class="{'text-primary-600': activeTab === 'mentors', 'text-gray-500': activeTab !== 'mentors'}"
-           @click.prevent="setActiveTab('mentors')">
+           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'mentors\')'); return false;">
             <i data-feather="users" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Mentors</span>
         </a>
         
         <!-- Notifications -->
-        <a href="#" 
+        <a href="{% url 'learner_dashboard' %}?tab=notifications" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2 relative"
            data-tab="notifications"
-           :class="{'text-primary-600': activeTab === 'notifications', 'text-gray-500': activeTab !== 'notifications'}"
-           @click.prevent="setActiveTab('notifications')">
+           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'notifications\')'); return false;">
             <i data-feather="bell" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Alerts</span>
             {% if unread_notifications_count > 0 %}
@@ -48,11 +44,10 @@
         </a>
         
         <!-- Profile -->
-        <a href="#" 
+        <a href="{% url 'learner_dashboard' %}?tab=profile" 
            class="mobile-nav-item flex flex-col items-center justify-center w-full py-2"
            data-tab="profile"
-           :class="{'text-primary-600': activeTab === 'profile', 'text-gray-500': activeTab !== 'profile'}"
-           @click.prevent="setActiveTab('profile')">
+           onclick="window.Alpine && window.Alpine.evaluate(document.querySelector('[x-data]'), 'setActiveTab(\'profile\')'); return false;">
             <i data-feather="user" class="w-5 h-5"></i>
             <span class="text-xs mt-1">Profile</span>
         </a>
