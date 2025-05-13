@@ -158,3 +158,11 @@ STUN_SERVER = os.getenv('STUN_SERVER', 'stun:stun.l.google.com:19302')
 TURN_SERVER = os.getenv('TURN_SERVER', '')
 TURN_USERNAME = os.getenv('TURN_USERNAME', '')
 TURN_CREDENTIAL = os.getenv('TURN_CREDENTIAL', '')
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.replit.dev',
+    'https://*.replit.app',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+]

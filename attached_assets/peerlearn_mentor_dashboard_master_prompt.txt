@@ -1,0 +1,151 @@
+
+You are the Replit Core AI Agent. Build the entire advanced Mentor Dashboard for the PeerLearn EdTech platform with real-time functionality, full database integration, complete error handling, and UI/UX optimized for web and mobile. Follow this step-by-step spec to generate the full Django + Channels + SQLite3 + Tailwind + Alpine.js code for the mentor dashboard module.
+
+=======================
+MENTOR DASHBOARD MASTER PROMPT
+=======================
+
+ROUTE: /dashboard/mentor
+ACCESS: Role-based authenticated mentor only. Redirect all others.
+
+=== MAIN TABS ===
+1. Requests (incoming live session requests)
+2. My Sessions (Today, Upcoming, Past)
+3. Create Session (form)
+4. Earnings (payments dashboard)
+5. Profile Settings (update mentor profile)
+
+=======================
+1. REQUESTS TAB
+=======================
+• Real-time WebSocket: requests:{mentor_id}
+• Show all session requests with:
+  - Learner name, title, proposed datetime, budget
+  - Buttons: Accept ▶ or Modify ▶
+• Accept:
+  - Creates Session + Booking in SQLite3
+  - Sends WS to learner responses:{learner_id}
+  - Toast: “Session Confirmed ✔”
+• Modify:
+  - Opens inline form to change time/price
+  - Sends updated offer
+• Mobile: stacked cards + bottom-sheet actions
+
+=======================
+2. MY SESSIONS TAB
+=======================
+Sub-tabs: Today | Upcoming | Past
+• Real-time WebSocket: sessions:{mentor_id}
+• Each session card shows:
+  - Title, learners booked, price/free badge
+  - Countdown timer (hh:mm:ss) → "LIVE NOW"
+  - "Go Live ▶" button active T-15 min before start
+• Go Live:
+  - Changes Session.status = "live"
+  - Redirects to /session/<room_code>
+  - WS broadcast “Session Started” to learners
+
+=======================
+3. CREATE SESSION TAB
+=======================
+Route: /dashboard/mentor/create-session
+Fields:
+• Thumbnail (file upload + preview)
+• Title (min 10 chars)
+• Domain tags (autosuggest)
+• Start datetime (must be > now)
+• End datetime (calc duration)
+• Free/Paid toggle
+• If Paid → Price input (INR)
+• Description (optional textarea)
+
+Behavior:
+• On Submit:
+  - Save Session to SQLite3 with mentor FK and UUID room_code
+  - status = scheduled
+  - Toast: “Session Created ✔”
+  - Redirect to /dashboard/mentor/my-sessions (Upcoming)
+• Realtime update:
+  - Appears in:
+    - Landing Page swiper
+    - Learner dashboard recommendations (ML match on category + goal)
+    - /sessions search and filters
+• Razorpay only triggered during learner booking
+• Must not allow past datetime (validate frontend + backend)
+• Each session must show countdown and booking state globally
+
+=======================
+4. EARNINGS TAB
+=======================
+• Chart of earnings (monthly)
+• Table of successful bookings:
+  - Learner, session title, price, paid date
+• Export CSV
+• WS trigger on new payment → update view
+
+=======================
+5. PROFILE SETTINGS
+=======================
+• Editable fields: name, domains, skills, bio, picture
+• Inline updates (AJAX + feedback)
+• PATCH user → SQLite3 CustomUser
+• Real-time image preview
+
+=======================
+BACKEND & REAL-TIME LOGIC
+=======================
+• DB: All data stored in SQLite3
+• WS: Channel-based events
+  - requests:{mentor_id}, sessions:{mentor_id}, notifications:{user_id}
+• Booking creates learner notification
+• All pages re-query or update with WS sync
+
+=======================
+UI/UX – WEB
+=======================
+• Sidebar (fixed): nav with active tab indicator
+• Header: avatar, bell icon, logout
+• Cards: rounded-lg, shadow, responsive grid
+• Countdown = Alpine.js auto-updating
+• Tailwind transitions: hover:scale-105, loading spinners, skeleton loaders
+
+=======================
+UI/UX – MOBILE
+=======================
+• Bottom nav: Home, Sessions, Requests, Earnings, Profile
+• Full screen tabs for each section
+• Touch scroll carousels
+• Forms = slide-up sheets
+• Buttons: min-height 44px, animated toasts, success ticks
+
+=======================
+ERROR HANDLING
+=======================
+• Red = invalid input + ❌ icon
+• Green = valid + ✔
+• Session time in past → “Must choose future time ⏱”
+• Payment fail → Razorpay error popup
+• WS fail = retry fallback or polling
+
+=======================
+AFTER SESSION CREATION
+=======================
+• Sync across:
+  - Landing Page
+  - Learner Dashboard
+  - Search Results
+  - Recommendations (match learner.interests + goal)
+• Card updates in real-time
+• Learners can “Book ▶” or “Join ▶” depending on time
+• Countdown active everywhere
+• Razorpay invoked only at learner side
+
+=======================
+WEBRTC ROOM (linked)
+=======================
+• Built at /session/<room_code>
+• Dual video, mute/cam/chat/screen/whiteboard
+• Feedback form after end
+• Celery task saves duration + feedback to DB
+
+This prompt should produce the full Django views, models, templates, and Alpine.js-powered mentor dashboard. No fake data. Real DB connections. Real-time event sync. Mobile + Web UI complete.
