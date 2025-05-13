@@ -34,13 +34,13 @@
                     <div class="hidden sm:block">
                         <div class="border-b border-gray-200">
                             <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                                <a href="{% url 'users:mentor_sessions' %}?tab=today" class="{% if sub_tab == 'today' %}border-primary-500 text-primary-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=today" data-tab="today" class="sub-tab {% if sub_tab == 'today' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Today
                                 </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" class="{% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" data-tab="upcoming" class="sub-tab {% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Upcoming
                                 </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=past" class="{% if sub_tab == 'past' %}border-primary-500 text-primary-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=past" data-tab="past" class="sub-tab {% if sub_tab == 'past' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Past
                                 </a>
                             </nav>
@@ -675,6 +675,49 @@
             const seconds = Math.floor((timeUntil % 60000) / 1000);
             timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
+    }
+    
+    // Initialize tab functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        initTabFunctionality();
+    });
+    
+    function initTabFunctionality() {
+        // First, make sure all session content tabs have the correct display state
+        const activeTab = document.querySelector('.sub-tab.active');
+        if (activeTab) {
+            const tabName = activeTab.dataset.tab;
+            
+            // Hide all tab contents
+            document.querySelectorAll('.sessions-tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Show the active tab content
+            const activeContent = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
+            if (activeContent) {
+                activeContent.style.display = 'block';
+            }
+        }
+        
+        // Add click handlers for tabs (in case JavaScript navigation is preferred over server-side)
+        document.querySelectorAll('.sub-tab').forEach(tab => {
+            tab.addEventListener('click', function(e) {
+                // The default href navigation will still work, but this allows for potential AJAX loading
+                // of session data in the future without full page reloads
+                const tabName = this.dataset.tab;
+                console.log(`Tab clicked: ${tabName}`);
+                
+                // Update active state of tabs
+                document.querySelectorAll('.sub-tab').forEach(t => {
+                    t.classList.remove('active', 'border-primary-500', 'text-primary-600');
+                    t.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                });
+                
+                this.classList.add('active', 'border-primary-500', 'text-primary-600');
+                this.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
+        });
     }
 </script>
 {% endblock %}

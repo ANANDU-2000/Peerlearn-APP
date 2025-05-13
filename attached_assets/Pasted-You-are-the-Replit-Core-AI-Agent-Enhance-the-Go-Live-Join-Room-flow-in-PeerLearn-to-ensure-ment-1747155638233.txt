@@ -1,0 +1,48 @@
+You are the Replit Core AI Agent. Enhance the *Go Live & Join Room* flow in PeerLearn to ensure mentors and learners see real-time booking/payment status, lobby notifications, and seamless WebRTC room entry. Integrate all actions, toasts, WS events, and error handling. Use Django+Channels+SQLite3+Tailwind+Alpine.js—no further input needed.
+
+ROUTE: /dashboard/mentor/my-sessions & /dashboard/learner/my-activity
+
+1. GO LIVE TRIGGER  
+   • Mentor clicks *Go Live ▶* on their session card (enabled T–15m).  
+   • AJAX POST /api/sessions/{id}/go_live/ → set status='live', started_at=now().  
+   • WS broadcast on sessions:{room_code}:  
+     
+     { "type":"session.live", "room_code":"...", "mentor_id":123 }
+       
+   • Toast for mentor: “You are live!”; learners in Activity get “Mentor is live—Join ▶”.
+
+2. LEARNER JOIN FLOW  
+   • Learner clicks *Join ▶* (enabled T–5m before or on live).  
+   • AJAX GET /api/sessions/{id}/authorize_join/ → check Booking.confirmed & status in ['scheduled','live'].  
+   • On 200 OK, redirect → /session/{room_code}/; else toast “Please book first” or “Session not live”.
+
+3. PRE-LIVE LOBBY & PAID STATUS  
+   • On room page load, both roles connect to WS sessions:{room_code}.  
+   • Mentor sees lobby with:  
+     – List of joined learners { "type":"learner.join", "learner": {...} }.  
+     – Badges: “3 booked” (initial booking count via API).  
+   • Learners in lobby see: “Waiting for mentor to start session.”  
+   • All toasts on join: “Alice joined the lobby.”
+
+4. WEBRTC ROOM START  
+   • Mentor clicks *Start Session ▶* in lobby or auto-start on session.live.  
+   • Begin peer negotiation: exchange SDP + ICE over sessions:{room_code} consumer.  
+   • Display dual video panes and toolbar (mute, cam, share, chat, whiteboard, end).  
+
+5. REAL-TIME STATUS & ERROR HANDLING  
+   • Attendee count updates on learner.join / learner.leave.  
+   • Network quality and ICE states render status icon; on failure toast “Network unstable.”  
+   • Media device errors → fallback audio + toast “Video unavailable.”  
+   • WS disconnect → retry/backoff + toast.  
+
+6. POST-SESSION & FEEDBACK  
+   • Mentor or auto at ended_at: broadcast session.end.  
+   • Show feedback modals:  
+     – Learner rates mentor; Mentor uploads resources + rates learner.  
+   • Save to DB; toast “Thank you!”  
+
+7. SECURITY & TESTS  
+   • Auth check in room view; CSRF in WS handshake.  
+   • Pytest for go_live endpoint, authorize_join, WS consumer, room reconnection.  
+
+Deliver all Django REST endpoints (go_live, authorize_join), Channels consumers, JS logic, templates, and Alpine.js components to implement this robust live-room flow with real-time booking/payment visibility, lobby management, and full WebRTC integration.

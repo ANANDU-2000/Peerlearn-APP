@@ -1,0 +1,78 @@
+You are the Replit Core AI Agent. Enhance the *“My Sessions”* subpage in the Mentor Dashboard and *“My Activity”* in the Learner Dashboard to deliver full real-time updates—Join/Go Live buttons, status tracking, lobby info, and error handling. Use Django+Channels+SQLite3+TailwindCSS+Alpine.js. No further guidance needed.
+
+──────────────────────────────────────────────────────────────
+1. MY SESSIONS (Mentor) at /dashboard/mentor/my-sessions
+──────────────────────────────────────────────────────────────
+Tabs: Today | Upcoming | Past  
+• Query: Session.objects.filter(mentor=self).distinct('id')  
+• Filter into subtabs by date/status  
+
+Card Components (per session):  
+- Title, schedule timestamp (locale)  
+- Live countdown (Alpine.js auto-refresh) or “LIVE NOW” badge  
+- “Booked (N)” badge (initial count via API)  
+- Buttons:  
+  • *Go Live ▶* (enabled when now ≥ schedule−15m & status=scheduled)  
+  • *Edit ✎* (if now < schedule−5m)  
+  • *Cancel 🗑* (if now < schedule)  
+
+Real-Time Updates via Channels:  
+- WS sessions:{mentor_id} for overall session updates  
+- WS new_booking events on sessions:{session_id} update “Booked (N)” live  
+- WS learner.join / learner.leave on sessions:{session_id} update lobby count  
+
+Go Live Flow:  
+1. Mentor clicks Go Live ▶ → AJAX POST /api/sessions/{id}/go_live/ → set status='live', started_at=now()  
+2. WS broadcast session.live on sessions:{room_code}  
+3. Redirect to /session/{room_code}/ (WebRTC room)  
+4. Toast “You are live!”  
+
+Errors:  
+- Past-start click → toast “Cannot go live past start time”  
+- Conflict (already live) → toast “Session already live”  
+- Network/WS fail → retry/backoff + toast  
+
+──────────────────────────────────────────────────────────────
+2. MY ACTIVITY (Learner) at /dashboard/learner/activity
+──────────────────────────────────────────────────────────────
+Sub-tabs: All | Requests | Bookings  
+• Query: combine SessionRequest & Booking for user  
+
+Booking Card Components:  
+- Session title & mentor  
+- Schedule & countdown → “Join ▶” button (enabled when now ≥ schedule−5m OR on session.live)  
+- Status chip: ⏳Requested, 💸Pending, ✓Confirmed, 🔴Live  
+
+Real-Time Updates via Channels:  
+- WS responses:{learner_id} for request status  
+- WS booking.created on sessions:{session_id} update “Booked”  
+- WS session.live on sessions:{room_code} auto-enable Join ▶ + toast “Session is live—Join now!”  
+- WS learner.join / leave show toasts “You joined” / “You left”  
+
+Join Flow:  
+1. Learner clicks Join ▶ → AJAX GET /api/sessions/{id}/authorize_join/ → verify booking & window  
+2. On 200 OK → redirect /session/{room_code}/  
+3. Else → toast “Please book first” or “Session not live”  
+
+Errors & Fallbacks:  
+- Unauthorized → redirect + toast  
+- Session expired → toast + disable button  
+- Network/WS drop → banner + retry  
+- Offline → banner “Offline mode”  
+
+──────────────────────────────────────────────────────────────
+3. UI/UX & STYLING
+──────────────────────────────────────────────────────────────
+• *Web*: horizontal tabs, card grids, hover:scale-105, skeleton loaders  
+• *Mobile*: bottom nav, swipeable subtabs, slide-up action sheets  
+• Buttons disabled state (opacity-50), focus rings, consistent Inter font  
+• Alpine.js for countdown, busy states, toast management  
+
+──────────────────────────────────────────────────────────────
+4. SECURITY & TESTS
+──────────────────────────────────────────────────────────────
+• Role-check middleware, CSRF on AJAX & WS  
+• Pytest for go_live, authorize_join, WS consumer flows  
+• Lint with flake8, format with black  
+
+Use this spec to implement the final, polished *My Sessions* and *My Activity* subpages with full real-time booking, countdown, Go Live and Join functionality.

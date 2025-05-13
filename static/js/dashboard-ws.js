@@ -469,16 +469,51 @@ function refreshSessionsList() {
  * @param {Array} sessions - List of sessions
  */
 function updateSessionsListUI(sessions) {
-    // Implementation depends on how sessions list is structured in UI
-    console.log('Would update sessions list with:', sessions);
+    if (!sessions || !Array.isArray(sessions)) {
+        console.error('Invalid sessions data for UI update:', sessions);
+        return;
+    }
     
-    // This would need to be customized based on actual HTML structure
-    const sessionsContainer = document.getElementById('sessions-list');
-    if (!sessionsContainer) return;
+    console.log('Updating sessions list with:', sessions);
     
-    // Reload page if this is a complex update
-    // For a more advanced implementation, we could dynamically update the DOM
-    if (document.querySelector('.sessions-container') && !document.querySelector('.sessions-refresh-in-progress')) {
+    // Determine active tab to know which sessions to display
+    const activeTab = document.querySelector('.sub-tab.active');
+    if (!activeTab) return;
+    
+    const tabName = activeTab.dataset.tab;
+    const tabContentElement = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
+    
+    if (!tabContentElement) {
+        console.warn(`Tab content element for ${tabName} not found`);
+        return;
+    }
+    
+    // Classify sessions based on date for proper tab placement
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todaySessions = [];
+    const upcomingSessions = [];
+    const pastSessions = [];
+    
+    sessions.forEach(session => {
+        const sessionDate = new Date(session.schedule);
+        sessionDate.setHours(0, 0, 0, 0);
+        
+        const now = new Date();
+        
+        if (sessionDate.getTime() === today.getTime()) {
+            todaySessions.push(session);
+        } else if (sessionDate > today) {
+            upcomingSessions.push(session);
+        } else {
+            pastSessions.push(session);
+        }
+    });
+    
+    // If this is a simple update (just a few sessions), try to update in-place
+    // Otherwise, trigger a refresh for the whole sessions page
+    if (sessions.length <= 5 && document.querySelector('.sessions-container') && !document.querySelector('.sessions-refresh-in-progress')) {
         // Show refresh in progress
         const refreshIndicator = document.createElement('div');
         refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
