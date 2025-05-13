@@ -30,6 +30,35 @@
         color: #9ca3af;
     }
     
+    /* Media status indicators */
+    .media-status-indicator {
+        position: absolute;
+        bottom: 8px;
+        display: flex;
+        gap: 8px;
+        z-index: 10;
+        left: 8px;
+    }
+    
+    .media-status-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+    }
+    
+    .media-status-icon.muted {
+        background-color: rgba(239, 68, 68, 0.8);
+    }
+    
+    .media-status-icon.camera-off {
+        background-color: rgba(239, 68, 68, 0.8);
+    }
+    
     .video-placeholder svg {
         width: 64px;
         height: 64px;
