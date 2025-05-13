@@ -1084,17 +1084,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     }
                 }
                 
-                // Notify other participants about media status change
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    console.log("Sending media status update to peers");
-                    this.websocket.send(JSON.stringify({
-                        type: 'media_status',
-                        user_id: userId,
-                        username: userName,
-                        audioEnabled: this.audioEnabled,
-                        videoEnabled: this.videoEnabled
-                    }));
-                }
+                // Call our dedicated method to update video UI and notify peers
+                this.updateVideoStatus();
             },
             
             // Toggle screen sharing
