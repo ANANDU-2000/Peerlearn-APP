@@ -550,11 +550,14 @@ function updateSessionsListUI(sessions) {
         return;
     }
     
-    console.log('Updating sessions list with:', sessions);
+    console.log('Updating sessions list with:', sessions.length, 'sessions');
     
     // Determine active tab to know which sessions to display
     const activeTab = document.querySelector('.sub-tab.active');
-    if (!activeTab) return;
+    if (!activeTab) {
+        console.warn('No active tab found for session display');
+        return;
+    }
     
     const tabName = activeTab.dataset.tab;
     const tabContentElement = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
@@ -573,23 +576,69 @@ function updateSessionsListUI(sessions) {
     const pastSessions = [];
     
     sessions.forEach(session => {
+        // Make sure schedule is a valid date string
+        if (!session.schedule) {
+            console.warn('Session missing schedule date:', session);
+            return;
+        }
+        
         const sessionDate = new Date(session.schedule);
-        sessionDate.setHours(0, 0, 0, 0);
+        const sessionDay = new Date(sessionDate);
+        sessionDay.setHours(0, 0, 0, 0);
         
         const now = new Date();
         
-        if (sessionDate.getTime() === today.getTime()) {
+        // Check if session is complete or cancelled
+        const isComplete = session.status === 'completed' || session.status === 'cancelled';
+        
+        if (sessionDay.getTime() === today.getTime() && !isComplete) {
             todaySessions.push(session);
-        } else if (sessionDate > today) {
+        } else if (sessionDay > today && !isComplete) {
             upcomingSessions.push(session);
         } else {
             pastSessions.push(session);
         }
     });
     
-    // If this is a simple update (just a few sessions), try to update in-place
-    // Otherwise, trigger a refresh for the whole sessions page
-    if (sessions.length <= 5 && document.querySelector('.sessions-container') && !document.querySelector('.sessions-refresh-in-progress')) {
+    // Determine which sessions to display based on active tab
+    let sessionsToDisplay = [];
+    if (tabName === 'today') {
+        sessionsToDisplay = todaySessions;
+    } else if (tabName === 'upcoming') {
+        sessionsToDisplay = upcomingSessions;
+    } else if (tabName === 'past') {
+        sessionsToDisplay = pastSessions;
+    }
+    
+    // Select the list container in the active tab
+    const sessionsList = tabContentElement.querySelector('ul');
+    if (!sessionsList) {
+        console.warn(`Session list element not found in tab ${tabName}`);
+        
+        // If no list found but we have sessions to display, show a refresh indicator instead
+        if (sessionsToDisplay.length > 0) {
+            // Show refresh in progress and reload page
+            const refreshIndicator = document.createElement('div');
+            refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
+            refreshIndicator.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-500"></div>
+                <span class="ml-2">Refreshing sessions...</span>
+            `;
+            tabContentElement.appendChild(refreshIndicator);
+            
+            // Reload after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        }
+        return;
+    }
+    
+    // For now, to ensure we don't break anything, let's take the conservative approach
+    // of refreshing the page if we have sessions to display in the current tab
+    if (sessionsToDisplay.length > 0 && !document.querySelector('.sessions-refresh-in-progress')) {
+        console.log(`Found ${sessionsToDisplay.length} sessions for tab ${tabName}, refreshing display...`);
+        
         // Show refresh in progress
         const refreshIndicator = document.createElement('div');
         refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
@@ -597,7 +646,7 @@ function updateSessionsListUI(sessions) {
             <div class="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-500"></div>
             <span class="ml-2">Refreshing sessions...</span>
         `;
-        document.querySelector('.sessions-container').appendChild(refreshIndicator);
+        tabContentElement.appendChild(refreshIndicator);
         
         // Reload after short delay
         setTimeout(() => {
