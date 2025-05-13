@@ -1,0 +1,16 @@
+Replace at line 905-915:
+                // Notify other participants about media status change
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log("Sending media status update to peers");
+                    this.websocket.send(JSON.stringify({
+                        type: 'media_status',
+                        user_id: userId,
+                        username: userName,
+                        audioEnabled: this.audioEnabled,
+                        videoEnabled: this.videoEnabled
+                    }));
+                }
+
+With:
+                // Call our dedicated method to update audio UI and notify peers
+                this.updateAudioStatus();

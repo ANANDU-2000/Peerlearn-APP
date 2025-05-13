@@ -902,17 +902,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     console.warn("No local stream available for audio toggle");
                 }
                 
-                // Notify other participants about media status change
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    console.log("Sending media status update to peers");
-                    this.websocket.send(JSON.stringify({
-                        type: 'media_status',
-                        user_id: userId,
-                        username: userName,
-                        audioEnabled: this.audioEnabled,
-                        videoEnabled: this.videoEnabled
-                    }));
-                }
+                // Call our dedicated method to update audio UI and notify peers
+                this.updateAudioStatus();
             },
             
             // Update the UI to reflect video status
