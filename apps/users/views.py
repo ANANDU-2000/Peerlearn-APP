@@ -35,8 +35,8 @@ def auth_selector(request):
 
 def learner_signup(request):
     """View for learner registration."""
-    if session_req.method == 'POST':
-        form = LearnerSignUpForm(session_req.POST, session_req.FILES)
+    if request.method == 'POST':
+        form = LearnerSignUpForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save(commit=False)
             user.role = CustomUser.LEARNER
@@ -51,8 +51,8 @@ def learner_signup(request):
 
 def mentor_signup(request):
     """View for mentor registration."""
-    if session_req.method == 'POST':
-        form = MentorSignUpForm(session_req.POST, session_req.FILES)
+    if request.method == 'POST':
+        form = MentorSignUpForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save(commit=False)
             user.role = CustomUser.MENTOR
@@ -70,8 +70,8 @@ def mentor_signup(request):
 
 def check_email_exists(request):
     """API endpoint to check if an email already exists in the database."""
-    if session_req.method == 'GET':
-        email = session_req.GET.get('email', '')
+    if request.method == 'GET':
+        email = request.GET.get('email', '')
         exists = CustomUser.objects.filter(email=email).exists()
         
         # Also check if the email is valid with a simple format check
@@ -87,8 +87,8 @@ def check_email_exists(request):
 
 def login_view(request):
     """View for user login."""
-    if session_req.method == 'POST':
-        form = UserLoginForm(session_req.POST)
+    if request.method == 'POST':
+        form = UserLoginForm(request.POST)
         if form.is_valid():
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password')
@@ -174,8 +174,8 @@ def rate_mentor(request, pk):
         messages.error(request, 'Only learners can rate mentors.')
         return redirect('users:mentor_detail', pk=pk)
     
-    if session_req.method == 'POST':
-        form = RatingForm(session_req.POST)
+    if request.method == 'POST':
+        form = RatingForm(request.POST)
         if form.is_valid():
             rating, created = UserRating.objects.update_or_create(
                 mentor=mentor,
@@ -692,7 +692,7 @@ def mentor_sessions(request):
     
     context = {
         'active_tab': 'sessions',
-        'sub_tab': session_req.GET.get('tab', 'today'),
+        'sub_tab': request.GET.get('tab', 'today'),
         'today_sessions': today_sessions,
         'upcoming_sessions': upcoming_sessions,
         'past_sessions': past_sessions,
