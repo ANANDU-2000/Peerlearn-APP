@@ -1,0 +1,43 @@
+<!-- Mobile Bottom Navigation - Only visible on small screens -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 h-14">
+    <div class="grid grid-cols-5 h-full">
+        <a href="{% url 'learner_dashboard' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'home' and 'text-primary-600' or 'text-gray-600' }}">
+            <div class="mb-1">
+                <i data-feather="home" class="w-5 h-5"></i>
+            </div>
+            <span>Home</span>
+        </a>
+        <a href="{% url 'learner_activity' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'activity' and 'text-primary-600' or 'text-gray-600' }}">
+            <div class="mb-1">
+                <i data-feather="refresh-cw" class="w-5 h-5"></i>
+            </div>
+            <span>Activity</span>
+        </a>
+        <a href="{% url 'mentor_list' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'mentors' and 'text-primary-600' or 'text-gray-600' }}">
+            <div class="mb-1">
+                <i data-feather="users" class="w-5 h-5"></i>
+            </div>
+            <span>Mentors</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'notifications' and 'text-primary-600' or 'text-gray-600' }}">
+            <div class="mb-1 relative">
+                <i data-feather="bell" class="w-5 h-5"></i>
+                {% if unread_notifications_count > 0 %}
+                <span class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-2xs">
+                    {{ unread_notifications_count }}
+                </span>
+                {% endif %}
+            </div>
+            <span>Alerts</span>
+        </a>
+        <a href="{% url 'learner_profile_update' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'profile' and 'text-primary-600' or 'text-gray-600' }}">
+            <div class="mb-1">
+                <i data-feather="user" class="w-5 h-5"></i>
+            </div>
+            <span>Profile</span>
+        </a>
+    </div>
+</div>
+
+<!-- Add padding to bottom of main content when mobile nav is shown -->
+<div class="md:hidden h-14"></div>

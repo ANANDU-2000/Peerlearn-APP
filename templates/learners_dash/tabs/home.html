@@ -1,0 +1,624 @@
+<!-- Home Tab Content (Recommended Sessions) -->
+<div class="space-y-8">
+    <!-- Recommended Sessions Section -->
+    <div>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Recommended Sessions</h2>
+            <a href="#" class="text-sm font-medium text-primary-600 hover:text-primary-800">View All</a>
+        </div>
+        
+        <!-- Sessions Carousel -->
+        <div class="relative">
+            <!-- Scroll controls (hidden on mobile - use swipe) -->
+            <button class="hidden md:block absolute -left-4 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-md p-2 text-gray-600 hover:text-primary-600 focus:outline-none z-10">
+                <i data-feather="chevron-left" class="w-5 h-5"></i>
+            </button>
+            <button class="hidden md:block absolute -right-4 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-md p-2 text-gray-600 hover:text-primary-600 focus:outline-none z-10">
+                <i data-feather="chevron-right" class="w-5 h-5"></i>
+            </button>
+            
+            <!-- Scrollable container -->
+            <div class="flex space-x-4 pb-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory scrollbar-none" id="recommended-sessions">
+                {% for session in recommended_sessions %}
+                <div class="w-72 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition duration-200 snap-start">
+                    <!-- Session Card -->
+                    <div class="relative">
+                        <!-- Thumbnail or placeholder -->
+                        <div class="h-32 bg-gradient-to-r from-primary-100 to-primary-50 flex items-center justify-center">
+                            <i data-feather="video" class="text-primary-600 w-10 h-10"></i>
+                        </div>
+                        
+                        <!-- Status badges -->
+                        <div class="absolute top-2 right-2 flex space-x-2">
+                            {% if session.schedule|timeuntil:'7200'|slice:':2' == '0:' %}
+                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium animate-pulse">
+                                    LIVE
+                                </span>
+                            {% endif %}
+                            
+                            {% if session.price == 0 %}
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                    Free
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Countdown timer for upcoming sessions -->
+                        {% if session.schedule > now %}
+                            <div class="absolute bottom-2 right-2">
+                                <span class="bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded font-mono session-countdown" data-timestamp="{{ session.schedule|date:'U' }}">
+                                    {{ session.schedule|timeuntil }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="flex items-start space-x-2">
+                            <!-- Mentor avatar -->
+                            <div class="flex-shrink-0">
+                                {% if session.mentor.profile_picture %}
+                                    <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.get_full_name }}" class="w-10 h-10 rounded-full object-cover">
+                                {% else %}
+                                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-700 font-semibold">
+                                            {{ session.mentor.first_name|first }}{{ session.mentor.last_name|first }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Session info -->
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base font-medium text-gray-900 truncate">{{ session.title }}</h3>
+                                <p class="text-sm text-gray-600">{{ session.mentor.get_full_name }}</p>
+                                
+                                <!-- Domain tags -->
+                                <div class="mt-2 flex flex-wrap gap-1">
+                                    {% for topic in session.topics.all|slice:":2" %}
+                                        <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                            {{ topic.name }}
+                                        </span>
+                                    {% endfor %}
+                                    {% if session.topics.count > 2 %}
+                                        <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                            +{{ session.topics.count|add:"-2" }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Price and Book button -->
+                        <div class="mt-4 flex justify-between items-center">
+                            <span class="font-medium text-gray-900">
+                                {% if session.price > 0 %}
+                                    ${{ session.price }}
+                                {% else %}
+                                    Free
+                                {% endif %}
+                            </span>
+                            <button 
+                                class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                data-session-id="{{ session.id }}"
+                                onclick="showBookingDialog({{ session.id }})"
+                            >
+                                <i data-feather="play" class="w-4 h-4 mr-1"></i>
+                                Book
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="w-full py-20 text-center">
+                    <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <i data-feather="search" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No recommended sessions yet</h3>
+                    <p class="text-gray-600 max-w-md mx-auto">
+                        Update your profile with your interests and we'll find the perfect sessions for you.
+                    </p>
+                    <a href="{% url 'learner_profile_update' %}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <i data-feather="user" class="w-4 h-4 mr-1"></i>
+                        Update Profile
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Mentors Section -->
+    <div>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Top Mentors For You</h2>
+            <a href="{% url 'mentor_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View All</a>
+        </div>
+        
+        <!-- Mentors Carousel -->
+        <div class="relative">
+            <!-- Scroll controls (hidden on mobile - use swipe) -->
+            <button class="hidden md:block absolute -left-4 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-md p-2 text-gray-600 hover:text-primary-600 focus:outline-none z-10">
+                <i data-feather="chevron-left" class="w-5 h-5"></i>
+            </button>
+            <button class="hidden md:block absolute -right-4 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-md p-2 text-gray-600 hover:text-primary-600 focus:outline-none z-10">
+                <i data-feather="chevron-right" class="w-5 h-5"></i>
+            </button>
+            
+            <!-- Scrollable container -->
+            <div class="flex space-x-4 pb-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory scrollbar-none" id="recommended-mentors">
+                {% for mentor in recommended_mentors %}
+                <div class="w-64 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition duration-200 snap-start">
+                    <!-- Mentor Card -->
+                    <div class="p-4 text-center">
+                        <!-- Mentor avatar -->
+                        <div class="mb-3 mx-auto">
+                            {% if mentor.profile_picture %}
+                                <img src="{{ mentor.profile_picture.url }}" alt="{{ mentor.get_full_name }}" class="w-24 h-24 rounded-full object-cover mx-auto">
+                            {% else %}
+                                <div class="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center mx-auto">
+                                    <span class="text-primary-700 text-2xl font-semibold">
+                                        {{ mentor.first_name|first }}{{ mentor.last_name|first }}
+                                    </span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Mentor info -->
+                        <h3 class="text-lg font-medium text-gray-900">{{ mentor.get_full_name }}</h3>
+                        
+                        <!-- Rating -->
+                        <div class="flex items-center justify-center mt-1">
+                            <div class="flex text-yellow-400">
+                                {% with ''|center:mentor.rating_average|make_list as stars %}
+                                {% for _ in stars %}
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                {% endfor %}
+                                {% endwith %}
+                                
+                                {% with ''|center:5|make_list as empty_stars %}
+                                {% for _ in empty_stars|slice:mentor.rating_average %}
+                                    <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                {% endfor %}
+                                {% endwith %}
+                            </div>
+                            <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count }})</span>
+                        </div>
+                        
+                        <!-- Domain tags -->
+                        <div class="mt-2 flex flex-wrap justify-center gap-1">
+                            {% for expertise in mentor.expertises.all|slice:":2" %}
+                                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                    {{ expertise.name }}
+                                </span>
+                            {% endfor %}
+                            {% if mentor.expertises.count > 2 %}
+                                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                    +{{ mentor.expertises.count|add:"-2" }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Action buttons -->
+                        <div class="mt-4 flex space-x-2">
+                            <a href="{% url 'mentor_detail' mentor.id %}" class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i data-feather="user" class="w-4 h-4 mr-1"></i>
+                                Profile
+                            </a>
+                            <button 
+                                class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                data-mentor-id="{{ mentor.id }}"
+                                onclick="showSessionRequestDialog({{ mentor.id }})"
+                            >
+                                <i data-feather="message-square" class="w-4 h-4 mr-1"></i>
+                                Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="w-full py-20 text-center">
+                    <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <i data-feather="users" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No mentors found yet</h3>
+                    <p class="text-gray-600 max-w-md mx-auto">
+                        Update your profile with your interests and we'll match you with the best mentors.
+                    </p>
+                    <a href="{% url 'learner_profile_update' %}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <i data-feather="user" class="w-4 h-4 mr-1"></i>
+                        Update Profile
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Dialog Modal (to be controlled via Alpine.js or other JS) -->
+<div id="booking-dialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-t-xl md:rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900" id="booking-session-title">Session Details</h3>
+                <button onclick="closeBookingDialog()" class="text-gray-400 hover:text-gray-500">
+                    <i data-feather="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="p-4" id="booking-session-details">
+            <!-- Will be populated via JS -->
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
+                <div class="h-24 bg-gray-200 rounded mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/3 mb-6"></div>
+                <div class="h-10 bg-gray-200 rounded"></div>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button onclick="closeBookingDialog()" class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Cancel
+            </button>
+            <button id="confirm-booking-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <span id="booking-action-text">Confirm Booking</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Session Request Dialog Modal -->
+<div id="session-request-dialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-t-xl md:rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Request Session</h3>
+                <button onclick="closeSessionRequestDialog()" class="text-gray-400 hover:text-gray-500">
+                    <i data-feather="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="p-4">
+            <form id="session-request-form">
+                <input type="hidden" id="mentor_id" name="mentor_id">
+                
+                <div class="mb-4">
+                    <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Session Title</label>
+                    <input type="text" id="title" name="title" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="What would you like to learn?" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
+                    <select id="domain" name="domain" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" required>
+                        <option value="">Select a domain</option>
+                        {% for domain in domains %}
+                            <option value="{{ domain.id }}">{{ domain.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="description" name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="What topics would you like to cover?"></textarea>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="proposed_time" class="block text-sm font-medium text-gray-700 mb-1">Proposed Time</label>
+                    <input type="datetime-local" id="proposed_time" name="proposed_time" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="duration" class="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                    <select id="duration" name="duration" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" required>
+                        <option value="30">30 minutes</option>
+                        <option value="60" selected>60 minutes</option>
+                        <option value="90">90 minutes</option>
+                        <option value="120">120 minutes</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="budget" class="block text-sm font-medium text-gray-700 mb-1">Your Budget ($)</label>
+                    <input type="number" id="budget" name="budget" min="0" step="5" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="Enter your budget" required>
+                </div>
+            </form>
+        </div>
+        
+        <div class="p-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button onclick="closeSessionRequestDialog()" class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Cancel
+            </button>
+            <button onclick="submitSessionRequest()" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Submit Request
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for session booking and request modals -->
+<script>
+    // Booking dialog functions
+    function showBookingDialog(sessionId) {
+        // Fetch session details via API
+        fetch(`/sessions/api/${sessionId}/`)
+            .then(response => response.json())
+            .then(session => {
+                document.getElementById('booking-session-title').textContent = session.title;
+                
+                // Populate session details
+                let detailsHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-base font-medium text-gray-900">Mentor</h4>
+                        <div class="flex items-center mt-2">
+                            <div class="flex-shrink-0">
+                                ${session.mentor.profile_picture ? 
+                                    `<img src="${session.mentor.profile_picture}" alt="${session.mentor.name}" class="w-10 h-10 rounded-full">` :
+                                    `<div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-700 font-semibold">${session.mentor.name.charAt(0)}</span>
+                                    </div>`
+                                }
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-900">${session.mentor.name}</p>
+                                <p class="text-sm text-gray-500">${session.mentor.expertise || 'Expert Mentor'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="text-base font-medium text-gray-900">Description</h4>
+                        <p class="mt-1 text-sm text-gray-600">${session.description}</p>
+                    </div>
+                    
+                    <div class="mb-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">Date & Time</h4>
+                            <p class="mt-1 text-sm text-gray-600">${new Date(session.schedule).toLocaleString()}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">Duration</h4>
+                            <p class="mt-1 text-sm text-gray-600">${session.duration} minutes</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-gray-900">Topics</h4>
+                        <div class="mt-1 flex flex-wrap gap-1">
+                            ${session.topics.map(topic => 
+                                `<span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">${topic}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 border-t border-gray-200 pt-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-base font-medium text-gray-900">Price:</span>
+                            <span class="text-lg font-semibold text-primary-600">$${session.price}</span>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('booking-session-details').innerHTML = detailsHtml;
+                
+                // Update action button based on price
+                const actionBtn = document.getElementById('confirm-booking-btn');
+                const actionText = document.getElementById('booking-action-text');
+                
+                if (session.price > 0) {
+                    actionText.textContent = 'Pay Now';
+                    actionBtn.onclick = () => initiatePayment(sessionId, session.price);
+                } else {
+                    actionText.textContent = 'Confirm Free Booking';
+                    actionBtn.onclick = () => confirmFreeBooking(sessionId);
+                }
+                
+                // Show the dialog
+                document.getElementById('booking-dialog').classList.remove('hidden');
+                
+                // Re-init feather icons for newly added content
+                feather.replace();
+            })
+            .catch(error => {
+                console.error('Error fetching session details:', error);
+                // Show error in dialog
+                document.getElementById('booking-session-details').innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-red-500 mb-4">
+                            <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Could not load session details</h3>
+                        <p class="text-gray-600 max-w-md mx-auto mb-4">
+                            There was a problem loading the session details. Please try again.
+                        </p>
+                    </div>
+                `;
+                
+                // Still show the dialog with error
+                document.getElementById('booking-dialog').classList.remove('hidden');
+            });
+    }
+    
+    function closeBookingDialog() {
+        document.getElementById('booking-dialog').classList.add('hidden');
+    }
+    
+    function initiatePayment(sessionId, price) {
+        // Implement Razorpay payment flow here
+        fetch('/sessions/book/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                payment_method: 'razorpay'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.order_id) {
+                // Open Razorpay payment dialog
+                // Implementation will depend on your Razorpay setup
+                console.log('Payment initiated', data);
+            } else {
+                showToast('error', 'Could not initiate payment. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error initiating payment:', error);
+            showToast('error', 'Could not initiate payment. Please try again.');
+        });
+    }
+    
+    function confirmFreeBooking(sessionId) {
+        fetch('/sessions/book/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                payment_method: 'free'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeBookingDialog();
+                showToast('success', 'Session booked successfully!');
+                // Refresh activity tab content
+                if (window.refreshActivityContent) {
+                    window.refreshActivityContent();
+                }
+            } else {
+                showToast('error', data.message || 'Could not book the session. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error booking session:', error);
+            showToast('error', 'Could not book the session. Please try again.');
+        });
+    }
+    
+    // Session request dialog functions
+    function showSessionRequestDialog(mentorId) {
+        document.getElementById('mentor_id').value = mentorId;
+        
+        // Set minimum date to today
+        const today = new Date();
+        today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+        document.getElementById('proposed_time').min = today.toISOString().slice(0, 16);
+        
+        // Show the dialog
+        document.getElementById('session-request-dialog').classList.remove('hidden');
+    }
+    
+    function closeSessionRequestDialog() {
+        document.getElementById('session-request-dialog').classList.add('hidden');
+        document.getElementById('session-request-form').reset();
+    }
+    
+    function submitSessionRequest() {
+        const form = document.getElementById('session-request-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const requestData = {};
+        formData.forEach((value, key) => {
+            requestData[key] = value;
+        });
+        
+        fetch('/sessions/request/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeSessionRequestDialog();
+                showToast('success', 'Session request sent successfully!');
+                // Refresh activity tab content
+                if (window.refreshActivityContent) {
+                    window.refreshActivityContent();
+                }
+            } else {
+                showToast('error', data.message || 'Could not send the request. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error sending session request:', error);
+            showToast('error', 'Could not send the request. Please try again.');
+        });
+    }
+    
+    // Helper functions
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showToast(type, message) {
+        // This function will depend on your toast implementation
+        console.log(`Toast: ${type} - ${message}`);
+    }
+    
+    // Initialize scrollable carousels
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mobile horizontal scroll for carousels
+        const carousels = ['recommended-sessions', 'recommended-mentors'];
+        
+        carousels.forEach(carouselId => {
+            const carousel = document.getElementById(carouselId);
+            if (!carousel) return;
+            
+            // Add scroll buttons functionality (desktop)
+            const parent = carousel.closest('.relative');
+            if (parent) {
+                const prevBtn = parent.querySelector('button:first-of-type');
+                const nextBtn = parent.querySelector('button:last-of-type');
+                
+                if (prevBtn && nextBtn) {
+                    prevBtn.addEventListener('click', () => {
+                        carousel.scrollBy({
+                            left: -300,
+                            behavior: 'smooth'
+                        });
+                    });
+                    
+                    nextBtn.addEventListener('click', () => {
+                        carousel.scrollBy({
+                            left: 300,
+                            behavior: 'smooth'
+                        });
+                    });
+                }
+            }
+        });
+    });
+</script>

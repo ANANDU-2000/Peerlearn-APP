@@ -123,6 +123,10 @@
         {% block content %}{% endblock %}
     </main>
     
+    {% if user.is_authenticated and user.is_learner %}
+        {% include 'includes/mobile_bottom_nav.html' %}
+    {% endif %}
+    
     {% include 'includes/footer.html' %}
     {% include 'includes/toasts.html' %}
     {% include 'includes/modals.html' %}
