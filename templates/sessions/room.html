@@ -258,12 +258,12 @@
                         </div>
                         
                         <!-- Other participants (smaller views in a row) -->
-                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                        <div id="participants-videos" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
                             <template x-for="participant in otherParticipants" :key="participant.id">
                                 <div class="participant-tile h-40" @click="switchMainStream(participant.id)">
                                     <video :id="'video-' + participant.id" autoplay playsinline></video>
                                     <div class="video-overlay">
-                                        <div class="user-label" x-text="participant.name"></div>
+                                        <div class="user-label" x-text="participant.username"></div>
                                     </div>
                                 </div>
                             </template>
@@ -291,14 +291,11 @@
                                 </svg>
                             </div>
                             
-                            <div class="control-button" @click="shareScreen" x-show="!isScreenSharing">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="control-button" :class="{ 'active': isScreenSharing }" @click="toggleScreenShare">
+                                <svg x-show="!isScreenSharing" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                            </div>
-                            
-                            <div class="control-button active" @click="stopShareScreen" x-show="isScreenSharing">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg x-show="isScreenSharing" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                                 </svg>
@@ -422,6 +419,20 @@
 <script src="{% static 'js/toasts.js' %}"></script>
 <script src="{% static 'js/webrtc/room.js' %}"></script>
 <script>
+    // Helper functions for chat messages
+    function formatMessage(content) {
+        // Convert URLs to links
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return content.replace(urlRegex, function(url) {
+            return '<a href="' + url + '" target="_blank" class="text-blue-600 hover:underline">' + url + '</a>';
+        });
+    }
+    
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+    
     // WebRTC room configuration
     const ROOM_CODE = "{{ room_name }}";
     const USER_ID = {{ user_id }};
