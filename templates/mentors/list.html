@@ -94,7 +94,7 @@
                                 <!-- Domain tags -->
                                 <div class="mt-3 flex flex-wrap gap-1">
                                     {% if mentor.expertise %}
-                                        {% for domain in mentor.expertise|split:"," %}
+                                        {% for domain in mentor.expertise %}
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                                                 {{ domain|strip }}
                                             </span>
