@@ -680,6 +680,12 @@ function updateRequestsListUI(requests) {
 // Export functions for global use
 window.initDashboardWebSocket = initDashboardWebSocket;
 window.sendDashboardMessage = sendDashboardMessage;
+window.onDashboardSocketMessage = onDashboardSocketMessage;
+window.handleSessionUpdate = handleSessionUpdate;
+window.handleBookingUpdate = handleBookingUpdate;
+window.handleSessionRequestUpdate = handleSessionRequestUpdate;
+window.handleNotificationUpdate = handleNotificationUpdate;
+window.updateSessionsUI = updateSessionsUI;
 
 // Initialize on DOMContentLoaded if user is logged in
 document.addEventListener('DOMContentLoaded', () => {

@@ -28,19 +28,23 @@ const maxReconnectAttempts = 5;
  * This is called from Alpine.js initialization
  */
 function initNotifications() {
-    // Get user ID from meta tag
-    const userIdMeta = document.querySelector('meta[name="user-id"]');
-    if (!userIdMeta) {
-        console.error('User ID meta tag not found, notifications system cannot initialize');
-        return;
-    }
-    
-    // Store user ID in global variable
-    window.USER_ID = userIdMeta.getAttribute('content');
+    // Get user ID from meta tag if not already set
     if (!window.USER_ID) {
-        console.error('User ID is empty, notifications system cannot initialize');
-        return;
+        const userIdMeta = document.querySelector('meta[name="user-id"]');
+        if (!userIdMeta) {
+            console.error('User ID meta tag not found, notifications system cannot initialize');
+            return;
+        }
+        
+        // Store user ID in global variable
+        window.USER_ID = userIdMeta.getAttribute('content');
+        if (!window.USER_ID) {
+            console.error('User ID is empty, notifications system cannot initialize');
+            return;
+        }
     }
+
+    console.log('Initializing notifications system for user:', window.USER_ID);
 
     // Connect to WebSocket for notifications
     connectNotificationWebSocket();
@@ -61,18 +65,41 @@ function connectNotificationWebSocket() {
         notificationSocket.close();
     }
     
+    // Get user ID from meta tag if not already set
+    if (!window.USER_ID) {
+        const userIdMeta = document.querySelector('meta[name="user-id"]');
+        if (userIdMeta) {
+            window.USER_ID = userIdMeta.getAttribute('content');
+        } else {
+            console.error('User ID meta tag not found, notifications system cannot initialize');
+            return;
+        }
+    }
+    
+    // Verify we have a user ID
+    if (!window.USER_ID) {
+        console.error('User ID is empty, notifications system cannot initialize');
+        return;
+    }
+    
     // Create WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${window.USER_ID}/`;
     
-    // Create new WebSocket connection
-    notificationSocket = new WebSocket(wsUrl);
+    console.log('Connecting to notification WebSocket:', wsUrl);
     
-    // Event handlers for WebSocket
-    notificationSocket.onopen = onNotificationSocketOpen;
-    notificationSocket.onmessage = onNotificationSocketMessage;
-    notificationSocket.onclose = onNotificationSocketClose;
-    notificationSocket.onerror = onNotificationSocketError;
+    // Create new WebSocket connection
+    try {
+        notificationSocket = new WebSocket(wsUrl);
+        
+        // Event handlers for WebSocket
+        notificationSocket.onopen = onNotificationSocketOpen;
+        notificationSocket.onmessage = onNotificationSocketMessage;
+        notificationSocket.onclose = onNotificationSocketClose;
+        notificationSocket.onerror = onNotificationSocketError;
+    } catch (error) {
+        console.error('Error creating notification WebSocket:', error);
+    }
 }
 
 /**
@@ -361,7 +388,9 @@ function getCsrfToken() {
 
 // Export functions for global use
 window.initNotifications = initNotifications;
+window.connectNotificationWebSocket = connectNotificationWebSocket;
 window.markNotificationAsRead = markNotificationAsRead;
 window.markAllNotificationsAsRead = markAllNotificationsAsRead;
+window.processNewNotification = processNewNotification;
 
 })(); // End of IIFE
