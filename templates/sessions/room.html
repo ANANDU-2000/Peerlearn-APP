@@ -263,7 +263,7 @@
                     <div class="p-4">
                         <!-- Main video display -->
                         <div class="main-video participant-tile mb-4">
-                            <video x-ref="mainVideo" autoplay playsinline class="w-full h-full"></video>
+                            <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full"></video>
                             
                             <!-- Connection status -->
                             <div class="connection-status">
@@ -301,6 +301,15 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Small local video display (self view) -->
+                        <div class="local-video-container mb-4 relative w-48 h-36 overflow-hidden rounded-lg shadow-md float-right">
+                            <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                            <div class="absolute bottom-1 left-1 text-xs text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+                                You
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
 
                         <!-- Controls -->
                         <div class="controls-container">
