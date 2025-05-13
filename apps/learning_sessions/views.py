@@ -1,6 +1,9 @@
 """
 Views for session listing, creation, booking, and WebRTC room.
+Also includes API endpoints for real-time updates.
 """
+import json
+from django.http import JsonResponse
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required

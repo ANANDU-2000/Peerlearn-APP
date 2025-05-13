@@ -88,7 +88,7 @@
                     
                     // Instead of reloading the page, update the booking status via AJAX
                     if (data.booking_id) {
-                        fetch(`/api/bookings/${data.booking_id}/`)
+                        fetch(`/sessions/api/bookings/${data.booking_id}/`)
                             .then(response => response.json())
                             .then(bookingData => {
                                 // Update UI to show the booking is confirmed
@@ -120,7 +120,7 @@
                 
                 // Set up polling instead of full page reload
                 setInterval(function() {
-                    fetch('/api/sessions/status/')
+                    fetch('/sessions/api/status/')
                         .then(response => response.json())
                         .then(data => {
                             // Update UI with polled data
@@ -144,7 +144,7 @@
             console.error('Error setting up WebSocket:', e);
             // Fall back to polling
             setInterval(function() {
-                fetch('/api/sessions/status/')
+                fetch('/sessions/api/status/')
                     .then(response => response.json())
                     .then(data => {
                         // Update UI with polled data

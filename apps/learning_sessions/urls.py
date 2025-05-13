@@ -4,6 +4,7 @@ URL patterns for the sessions app.
 
 from django.urls import path
 from . import views
+from . import api_views
 
 app_name = 'sessions'
 
@@ -28,4 +29,8 @@ urlpatterns = [
     
     # WebRTC room
     path('room/<uuid:room_code>/', views.session_room, name='room'),
+    
+    # API endpoints
+    path('api/status/', api_views.session_status_api, name='status_api'),
+    path('api/bookings/<int:booking_id>/', api_views.booking_detail_api, name='booking_api'),
 ]
