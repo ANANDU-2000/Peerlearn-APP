@@ -624,26 +624,29 @@ def mentor_sessions(request):
     
     from apps.learning_sessions.models import Session, Booking
     from django.utils import timezone
+    from django.db import models
     
     # Get today's date and time
     now = timezone.now()
     today = now.date()
     
-    # Fetch all sessions by this mentor
+    # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
     today_sessions = Session.objects.filter(
         mentor=request.user, 
-        schedule__date=today
-    ).order_by('schedule')
+        schedule__date=today,
+        status__in=[Session.SCHEDULED, Session.LIVE]
+    ).distinct().order_by('schedule')
     
     upcoming_sessions = Session.objects.filter(
         mentor=request.user, 
-        schedule__date__gt=today
-    ).order_by('schedule')
+        schedule__date__gt=today,
+        status=Session.SCHEDULED
+    ).distinct().order_by('schedule')
     
     past_sessions = Session.objects.filter(
-        mentor=request.user, 
-        schedule__date__lt=today
-    ).order_by('-schedule')
+        models.Q(mentor=request.user, schedule__date__lt=today) |
+        models.Q(mentor=request.user, status__in=[Session.COMPLETED, Session.CANCELLED])
+    ).distinct().order_by('-schedule')
     
     # Add booking count and go-live status to each session
     for session_list in [today_sessions, upcoming_sessions, past_sessions]:
@@ -660,10 +663,41 @@ def mentor_sessions(request):
                 time_until_session <= timezone.timedelta(minutes=15) and
                 time_until_session > timezone.timedelta(minutes=-session.duration)
             )
+            
+            # Compute exact time difference for countdown displays
+            if session.status == Session.SCHEDULED:
+                session.time_until_start = max(time_until_session, timezone.timedelta(0))
+                
+                # Format the remaining time as hours:minutes:seconds
+                total_seconds = int(session.time_until_start.total_seconds())
+                hours, remainder = divmod(total_seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            elif session.status == Session.LIVE:
+                session.time_since_start = now - session.schedule
+                session.time_remaining = max(timezone.timedelta(minutes=session.duration) - session.time_since_start, 
+                                          timezone.timedelta(0))
+                
+                # Format the remaining time as hours:minutes:seconds
+                total_seconds = int(session.time_remaining.total_seconds())
+                hours, remainder = divmod(total_seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                
+            # Check if session can be edited (more than 5 minutes before start)
+            session.can_edit = (
+                session.status == Session.SCHEDULED and 
+                (session.schedule - now) > timezone.timedelta(minutes=5)
+            )
     
     context = {
         'active_tab': 'sessions',
         'sub_tab': request.GET.get('tab', 'today'),
+        'today_sessions': today_sessions,
+        'upcoming_sessions': upcoming_sessions,
+        'past_sessions': past_sessions,
+        'current_time': now.strftime('%Y-%m-%dT%H:%M:%S'),
+        'today_date': today.strftime('%Y-%m-%d'),
         'today_sessions': today_sessions,
         'upcoming_sessions': upcoming_sessions,
         'past_sessions': past_sessions,
