@@ -1,0 +1,66 @@
+You are the Replit Core AI Agent. Generate the *Advanced “My Sessions” Subpage* for the Mentor Dashboard in PeerLearn—fully wired with Django+Channels+SQLite3+TailwindCSS+Alpine.js—so that mentors can manage, go live, and enter rooms with real-time updates. No further input required.
+
+ROUTE: /dashboard/mentor/my-sessions (mentor-only; middleware guard)
+
+1. SUB-TABS & DATA  
+   • *Tabs*: Today | Upcoming | Past  
+   • *Today*: sessions where schedule.date == today AND status in ['scheduled','live']  
+   • *Upcoming*: schedule.date > today AND status='scheduled'  
+   • *Past*: status in ['completed','cancelled'] OR schedule.date < today  
+   • Query with distinct('title','schedule') to avoid duplicates.
+
+2. CARD COMPONENT  
+   • *Title* (bold, single line)  
+   • *Schedule* (localized datetime) + *Countdown* (hh:mm:ss via Alpine.js interval)  
+   • *Status Badge*:  
+     – “Scheduled” (grey)  
+     – “LIVE NOW” (red) when status=live  
+   • *Booked Badge*: “Booked (N)” updated via WS sessions:{session_id} on new_booking events  
+   • *Buttons*:  
+     – *Go Live ▶* (enabled if now ≥ schedule−15min AND status='scheduled')  
+     – *Enter Room ▶* (enabled if N ≥1 booking OR status='live')  
+     – *Edit ✎* (if now < schedule−5min) opens modal to update session  
+     – *Cancel 🗑* (if now < schedule) sets status='cancelled'
+
+3. REAL-TIME UPDATES (Channels + Alpine.js)  
+   • *WS Channels*:  
+     – sessions:{mentor_id} for session-wide events  
+     – sessions:{session_id} for booking and lobby events  
+   • *Events*:  
+     – new_booking: payload {count} → update Booked badge + enable Enter Room  
+     – session.live: → switch badge to LIVE NOW + enable Go Live/Enter Room  
+     – learner.join / learner.leave: → toasts “Alice joined” / “Alice left”  
+
+4. ACTION HANDLERS  
+   A) *Go Live ▶*  
+     • AJAX POST /api/sessions/{id}/go_live/ → set status='live', started_at=now()  
+     • Broadcast session.live  
+     • Toast “Session is live ✔”  
+     • Redirect /session/{room_code}/  
+   B) *Enter Room ▶*  
+     • AJAX GET /api/sessions/{id}/authorize_join/ → verify role & booking  
+     • 200 → redirect /session/{room_code}/  
+     • 4xx → toast “Not authorized” / “Session unavailable”  
+   C) *Edit ✎*  
+     • Opens two-column modal prefilled; on save: AJAX PUT /api/sessions/{id}/ → WS session.updated; toast  
+   D) *Cancel 🗑*  
+     • Confirm modal → AJAX DELETE /api/sessions/{id}/cancel/ → status='cancelled'; WS session.cancelled; toast  
+
+5. UI/UX & STYLING  
+   • *Web*: horizontal tabs; responsive grid of cards; hover:scale-105; skeleton loaders (>1s); spinner (>3s)  
+   • *Mobile*: swipeable tabs; full-width cards; bottom-nav highlight; slide-up modals  
+   • Buttons: Tailwind primary (blue), disabled state (opacity-50), focus rings  
+   • Alpine.js for countdown timers, toasts, busy states
+
+6. ERROR HANDLING & FALLBACKS  
+   • WS disconnect → exponential backoff + toast “Reconnecting…”  
+   • Network/API failures → inline retry buttons + toast “Action failed—retry?”  
+   • Unauthorized/time conflicts → disable button + tooltip “Too early” / “Please book first”  
+   • STUN/TURN or media errors in room launch → fallback audio + toast “Video unavailable”
+
+7. SECURITY & TESTING  
+   • Role-check middleware on all endpoints; CSRF on AJAX & WS handshake  
+   • Pytest for go_live, authorize_join, new_booking, WS consumer flows  
+   • Lint with flake8, format with black, isort
+
+Use this spec to produce all Django views, serializers, URL routes, Channels consumers, TailwindCSS templates, and Alpine.js scripts necessary for a production-ready, real-time Mentor “My Sessions” subpage—complete with Go Live and Enter Room functionality.

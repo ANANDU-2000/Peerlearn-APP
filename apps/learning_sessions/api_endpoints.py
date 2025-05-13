@@ -3,6 +3,7 @@ API endpoints for learning sessions with error handling and real-time updates.
 """
 
 import json
+import logging
 from datetime import datetime
 
 from django.http import JsonResponse
@@ -17,6 +18,9 @@ from asgiref.sync import async_to_sync
 
 from .models import Session, Booking, SessionRequest
 from apps.notifications.models import Notification
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 @login_required
 @require_POST
@@ -261,6 +265,129 @@ def session_details_api(request, session_id):
             'session': session_data
         })
     except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
+@require_POST
+def go_live_api(request, session_id):
+    """
+    API endpoint to mark a session as live and notify all participants.
+    Only the mentor who created the session can mark it as live.
+    Session must be in 'scheduled' status and have at least one confirmed booking.
+    """
+    try:
+        # Get session
+        session = get_object_or_404(Session, id=session_id)
+        
+        # Check if user is the mentor
+        if session.mentor != request.user:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only the mentor who created the session can start it'
+            }, status=403)
+        
+        # Check if session can be started (must be scheduled)
+        if session.status != 'scheduled':
+            return JsonResponse({
+                'success': False,
+                'error': f'Cannot start a session that is {session.get_status_display()}'
+            }, status=400)
+        
+        # Check if there are any confirmed bookings
+        confirmed_bookings = Booking.objects.filter(session=session, status='confirmed')
+        if not confirmed_bookings.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot start a session with no confirmed bookings'
+            }, status=400)
+        
+        # Check if it's close enough to the scheduled time (within 15 minutes)
+        time_until_session = session.schedule - timezone.now()
+        if time_until_session.total_seconds() > 15 * 60 and not request.GET.get('force', False):
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot start a session more than 15 minutes before the scheduled time'
+            }, status=400)
+        
+        # Start a transaction to ensure all operations are atomic
+        with transaction.atomic():
+            # Update session status
+            session.status = 'live'
+            session.live_started_at = timezone.now()
+            session.save()
+            
+            # Create notification for mentor
+            Notification.objects.create(
+                user=request.user,
+                title="Session Started",
+                message=f"You've started the session: {session.title}",
+                link=f"/sessions/{session.room_code}/join/"
+            )
+            
+            # Create notifications for all learners with confirmed bookings
+            for booking in confirmed_bookings:
+                Notification.objects.create(
+                    user=booking.learner,
+                    title="Session is Live",
+                    message=f"The session '{session.title}' is now live! Join to start learning.",
+                    link=f"/sessions/{session.room_code}/join/"
+                )
+            
+            # Send real-time updates via WebSocket
+            channel_layer = get_channel_layer()
+            
+            # Format session data for WebSocket
+            session_data = {
+                'id': session.id,
+                'title': session.title,
+                'status': 'live',
+                'live_started_at': timezone.now().isoformat(),
+                'room_code': str(session.room_code)
+            }
+            
+            # Send to mentor's channel group
+            async_to_sync(channel_layer.group_send)(
+                f"dashboard_{request.user.id}",
+                {
+                    'type': 'session_update',
+                    'session': session_data,
+                    'action': 'live'
+                }
+            )
+            
+            # Send to each learner's channel group
+            for booking in confirmed_bookings:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        f"dashboard_{booking.learner.id}",
+                        {
+                            'type': 'session_update',
+                            'session': session_data,
+                            'action': 'live'
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending WebSocket notification to learner {booking.learner.id}: {str(e)}")
+        
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'message': 'Session is now live',
+            'room_url': f"/sessions/{session.room_code}/join/",
+            'session': {
+                'id': session.id,
+                'status': 'live',
+                'room_code': str(session.room_code)
+            }
+        })
+        
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error marking session as live: {str(e)}", exc_info=True)
+        # Return error
         return JsonResponse({
             'success': False,
             'error': str(e)
