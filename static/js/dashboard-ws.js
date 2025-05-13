@@ -10,6 +10,16 @@ if (typeof window.initDashboardWebSocket !== 'undefined') {
     return;
 }
 
+// Expose refreshSessionsList globally for other scripts to use
+window.refreshSessionsList = function() {
+    // Forward to the internal function if it's defined
+    if (typeof refreshSessionsList === 'function') {
+        refreshSessionsList();
+    } else {
+        console.warn('Dashboard WebSocket not initialized, cannot refresh sessions list');
+    }
+};
+
 // Set up window unloading flag to prevent reconnection attempts when page is closing
 if (typeof window.isUnloading === 'undefined') {
     window.isUnloading = false;
@@ -515,6 +525,9 @@ function updateSessionsUI(session, action) {
  */
 function refreshSessionsList() {
     console.log('Refreshing sessions list...');
+    
+    // Make the function available globally so it can be called from other scripts
+    window.refreshSessionsList = refreshSessionsList;
     
     // Detect if we're on the mentor or learner dashboard
     const onMentorDashboard = window.location.pathname.includes('/dashboard/mentor/');
