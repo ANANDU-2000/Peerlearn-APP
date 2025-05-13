@@ -1,0 +1,951 @@
+{% extends 'mentors_dash/dashboard.html' %}
+{% load static %}
+
+{% block title %}Create Session - Mentor Dashboard - PeerLearn{% endblock %}
+
+{% block content %}
+{{ block.super }}
+<script>
+    // Replace the main content in the dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        const mainContent = document.querySelector('main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(1)');
+        if (mainContent) {
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Create Session</h1>
+                        <div class="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-800">Advanced</div>
+                    </div>
+                    <a href="{% url 'users:mentor_create_session' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                        </svg>
+                        Back to Standard Editor
+                    </a>
+                </div>
+            `;
+        }
+
+        const mainContentBody = document.querySelector('main .max-w-7xl.mx-auto.px-4.sm\\:px-6.md\\:px-8:nth-child(2)');
+        if (mainContentBody) {
+            mainContentBody.innerHTML = `
+                <div class="mt-6" x-data="advancedSessionForm()">
+                    <!-- Progress Bar -->
+                    <div class="mb-8">
+                        <div class="flex items-center justify-between mb-2">
+                            <h2 class="text-sm font-medium text-gray-900">Step <span x-text="currentStep"></span> of 4</h2>
+                            <span class="text-sm text-gray-500" x-text="progressText"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-primary-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" x-bind:style="'width: ' + progress + '%'"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Form Container with 2-column grid -->
+                    <div class="md:grid md:grid-cols-12 md:gap-8">
+                        <!-- Left column with form steps -->
+                        <div class="md:col-span-7 space-y-6">
+                            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                                <div class="p-6 bg-white border-b border-gray-200">
+                                    <!-- Step 1: Session Basics -->
+                                    <div x-show="currentStep === 1" class="space-y-6">
+                                        <div class="flex items-center mb-6">
+                                            <div class="bg-gradient-to-r from-violet-500 to-violet-600 rounded-full p-2.5 mr-3">
+                                                <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M5.5 16a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 16h-8z" />
+                                                </svg>
+                                            </div>
+                                            <h3 class="text-lg font-medium leading-6 text-gray-900">Session Basics</h3>
+                                        </div>
+                                        
+                                        <div>
+                                            <label for="id_title" class="block text-sm font-medium text-gray-700">Session Title</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <input type="text" name="title" id="id_title" x-model="formData.title" @input="validateTitle()" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="e.g. Advanced JavaScript for Web Developers" required>
+                                                <div x-show="titleError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!titleError && formData.title.length > 0" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p x-show="titleError" x-text="titleError" class="mt-2 text-sm text-red-600"></p>
+                                            <p x-show="!titleError" class="mt-2 text-sm text-gray-500">Create a descriptive title that clearly communicates what learners will gain (minimum 10 characters).</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <label for="id_domain" class="block text-sm font-medium text-gray-700">Domain Tags</label>
+                                            <div class="mt-1 relative">
+                                                <div class="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md focus-within:ring-1 focus-within:ring-primary-500 focus-within:border-primary-500">
+                                                    <template x-for="tag in selectedTags" :key="tag">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                                            <span x-text="tag"></span>
+                                                            <button type="button" @click="removeTag(tag)" class="flex-shrink-0 ml-1.5 inline-flex text-primary-500 focus:outline-none">
+                                                                <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                                                                    <path stroke-linecap="round" d="M1 1l6 6m0-6L1 7" />
+                                                                </svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <input type="text" 
+                                                        x-model="tagInput" 
+                                                        @keydown.enter.prevent="addTag()" 
+                                                        @input="showSuggestions = tagInput.length > 0"
+                                                        @blur="setTimeout(() => showSuggestions = false, 200)"
+                                                        @focus="showSuggestions = tagInput.length > 0"
+                                                        placeholder="Add a tag..." 
+                                                        class="flex-1 outline-none border-0 focus:ring-0 min-w-[120px]" 
+                                                    />
+                                                </div>
+                                                <input type="hidden" name="topics" id="id_topics" x-model="formData.topics" />
+                                                
+                                                <!-- Tag suggestions dropdown -->
+                                                <div x-show="showSuggestions" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                                                    <template x-for="suggestion in filteredSuggestions" :key="suggestion.name">
+                                                        <div @mousedown="addTag(suggestion.name)" class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100">
+                                                            <div class="flex items-center">
+                                                                <span class="font-normal block truncate" x-text="suggestion.name"></span>
+                                                                <span x-show="suggestion.demand" class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                                    <span x-text="suggestion.demand + ' learners'"></span>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <p class="mt-2 text-sm text-gray-500">Add relevant tags to help learners find your session. Press Enter to add each tag.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Step 2: Schedule -->
+                                    <div x-show="currentStep === 2" class="space-y-6">
+                                        <div class="flex items-center mb-6">
+                                            <div class="bg-gradient-to-r from-violet-500 to-violet-600 rounded-full p-2.5 mr-3">
+                                                <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <h3 class="text-lg font-medium leading-6 text-gray-900">Schedule & Duration</h3>
+                                        </div>
+                                        
+                                        <div>
+                                            <label for="id_schedule" class="block text-sm font-medium text-gray-700">Start Date & Time</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <input type="datetime-local" name="schedule" id="id_schedule" x-model="formData.schedule" @input="validateSchedule()" 
+                                                    class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                                    :min="minDateTimeLocal">
+                                                <div x-show="scheduleError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!scheduleError && formData.schedule" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p x-show="scheduleError" x-text="scheduleError" class="mt-2 text-sm text-red-600"></p>
+                                            <p x-show="!scheduleError" class="mt-2 text-sm text-gray-500">Choose a future date and time for your session. Past dates are disabled.</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <label for="id_duration" class="block text-sm font-medium text-gray-700">
+                                                Duration <span class="text-gray-500" x-text="formatDuration(formData.duration)"></span>
+                                            </label>
+                                            <div class="mt-3 relative">
+                                                <input 
+                                                    type="range" 
+                                                    name="duration" 
+                                                    id="id_duration" 
+                                                    x-model="formData.duration" 
+                                                    min="30" 
+                                                    max="180" 
+                                                    step="15" 
+                                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                >
+                                                <div class="w-full flex justify-between text-xs text-gray-500 px-2 mt-1">
+                                                    <span>30m</span>
+                                                    <span>1h</span>
+                                                    <span>1h 30m</span>
+                                                    <span>2h</span>
+                                                    <span>2h 30m</span>
+                                                    <span>3h</span>
+                                                </div>
+                                            </div>
+                                            <p class="mt-2 text-sm text-gray-500">Set the duration of your session in minutes.</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <label for="id_max_participants" class="block text-sm font-medium text-gray-700">Maximum Participants</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <input type="number" name="max_participants" id="id_max_participants" x-model="formData.max_participants" min="1" max="100" 
+                                                    class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="e.g. 1 for one-to-one sessions">
+                                            </div>
+                                            <p class="mt-2 text-sm text-gray-500">Set to 1 for one-to-one sessions, or higher for group sessions.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Step 3: Pricing -->
+                                    <div x-show="currentStep === 3" class="space-y-6">
+                                        <div class="flex items-center mb-6">
+                                            <div class="bg-gradient-to-r from-violet-500 to-violet-600 rounded-full p-2.5 mr-3">
+                                                <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <h3 class="text-lg font-medium leading-6 text-gray-900">Pricing</h3>
+                                        </div>
+                                        
+                                        <div class="flex items-center space-x-4">
+                                            <label for="is_free" class="inline-flex items-center">
+                                                <input type="checkbox" name="is_free" id="is_free" x-model="formData.is_free" @change="toggleFree()" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                                                <span class="ml-2 text-sm text-gray-700">Offer this session for free</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div x-show="!formData.is_free">
+                                            <label for="id_price" class="block text-sm font-medium text-gray-700">Price (INR)</label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <span class="text-gray-500 sm:text-sm">₹</span>
+                                                </div>
+                                                <input type="text" name="price" id="id_price" x-model="formData.price" @input="validatePrice()" 
+                                                    class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 sm:text-sm border-gray-300 rounded-md" 
+                                                    placeholder="0.00" 
+                                                    :class="{ 'border-red-300': priceError, 'focus:ring-red-500': priceError, 'focus:border-red-500': priceError }"
+                                                    :disabled="formData.is_free">
+                                                <div x-show="priceError" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div x-show="!priceError && formData.price && !formData.is_free" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p x-show="priceError" x-text="priceError" class="mt-2 text-sm text-red-600"></p>
+                                            <p x-show="!priceError" class="mt-2 text-sm text-gray-500">Set a price between ₹50 and ₹50,000.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Step 4: Thumbnail & Description -->
+                                    <div x-show="currentStep === 4" class="space-y-6">
+                                        <div class="flex items-center mb-6">
+                                            <div class="bg-gradient-to-r from-violet-500 to-violet-600 rounded-full p-2.5 mr-3">
+                                                <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <h3 class="text-lg font-medium leading-6 text-gray-900">Thumbnail & Description</h3>
+                                        </div>
+                                        
+                                        <!-- Thumbnail upload with drag & drop -->
+                                        <div>
+                                            <label for="id_thumbnail" class="block text-sm font-medium text-gray-700">Session Thumbnail</label>
+                                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md"
+                                                @dragover.prevent="dragOver = true"
+                                                @dragleave.prevent="dragOver = false"
+                                                @drop.prevent="handleDrop($event)"
+                                                :class="{'border-primary-500 bg-primary-50': dragOver}">
+                                                <div class="space-y-1 text-center">
+                                                    <div x-show="!previewUrl" class="flex flex-col items-center">
+                                                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                                        </svg>
+                                                        <p class="text-sm text-gray-600 mt-1">
+                                                            <span>Drag and drop an image, or</span>
+                                                            <label for="id_thumbnail" class="text-primary-600 hover:text-primary-500 cursor-pointer">browse</label>
+                                                        </p>
+                                                        <p class="text-xs text-gray-500">
+                                                            PNG, JPG, GIF up to 2MB
+                                                        </p>
+                                                    </div>
+                                                    <div x-show="previewUrl" class="relative">
+                                                        <img :src="previewUrl" class="max-h-48 rounded-md" alt="Thumbnail preview">
+                                                        <button @click="clearThumbnail()" type="button" class="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 transform translate-x-1/2 -translate-y-1/2">
+                                                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <input @change="handleImageUpload($event)" id="id_thumbnail" name="thumbnail" type="file" class="sr-only" accept="image/jpeg,image/png,image/gif">
+                                                </div>
+                                            </div>
+                                            <p x-show="thumbnailError" x-text="thumbnailError" class="mt-2 text-sm text-red-600"></p>
+                                        </div>
+                                        
+                                        <!-- Description with word counter -->
+                                        <div>
+                                            <label for="id_description" class="block text-sm font-medium text-gray-700">
+                                                Session Description 
+                                                <span class="text-gray-500" x-text="wordCount + '/200 words'"></span>
+                                            </label>
+                                            <div class="mt-1 relative rounded-md shadow-sm">
+                                                <textarea 
+                                                    name="description" 
+                                                    id="id_description" 
+                                                    x-model="formData.description" 
+                                                    @input="updateWordCount(); validateDescription();" 
+                                                    rows="6" 
+                                                    class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    placeholder="Describe what will be covered in this session and what learners can expect to gain..."
+                                                    :class="{ 'border-red-300': descriptionError, 'focus:ring-red-500': descriptionError, 'focus:border-red-500': descriptionError }"
+                                                ></textarea>
+                                            </div>
+                                            <p x-show="descriptionError" x-text="descriptionError" class="mt-2 text-sm text-red-600"></p>
+                                            <p x-show="!descriptionError" class="mt-2 text-sm text-gray-500">
+                                                Provide a detailed description of your session. Focus on the benefits and outcomes for learners.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Navigation Buttons -->
+                                    <div class="flex justify-between mt-8">
+                                        <button 
+                                            type="button" 
+                                            @click="previousStep()"
+                                            x-show="currentStep > 1"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        >
+                                            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                            Back
+                                        </button>
+                                        
+                                        <button 
+                                            type="button" 
+                                            @click="nextStep()"
+                                            x-show="currentStep < 4"
+                                            :disabled="!canProceedToNextStep()"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Next
+                                            <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        
+                                        <button 
+                                            type="submit" 
+                                            x-show="currentStep === 4"
+                                            :disabled="!isFormValid()"
+                                            form="session-form"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transform transition hover:scale-105"
+                                        >
+                                            Publish Session
+                                            <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right column with live preview and tips -->
+                        <div class="md:col-span-5 md:mt-0 mt-8">
+                            <div class="sticky top-6 space-y-6">
+                                <!-- Session Preview Card -->
+                                <div class="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200">
+                                    <div class="relative">
+                                        <div x-show="!previewUrl" class="h-48 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white">
+                                            <svg class="h-12 w-12 opacity-75" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <img x-show="previewUrl" x-bind:src="previewUrl" class="h-48 w-full object-cover" alt="Session Preview">
+                                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-3">
+                                            <div class="text-xs font-medium">LIVE PREVIEW</div>
+                                        </div>
+                                    </div>
+                                    <div class="p-4">
+                                        <h3 x-text="formData.title || 'Session Title'" class="text-lg font-medium text-gray-900 truncate"></h3>
+                                        
+                                        <div class="mt-2 flex flex-wrap gap-1.5 mb-3">
+                                            <template x-for="tag in selectedTags" :key="tag">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                                    <span x-text="tag"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        
+                                        <div x-show="formData.description" class="mt-2 text-sm text-gray-600 line-clamp-3" x-text="formData.description"></div>
+                                        
+                                        <div class="flex items-center text-sm text-gray-500 mt-3">
+                                            <svg class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span x-text="formatDuration(formData.duration)"></span>
+                                        </div>
+                                        
+                                        <div class="flex items-center text-sm text-gray-500 mt-1.5">
+                                            <svg class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span>{{ user.get_full_name }}</span>
+                                        </div>
+                                        
+                                        <div class="mt-3 flex items-end justify-between">
+                                            <div class="flex items-center">
+                                                <template x-if="formData.is_free">
+                                                    <span class="text-xl font-bold text-green-600">Free</span>
+                                                </template>
+                                                <template x-if="!formData.is_free">
+                                                    <span x-text="formData.price ? '₹' + formData.price : '₹0'" class="text-xl font-bold text-gray-900"></span>
+                                                </template>
+                                            </div>
+                                            <div>
+                                                <div class="inline-flex rounded-md shadow-sm">
+                                                    <span x-show="formData.schedule" x-text="formatDate(formData.schedule)" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tips Card -->
+                                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-5">
+                                    <div class="flex items-center mb-3">
+                                        <svg class="h-5 w-5 text-primary-500 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                        </svg>
+                                        <h3 class="font-medium text-gray-900">Tips for Step <span x-text="currentStep"></span></h3>
+                                    </div>
+                                    
+                                    <!-- Step-specific tips -->
+                                    <div x-show="currentStep === 1" class="space-y-3 text-sm">
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Session Title:</span> Use clear, outcome-oriented titles like "Learn to Build a React App in 2 Hours" rather than vague ones like "React Introduction".
+                                        </p>
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Domain Tags:</span> Add relevant tags to help learners find your session. Popular tags include JavaScript, Data Science, and Python.
+                                        </p>
+                                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
+                                            <div class="flex">
+                                                <div class="flex-shrink-0">
+                                                    <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <p class="text-sm text-yellow-700">
+                                                        Sessions with clear titles and relevant tags get up to 3x more bookings!
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div x-show="currentStep === 2" class="space-y-3 text-sm">
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Scheduling:</span> Choose a time that works for your target audience. Evenings and weekends often have higher attendance rates.
+                                        </p>
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Duration:</span> 60-90 minutes is optimal for most sessions. Longer sessions may benefit from scheduled breaks.
+                                        </p>
+                                        <div class="bg-primary-50 border-l-4 border-primary-400 p-4 mt-4">
+                                            <div class="flex">
+                                                <div class="flex-shrink-0">
+                                                    <svg class="h-5 w-5 text-primary-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <p class="text-sm text-primary-700">
+                                                        You'll receive email and in-app notifications before your scheduled session.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div x-show="currentStep === 3" class="space-y-3 text-sm">
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Pricing:</span> Set competitive prices based on your expertise and session content. First-time mentors often start with lower prices to build reviews.
+                                        </p>
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Free Sessions:</span> Offering occasional free sessions can help attract new learners and build your reputation.
+                                        </p>
+                                        <div x-show="!formData.is_free" class="bg-gray-50 p-4 rounded-md mt-4">
+                                            <h4 class="font-medium text-gray-900 text-sm mb-2">Recommended price ranges:</h4>
+                                            <ul class="space-y-1 pl-5 text-xs list-disc text-gray-600">
+                                                <li>Beginner topics: ₹500-1500</li>
+                                                <li>Intermediate topics: ₹1500-3000</li>
+                                                <li>Advanced/specialized topics: ₹3000-8000</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div x-show="currentStep === 4" class="space-y-3 text-sm">
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Thumbnail:</span> High-quality, relevant images make your session stand out. Consider using graphics that represent the topic or skills being taught.
+                                        </p>
+                                        <p class="text-gray-600">
+                                            <span class="font-medium">Description:</span> Focus on what learners will gain, not just topics you'll cover. Include any prerequisites and learning outcomes.
+                                        </p>
+                                        <div class="bg-green-50 border-l-4 border-green-400 p-4 mt-4">
+                                            <div class="flex">
+                                                <div class="flex-shrink-0">
+                                                    <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <p class="text-sm text-green-700">
+                                                        Sessions with detailed descriptions and custom thumbnails receive 78% more bookings.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4 pt-3 border-t border-gray-200">
+                                        <h4 class="text-sm font-medium text-gray-900 mb-2">Form Completion</h4>
+                                        <div class="flex items-center">
+                                            <div class="flex-1 bg-gray-200 rounded-full h-2">
+                                                <div class="bg-green-500 h-2 rounded-full" :style="'width: ' + getFormCompletionPercentage() + '%'"></div>
+                                            </div>
+                                            <span class="ml-2 text-xs font-medium text-gray-500" x-text="getFormCompletionPercentage() + '%'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden form to submit all data at once -->
+                    <form id="session-form" action="{% url 'users:mentor_create_session' %}" method="post" enctype="multipart/form-data" class="hidden">
+                        {% csrf_token %}
+                        <input type="hidden" name="title" x-model="formData.title">
+                        <input type="hidden" name="topics" x-model="formData.topics">
+                        <input type="hidden" name="description" x-model="formData.description">
+                        <input type="hidden" name="schedule" x-model="formData.schedule">
+                        <input type="hidden" name="duration" x-model="formData.duration">
+                        <input type="hidden" name="price" x-model="formData.price">
+                        <input type="hidden" name="is_free" x-model="formData.is_free">
+                        <input type="hidden" name="max_participants" x-model="formData.max_participants">
+                        <!-- Note: thumbnail can't be a hidden input, we'll move the actual file input here -->
+                    </form>
+                </div>
+            `;
+        }
+    });
+</script>
+
+<script>
+    function advancedSessionForm() {
+        return {
+            currentStep: 1,
+            dragOver: false,
+            progressText: "Session Basics",
+            tagInput: '',
+            selectedTags: [],
+            showSuggestions: false,
+            wordCount: 0,
+            minDateTimeLocal: '',
+            
+            formData: {
+                title: '',
+                topics: '',
+                description: '',
+                schedule: '',
+                duration: '60',
+                price: '500',
+                max_participants: '10',
+                is_free: false
+            },
+            
+            titleError: '',
+            topicsError: '',
+            descriptionError: '',
+            scheduleError: '',
+            durationError: '',
+            priceError: '',
+            maxParticipantsError: '',
+            thumbnailError: '',
+            previewUrl: null,
+            
+            domainSuggestions: [
+                { name: 'JavaScript', demand: 32 },
+                { name: 'Python', demand: 45 },
+                { name: 'Machine Learning', demand: 28 },
+                { name: 'Web Development', demand: 37 },
+                { name: 'Data Science', demand: 41 },
+                { name: 'React', demand: 29 },
+                { name: 'Angular', demand: 18 },
+                { name: 'Vue.js', demand: 15 },
+                { name: 'Django', demand: 20 },
+                { name: 'Flask', demand: 12 },
+                { name: 'Node.js', demand: 25 },
+                { name: 'Express', demand: 14 },
+                { name: 'SQL', demand: 30 },
+                { name: 'NoSQL', demand: 19 },
+                { name: 'Docker', demand: 22 },
+                { name: 'AWS', demand: 27 },
+                { name: 'Git', demand: 21 },
+                { name: 'DevOps', demand: 26 },
+                { name: 'Design Patterns', demand: 17 },
+                { name: 'Algorithms', demand: 24 },
+                { name: 'Computer Science', demand: 31 }
+            ],
+            
+            get filteredSuggestions() {
+                if (!this.tagInput) return this.domainSuggestions;
+                const input = this.tagInput.toLowerCase();
+                return this.domainSuggestions.filter(s => 
+                    s.name.toLowerCase().includes(input) && 
+                    !this.selectedTags.includes(s.name)
+                );
+            },
+            
+            get progress() {
+                return this.currentStep * 25;
+            },
+            
+            init() {
+                // Set minimum date to today
+                const today = new Date();
+                today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+                this.minDateTimeLocal = today.toISOString().slice(0, 16);
+                
+                // Initialize session form with event listeners
+                this.$watch('selectedTags', (tags) => {
+                    this.formData.topics = tags.join(',');
+                    this.validateTopics();
+                });
+                
+                // Watch for file input changes
+                const fileInput = document.getElementById('id_thumbnail');
+                if (fileInput) {
+                    fileInput.addEventListener('change', (e) => this.handleImageUpload(e));
+                }
+                
+                // Set up form validation
+                this.validateTitle();
+                this.validateSchedule();
+                this.validatePrice();
+            },
+            
+            addTag(tag) {
+                if (!tag && !this.tagInput.trim()) return;
+                
+                const newTag = tag || this.tagInput.trim();
+                if (!this.selectedTags.includes(newTag)) {
+                    this.selectedTags.push(newTag);
+                }
+                this.tagInput = '';
+                this.showSuggestions = false;
+            },
+            
+            removeTag(tag) {
+                this.selectedTags = this.selectedTags.filter(t => t !== tag);
+            },
+            
+            updateWordCount() {
+                const words = this.formData.description.trim().split(/\s+/);
+                this.wordCount = this.formData.description ? words.length : 0;
+                
+                if (this.wordCount > 200) {
+                    const text = this.formData.description.trim();
+                    const wordArr = text.split(/\s+/);
+                    this.formData.description = wordArr.slice(0, 200).join(' ');
+                    this.wordCount = 200;
+                }
+            },
+            
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.validateAndPreviewImage(file);
+                }
+            },
+            
+            handleDrop(event) {
+                this.dragOver = false;
+                const dt = event.dataTransfer;
+                const file = dt.files[0];
+                
+                if (file) {
+                    document.getElementById('id_thumbnail').files = dt.files;
+                    this.validateAndPreviewImage(file);
+                }
+            },
+            
+            validateAndPreviewImage(file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    this.thumbnailError = 'Image size should be less than 2MB';
+                    this.previewUrl = null;
+                    return false;
+                }
+                
+                if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+                    this.thumbnailError = 'Only JPEG, PNG, and GIF images are allowed';
+                    this.previewUrl = null;
+                    return false;
+                }
+                
+                this.thumbnailError = '';
+                this.previewUrl = URL.createObjectURL(file);
+                return true;
+            },
+            
+            clearThumbnail() {
+                this.previewUrl = null;
+                document.getElementById('id_thumbnail').value = '';
+            },
+            
+            toggleFree() {
+                if (this.formData.is_free) {
+                    this.formData.price = '0';
+                    this.priceError = '';
+                } else {
+                    this.formData.price = '500'; // Default price
+                    this.validatePrice();
+                }
+            },
+            
+            formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
+            
+            formatDuration(minutes) {
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                let result = '';
+                
+                if (hours > 0) {
+                    result += hours + 'h';
+                }
+                if (mins > 0) {
+                    result += (result ? ' ' : '') + mins + 'm';
+                }
+                
+                return result || '0m';
+            },
+            
+            getFormCompletionPercentage() {
+                const requiredByStep = [
+                    [], // Step 0 (not used)
+                    ['title', 'topics'], // Step 1
+                    ['schedule', 'duration'], // Step 2
+                    ['price'], // Step 3 - conditionally required
+                    ['description'] // Step 4
+                ];
+                
+                const fields = [
+                    { name: 'title', value: this.formData.title, weight: 15 },
+                    { name: 'topics', value: this.formData.topics, weight: 15 },
+                    { name: 'description', value: this.formData.description, weight: 20 },
+                    { name: 'schedule', value: this.formData.schedule, weight: 15 },
+                    { name: 'duration', value: this.formData.duration, weight: 10 },
+                    { name: 'price', value: this.formData.is_free ? true : this.formData.price, weight: 10 },
+                    { name: 'max_participants', value: this.formData.max_participants, weight: 5 },
+                    { name: 'thumbnail', value: this.previewUrl, weight: 10 }
+                ];
+                
+                let completionScore = 0;
+                for (const field of fields) {
+                    if (field.value) {
+                        completionScore += field.weight;
+                    }
+                }
+                
+                return Math.min(100, completionScore);
+            },
+            
+            canProceedToNextStep() {
+                switch (this.currentStep) {
+                    case 1:
+                        return this.formData.title && !this.titleError && 
+                               this.formData.topics && !this.topicsError;
+                    case 2:
+                        return this.formData.schedule && !this.scheduleError && 
+                               this.formData.duration && !this.durationError;
+                    case 3:
+                        return (this.formData.is_free || (this.formData.price && !this.priceError));
+                    default:
+                        return true;
+                }
+            },
+            
+            isFormValid() {
+                return !this.titleError && !this.topicsError && !this.descriptionError &&
+                       !this.scheduleError && !this.durationError && !this.priceError &&
+                       !this.maxParticipantsError && !this.thumbnailError &&
+                       this.formData.title && this.formData.topics && this.formData.description &&
+                       this.formData.schedule && this.formData.duration && 
+                       (this.formData.is_free || this.formData.price) && this.formData.max_participants;
+            },
+            
+            nextStep() {
+                if (this.currentStep < 4 && this.canProceedToNextStep()) {
+                    this.currentStep++;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    this.updateProgressText();
+                }
+            },
+            
+            previousStep() {
+                if (this.currentStep > 1) {
+                    this.currentStep--;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    this.updateProgressText();
+                }
+            },
+            
+            updateProgressText() {
+                const steps = [
+                    '',
+                    'Session Basics',
+                    'Schedule & Duration',
+                    'Pricing',
+                    'Content & Description'
+                ];
+                
+                this.progressText = steps[this.currentStep] || '';
+            },
+            
+            // Validation Methods
+            validateTitle() {
+                if (!this.formData.title) {
+                    this.titleError = 'Title is required';
+                } else if (this.formData.title.length < 10) {
+                    this.titleError = 'Title must be at least 10 characters';
+                } else if (this.formData.title.length > 100) {
+                    this.titleError = 'Title must be less than 100 characters';
+                } else {
+                    this.titleError = '';
+                }
+            },
+            
+            validateTopics() {
+                if (!this.formData.topics) {
+                    this.topicsError = 'At least one topic is required';
+                } else {
+                    this.topicsError = '';
+                }
+            },
+            
+            validateDescription() {
+                if (!this.formData.description) {
+                    this.descriptionError = 'Description is required';
+                } else if (this.formData.description.length < 20) {
+                    this.descriptionError = 'Description must be at least 20 characters';
+                } else if (this.wordCount > 200) {
+                    this.descriptionError = 'Description cannot exceed 200 words';
+                } else {
+                    this.descriptionError = '';
+                }
+            },
+            
+            validateSchedule() {
+                if (!this.formData.schedule) {
+                    this.scheduleError = 'Schedule is required';
+                    return;
+                }
+                
+                const selectedDate = new Date(this.formData.schedule);
+                const now = new Date();
+                
+                if (selectedDate <= now) {
+                    this.scheduleError = 'Schedule must be in the future';
+                } else {
+                    this.scheduleError = '';
+                }
+            },
+            
+            validatePrice() {
+                if (this.formData.is_free) {
+                    this.priceError = '';
+                    return;
+                }
+                
+                if (!this.formData.price) {
+                    this.priceError = 'Price is required';
+                    return;
+                }
+                
+                const price = parseFloat(this.formData.price);
+                
+                if (isNaN(price)) {
+                    this.priceError = 'Price must be a number';
+                } else if (price < 50) {
+                    this.priceError = 'Minimum price is ₹50';
+                } else if (price > 50000) {
+                    this.priceError = 'Maximum price is ₹50,000';
+                } else {
+                    this.priceError = '';
+                }
+            }
+        }
+    }
+</script>
+
+<style>
+    /* Custom styles for range input */
+    input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+    }
+    
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 18px;
+        width: 18px;
+        border-radius: 50%;
+        background: #3B82F6;
+        margin-top: -7px;
+        cursor: pointer;
+    }
+    
+    input[type=range]::-moz-range-thumb {
+        height: 18px;
+        width: 18px;
+        border-radius: 50%;
+        background: #3B82F6;
+        cursor: pointer;
+        border: none;
+    }
+    
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: #E5E7EB;
+        border-radius: 9999px;
+    }
+    
+    input[type=range]::-moz-range-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: #E5E7EB;
+        border-radius: 9999px;
+    }
+    
+    /* Dropdown clipping */
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;  
+        overflow: hidden;
+    }
+</style>
+{% endblock %}

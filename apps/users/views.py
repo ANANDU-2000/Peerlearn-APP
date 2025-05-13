@@ -693,6 +693,50 @@ def mentor_create_session(request):
     return render(request, 'mentors_dash/create_session.html', context)
 
 @login_required
+def mentor_create_advanced_session(request):
+    """View for advanced mentor create session page with step-by-step UI."""
+    if not request.user.is_mentor:
+        messages.error(request, 'Access denied.')
+        return redirect(request.user.get_dashboard_url())
+    
+    from apps.learning_sessions.forms import SessionForm
+    from apps.learning_sessions.models import Session
+    import uuid
+    
+    if request.method == 'POST':
+        form = SessionForm(request.POST, request.FILES)
+        is_free = request.POST.get('is_free') == 'true'
+        
+        if form.is_valid():
+            # Create the session but don't save it yet
+            session = form.save(commit=False)
+            session.mentor = request.user
+            session.status = 'scheduled'
+            session.room_code = str(uuid.uuid4())
+            
+            # Set price to 0 if marked as free
+            if is_free:
+                session.price = 0
+            
+            # Handle topics JSON field
+            topics_str = form.cleaned_data.get('topics', '')
+            session.topics = [topic.strip() for topic in topics_str.split(',') if topic.strip()]
+            
+            session.save()
+            
+            messages.success(request, 'Session created successfully!')
+            return redirect('users:mentor_sessions')
+    else:
+        form = SessionForm()
+    
+    context = {
+        'active_tab': 'create_session',
+        'form': form,
+    }
+    
+    return render(request, 'mentors_dash/advanced_create_session.html', context)
+
+@login_required
 def mentor_earnings(request):
     """View for mentor earnings tab."""
     if not request.user.is_mentor:

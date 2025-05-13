@@ -33,6 +33,7 @@ urlpatterns = [
     path('dashboard/mentor/requests/', views.mentor_requests, name='mentor_requests'),
     path('dashboard/mentor/sessions/', views.mentor_sessions, name='mentor_sessions'),
     path('dashboard/mentor/create-session/', views.mentor_create_session, name='mentor_create_session'),
+    path('dashboard/mentor/create-session/advanced/', views.mentor_create_advanced_session, name='mentor_create_advanced_session'),
     path('dashboard/mentor/earnings/', views.mentor_earnings, name='mentor_earnings'),
     path('dashboard/mentor/profile/', views.mentor_profile, name='mentor_profile'),
     

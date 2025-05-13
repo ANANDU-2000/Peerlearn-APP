@@ -1,0 +1,56 @@
+You are the Replit Core AI Agent. Generate an *advanced, two-column, step-by-step “Create Session”* flow for the Mentor Dashboard in PeerLearn. This single prompt must produce the full Django/Channels/SQLite3 + TailwindCSS + Alpine.js code for a professional, mobile-first & web-responsive “Create Session” feature—no further guidance needed.
+
+ROUTE: /dashboard/mentor/create-session (mentor-only)
+
+LAYOUT  
+• *Desktop*: two-column grid (60% form, 40% live preview & tips)  
+• *Mobile*: single-column wizard with bottom-sheet steps  
+
+STEP 1: SESSION BASICS  
+• *Title* (text, min 10 chars) – bold label & placeholder “e.g. Advanced JavaScript”  
+• *Domain Tags* – tag input with autosuggest & spell-correction; show learner demand stats (“23 learners requested AI last week”)  
+• *Tips Panel* – right: contextual copy (“Use clear outcome-oriented titles”), live tip icon  
+
+STEP 2: SCHEDULE  
+• *Start Date/Time* picker (disable past times) + inline error “Future only ⏱”  
+• *Duration* slider (30–180 min) + live display “Duration: 1h 30m”  
+• *Preview Calendar* in tips column  
+
+STEP 3: PRICING  
+• *Free / Paid* toggle  
+• If Paid → *Price (INR)* numeric input with ₹ prefix, bounds (₹50–₹50,000)  
+• *Error*: non-numeric or out of range → red border + “Must be ₹50–₹50,000”  
+
+STEP 4: THUMBNAIL & DESCRIPTION  
+• *Thumbnail* drag-drop or file browse (jpeg/png ≤2MB) + live preview  
+• *Description* rich-text area (200-word limit) with word counter  
+• *Tip*: “Highlight learner benefits”  
+
+NAVIGATION & PROGRESS  
+• Wizard header shows “Step X of 4” progress bar  
+• “Next ▶” / “Back ◀” sticky at bottom (disabled until valid)
+
+FINAL ACTION  
+• “Publish Session ▶” styling: primary blue, hover scale, disabled state  
+• On click:  
+  1. Client-side validation; show inline green✔ / red❌  
+  2. AJAX POST /api/sessions/ → viewset saves Session(mentor, title, tags, start, duration, price, description, thumbnail, room_code=UUID4, status=scheduled) to SQLite3  
+     – On success:  
+       • Toast “Session Scheduled ✔”  
+       • Redirect → /dashboard/mentor/my-sessions?tab=Upcoming  
+       • Broadcast WS new_session to channel sessions:new  
+     – On error: modal “Save failed—Retry?” with queue on offline  
+
+POST-PUBLISH REAL-TIME UPDATES  
+• *Landing Page* & */sessions* carousel auto-refresh via WS  
+• *Learner Dash* recs & sessions list update live  
+• *My Sessions* shows countdown timers (Alpine.js) + “Edit✎” until T-5min  
+• If no bookings T-24h before → WS toast “No bookings—consider editing”  
+
+ERROR HANDLING & FALLBACK  
+• WS disconnect → retry/backoff + toast  
+• Image upload error → “Upload failed ❌” + retry  
+• STUN/TURN errors in live room → fallback audio + toast  
+• Media device issues → fallback camera/mic toggle errors  
+
+THIS PROMPT should output the complete templates, views, serializers, Alpine.js components, WebSocket consumers, and TailwindCSS styles to deliver this polished, professional “Create Session” wizard and its live, real-time aftermath across the entire PeerLearn app.
