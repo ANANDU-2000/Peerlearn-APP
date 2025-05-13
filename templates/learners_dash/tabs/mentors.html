@@ -71,17 +71,31 @@
                             <!-- Rating -->
                             <div class="flex items-center mt-1">
                                 <div class="flex text-yellow-400">
-                                    {% with ''|center:mentor.avg_rating|default:0|floatformat:"0"|make_list as stars %}
-                                    {% for _ in stars %}
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    {% endfor %}
-                                    {% endwith %}
-                                    
-                                    {% with ''|center:5|make_list as empty_stars %}
-                                    {% for _ in empty_stars|slice:mentor.avg_rating|default:0|floatformat:"0" %}
-                                        <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
-                                    {% endfor %}
-                                    {% endwith %}
+                                    {% if hasattr(mentor, 'avg_rating') and mentor.avg_rating %}
+                                        {% with ''|center:mentor.avg_rating|floatformat:"0"|make_list as stars %}
+                                            {% for _ in stars %}
+                                                <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                            {% endfor %}
+                                        {% endwith %}
+                                        
+                                        {% with ''|center:5|make_list as empty_stars %}
+                                            {% for _ in empty_stars|slice:mentor.avg_rating|floatformat:"0" %}
+                                                <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                            {% endfor %}
+                                        {% endwith %}
+                                    {% else %}
+                                        {% with ''|center:0|make_list as stars %}
+                                            {% for _ in stars %}
+                                                <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                            {% endfor %}
+                                        {% endwith %}
+                                        
+                                        {% with ''|center:5|make_list as empty_stars %}
+                                            {% for _ in empty_stars %}
+                                                <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                            {% endfor %}
+                                        {% endwith %}
+                                    {% endif %}
                                 </div>
                                 <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count|default:"0" }})</span>
                             </div>
