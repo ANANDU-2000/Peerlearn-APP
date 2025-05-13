@@ -1,120 +1,160 @@
 /**
  * Toast notification system for PeerLearn
- * Provides a standardized way to show notification toasts across the application
+ * Provides a consistent way to show notifications to users
  */
 
-// Toast container setup
-let toastContainer;
+// Toast defaults
+const TOAST_DEFAULTS = {
+    duration: 5000,      // Default duration in ms
+    position: 'bottom',  // Position on screen (bottom or top)
+    dismissible: true    // Whether toast can be dismissed by clicking
+};
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Create toast container if it doesn't exist
-    if (!document.getElementById('toast-container')) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col items-end space-y-4';
-        document.body.appendChild(toastContainer);
-    } else {
+let toastContainer = null;
+let toastIdCounter = 0;
+
+/**
+ * Initialize toast notification system
+ */
+function initToasts() {
+    // Check if container already exists
+    if (document.getElementById('toast-container')) {
         toastContainer = document.getElementById('toast-container');
+        return;
     }
-});
+    
+    // Create toast container if it doesn't exist
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.className = 'fixed z-50 p-4 flex flex-col items-center w-full md:max-w-md';
+    
+    // Set position (bottom or top)
+    if (TOAST_DEFAULTS.position === 'top') {
+        toastContainer.classList.add('top-0', 'right-0');
+    } else {
+        toastContainer.classList.add('bottom-0', 'right-0');
+    }
+    
+    document.body.appendChild(toastContainer);
+}
 
 /**
  * Show a toast notification
- * @param {string} message - Message to display
- * @param {string} type - Type of toast: 'success', 'error', 'info', 'warning'
- * @param {number} duration - Duration in milliseconds
+ * @param {string} message - The message to display
+ * @param {string} type - The type of toast (success, error, info, warning)
+ * @param {Object} options - Optional configuration options
  */
-function showToast(message, type = 'info', duration = 5000) {
+function showToast(message, type = 'info', options = {}) {
+    if (!message) return;
+    
+    // Ensure container is initialized
     if (!toastContainer) {
-        // Create container if it doesn't exist yet (page might still be loading)
-        toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'toast-container';
-            toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col items-end space-y-4';
-            document.body.appendChild(toastContainer);
-        }
+        initToasts();
     }
+    
+    // Merge default options with provided options
+    const settings = { ...TOAST_DEFAULTS, ...options };
     
     // Create toast element
+    const toastId = `toast-${++toastIdCounter}`;
     const toast = document.createElement('div');
-    toast.className = 'transform transition-all duration-300 ease-in-out translate-x-full';
-    toast.style.minWidth = '300px';
-    toast.style.maxWidth = '500px';
+    toast.id = toastId;
+    toast.className = 'mb-3 p-4 rounded-lg shadow-lg min-w-full md:min-w-[320px] flex items-start toast-enter';
+    toast.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
     
-    // Set appropriate styling based on toast type
-    let icon, bgColor, textColor;
-    switch(type) {
+    // Set appropriate background color based on type
+    switch (type.toLowerCase()) {
         case 'success':
-            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            bgColor = 'bg-green-100';
-            textColor = 'text-green-800';
+            toast.classList.add('bg-green-100', 'text-green-800', 'border-l-4', 'border-green-500');
             break;
         case 'error':
-            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-            bgColor = 'bg-red-100';
-            textColor = 'text-red-800';
+            toast.classList.add('bg-red-100', 'text-red-800', 'border-l-4', 'border-red-500');
             break;
         case 'warning':
-            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-            bgColor = 'bg-yellow-100';
-            textColor = 'text-yellow-800';
+            toast.classList.add('bg-yellow-100', 'text-yellow-800', 'border-l-4', 'border-yellow-500');
             break;
-        default: // info
-            icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-            bgColor = 'bg-blue-100';
-            textColor = 'text-blue-800';
+        case 'info':
+        default:
+            toast.classList.add('bg-blue-100', 'text-blue-800', 'border-l-4', 'border-blue-500');
+            break;
     }
     
-    // Create toast inner HTML
-    toast.innerHTML = `
-        <div class="rounded-lg shadow-lg overflow-hidden ${bgColor} p-4">
-            <div class="flex items-start">
-                <div class="flex-shrink-0 ${textColor}">
-                    ${icon}
-                </div>
-                <div class="ml-3 w-0 flex-1 ${textColor}">
-                    <p class="text-sm font-medium">
-                        ${message}
-                    </p>
-                </div>
-                <div class="ml-4 flex-shrink-0 flex">
-                    <button class="inline-flex ${textColor} focus:outline-none focus:text-gray-700">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
+    // Create toast content
+    const content = document.createElement('div');
+    content.className = 'flex-grow pr-3';
+    content.textContent = message;
+    
+    // Create dismiss button if dismissible
+    const dismissButton = document.createElement('button');
+    dismissButton.className = 'text-gray-500 hover:text-gray-700 focus:outline-none';
+    dismissButton.innerHTML = '&times;';
+    dismissButton.onclick = () => dismissToast(toastId);
+    
+    // Assemble toast
+    toast.appendChild(content);
+    if (settings.dismissible) {
+        toast.appendChild(dismissButton);
+    }
     
     // Add to container
     toastContainer.appendChild(toast);
     
-    // Slide in animation
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full');
-        toast.classList.add('translate-x-0');
-    }, 10);
-    
-    // Setup close button
-    const closeButton = toast.querySelector('button');
-    const closeToast = () => {
-        toast.classList.remove('translate-x-0');
-        toast.classList.add('translate-x-full');
+    // Set auto-dismiss timeout
+    if (settings.duration > 0) {
         setTimeout(() => {
-            toast.remove();
-        }, 300);
-    };
+            if (document.getElementById(toastId)) {
+                dismissToast(toastId);
+            }
+        }, settings.duration);
+    }
     
-    closeButton.addEventListener('click', closeToast);
+    // Add click handler to dismiss
+    if (settings.dismissible) {
+        toast.addEventListener('click', () => dismissToast(toastId));
+    }
     
-    // Auto close after duration
-    setTimeout(closeToast, duration);
-    
-    return toast;
+    return toastId;
 }
 
-// Make functions available globally
+/**
+ * Dismiss a toast notification
+ * @param {string} toastId - The ID of the toast to dismiss
+ */
+function dismissToast(toastId) {
+    const toast = document.getElementById(toastId);
+    if (!toast) return;
+    
+    // Animate dismissal
+    toast.classList.remove('toast-enter');
+    toast.classList.add('toast-exit');
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        if (toast && toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 300);
+}
+
+/**
+ * Clear all toast notifications
+ */
+function clearToasts() {
+    if (!toastContainer) return;
+    
+    // Get all toasts
+    const toasts = toastContainer.querySelectorAll('[id^="toast-"]');
+    
+    // Dismiss each toast
+    toasts.forEach(toast => {
+        dismissToast(toast.id);
+    });
+}
+
+// Initialize toast system when DOM is loaded
+document.addEventListener('DOMContentLoaded', initToasts);
+
+// Make toast functions available globally
 window.showToast = showToast;
+window.dismissToast = dismissToast;
+window.clearToasts = clearToasts;

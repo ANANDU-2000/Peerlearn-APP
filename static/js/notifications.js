@@ -4,11 +4,9 @@
  */
 
 let notificationSocket = null;
-let isReconnecting = false;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_DELAY = 2000;
-let pingInterval = null;
+let notificationsPingInterval = null;
+const NOTIFICATION_PING_INTERVAL = 30000; // 30 seconds
+let notificationSoundEnabled = true;
 
 /**
  * Initialize notification WebSocket connection
@@ -30,75 +28,74 @@ function connectNotificationWebSocket(userId) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${userId}/`;
     
-    // Create new WebSocket connection
-    notificationSocket = new WebSocket(wsUrl);
-    
-    // Setup event handlers
-    notificationSocket.onopen = function(e) {
-        console.log('Notification WebSocket connection established');
+    try {
+        // Create new WebSocket connection
+        notificationSocket = new WebSocket(wsUrl);
         
-        // Reset reconnection state
-        isReconnecting = false;
-        reconnectAttempts = 0;
+        // Setup event handlers
+        notificationSocket.onopen = function(e) {
+            console.log('Notification WebSocket connection established');
+            
+            // Start ping interval to keep connection alive
+            startNotificationPingInterval();
+        };
         
-        // Start ping interval to keep connection alive
-        startPingInterval();
-    };
-    
-    notificationSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
+        notificationSocket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                
+                // Handle different message types
+                switch(data.type) {
+                    case 'notification':
+                        handleNewNotification(data);
+                        break;
+                    case 'notification_count':
+                        updateNotificationCount(data.count);
+                        break;
+                    case 'pong':
+                        // Ping response received, connection is alive
+                        break;
+                    default:
+                        console.log('Unknown notification message type:', data.type);
+                }
+            } catch (error) {
+                console.error('Error processing notification WebSocket message:', error);
+            }
+        };
         
-        // Handle different message types
-        switch(data.type) {
-            case 'notification':
-                handleNewNotification(data);
-                break;
-            case 'notification_count':
-                updateNotificationCount(data.count);
-                break;
-            case 'pong':
-                // Ping response received, connection is alive
-                break;
-            default:
-                console.log('Unknown notification message type:', data.type);
-        }
-    };
-    
-    notificationSocket.onclose = function(e) {
-        console.log('Notification WebSocket connection closed');
-        clearInterval(pingInterval);
-        
-        // Attempt to reconnect if not closing deliberately
-        if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-            isReconnecting = true;
+        notificationSocket.onclose = function(e) {
+            console.log('Notification WebSocket connection closed');
+            clearInterval(notificationsPingInterval);
+            
+            // Attempt to reconnect after a delay
             setTimeout(() => {
-                reconnectAttempts++;
-                console.log(`Attempting to reconnect notifications (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
                 connectNotificationWebSocket(userId);
-            }, RECONNECT_DELAY);
-        }
-    };
-    
-    notificationSocket.onerror = function(e) {
-        console.error('Notification WebSocket error:', e);
-    };
+            }, 3000);
+        };
+        
+        notificationSocket.onerror = function(e) {
+            console.error('Notification WebSocket error:', e);
+        };
+    } catch (error) {
+        console.error('Error initializing notification WebSocket:', error);
+    }
 }
 
 /**
  * Start ping interval to keep connection alive
  */
-function startPingInterval() {
+function startNotificationPingInterval() {
     // Clear existing interval if any
-    if (pingInterval) {
-        clearInterval(pingInterval);
+    if (notificationsPingInterval) {
+        clearInterval(notificationsPingInterval);
     }
     
     // Send ping every 30 seconds
-    pingInterval = setInterval(() => {
+    notificationsPingInterval = setInterval(() => {
         if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
             notificationSocket.send(JSON.stringify({ 'type': 'ping' }));
         }
-    }, 30000);
+    }, NOTIFICATION_PING_INTERVAL);
 }
 
 /**
@@ -106,21 +103,24 @@ function startPingInterval() {
  * @param {Object} data - The notification data
  */
 function handleNewNotification(data) {
-    // Update notification count
-    updateNotificationCount(data.count);
-    
-    // Refresh notification list if available
-    if (typeof refreshNotifications === 'function') {
-        refreshNotifications();
+    // Play notification sound if enabled
+    if (notificationSoundEnabled) {
+        playNotificationSound();
     }
     
-    // Show toast notification
-    if (data.notification && data.notification.message) {
-        const notificationType = mapNotificationTypeToToastType(data.notification.level);
-        showToast(data.notification.message, notificationType);
-        
-        // Play notification sound if available
-        playNotificationSound();
+    // Show notification as toast
+    if (typeof showToast === 'function') {
+        showToast(data.message, mapNotificationTypeToToastType(data.level));
+    }
+    
+    // Update notification count
+    if (data.count !== undefined) {
+        updateNotificationCount(data.count);
+    }
+    
+    // Refresh notification list if available
+    if (typeof refreshNotificationList === 'function') {
+        refreshNotificationList();
     }
 }
 
@@ -130,12 +130,11 @@ function handleNewNotification(data) {
  * @returns {string} Toast type
  */
 function mapNotificationTypeToToastType(level) {
-    switch(level) {
-        case 'danger':
-        case 'error':
-            return 'error';
+    switch (level) {
         case 'warning':
             return 'warning';
+        case 'error':
+            return 'error';
         case 'success':
             return 'success';
         case 'info':
@@ -161,42 +160,18 @@ function updateNotificationCount(count) {
             el.classList.add('hidden');
         }
     });
-    
-    // Update document title if count > 0
-    if (count > 0) {
-        const currentTitle = document.title;
-        if (!currentTitle.startsWith('(')) {
-            document.title = `(${count}) ${currentTitle}`;
-        } else {
-            // Already has notification count, update it
-            document.title = `(${count}) ${currentTitle.substring(currentTitle.indexOf(') ') + 2)}`;
-        }
-    } else {
-        // Reset title if count is 0
-        const currentTitle = document.title;
-        if (currentTitle.startsWith('(')) {
-            document.title = currentTitle.substring(currentTitle.indexOf(') ') + 2);
-        }
-    }
 }
 
 /**
  * Play notification sound
  */
 function playNotificationSound() {
-    // Check if notification sounds are enabled
-    const soundsEnabled = localStorage.getItem('notification_sounds_enabled') !== 'false';
-    
-    if (soundsEnabled) {
-        try {
-            const sound = new Audio('/static/sounds/notification.mp3');
-            sound.volume = 0.5;
-            sound.play().catch(error => {
-                console.log('Could not play notification sound:', error);
-            });
-        } catch (error) {
-            console.log('Error creating notification sound:', error);
-        }
+    try {
+        const sound = new Audio('/static/sounds/notification.mp3');
+        sound.volume = 0.5;
+        sound.play();
+    } catch (error) {
+        console.error('Error playing notification sound:', error);
     }
 }
 
@@ -205,7 +180,8 @@ function playNotificationSound() {
  * @param {boolean} enabled - Whether to enable notification sounds
  */
 function toggleNotificationSounds(enabled) {
-    localStorage.setItem('notification_sounds_enabled', enabled);
+    notificationSoundEnabled = enabled;
+    localStorage.setItem('notification_sound_enabled', enabled ? 'true' : 'false');
 }
 
 /**
@@ -213,50 +189,77 @@ function toggleNotificationSounds(enabled) {
  * @returns {boolean} Whether notification sounds are enabled
  */
 function getNotificationSoundSetting() {
-    return localStorage.getItem('notification_sounds_enabled') !== 'false';
+    const setting = localStorage.getItem('notification_sound_enabled');
+    return setting === null ? true : setting === 'true';
 }
 
 /**
  * Initialize notifications panel
  */
 function initNotifications() {
-    // Get user ID from meta tag or data attribute
-    const userId = document.querySelector('meta[name="user-id"]')?.getAttribute('content') || 
-                  document.querySelector('[data-user-id]')?.getAttribute('data-user-id');
+    // Load notification sound setting
+    notificationSoundEnabled = getNotificationSoundSetting();
     
-    if (!userId) {
-        console.error('User ID not found for notifications initialization');
-        return;
+    // Get user ID for WebSocket connection
+    const userIdElement = document.querySelector('meta[name="user-id"]');
+    if (userIdElement) {
+        const userId = userIdElement.getAttribute('content');
+        if (userId) {
+            connectNotificationWebSocket(userId);
+        }
     }
     
-    // Connect to notification WebSocket
-    connectNotificationWebSocket(userId);
-    
-    // Setup event listeners for notification panel
+    // Setup notification panel UI
     setupNotificationPanel();
+    
+    // Fetch initial notification count
+    fetchNotificationCount();
 }
 
 /**
  * Setup notification panel event listeners
  */
 function setupNotificationPanel() {
-    // Mark all notifications as read button
-    const markAllReadBtn = document.getElementById('mark-all-read');
-    if (markAllReadBtn) {
-        markAllReadBtn.addEventListener('click', function() {
-            markAllNotificationsRead();
+    // Toggle notification panel
+    const notificationButton = document.getElementById('notification-button');
+    const notificationPanel = document.getElementById('notification-panel');
+    
+    if (notificationButton && notificationPanel) {
+        notificationButton.addEventListener('click', () => {
+            const isHidden = notificationPanel.classList.contains('hidden');
+            
+            if (isHidden) {
+                notificationPanel.classList.remove('hidden');
+                fetchNotifications();
+            } else {
+                notificationPanel.classList.add('hidden');
+            }
         });
+        
+        // Close panel when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!notificationPanel.classList.contains('hidden') && 
+                !notificationPanel.contains(event.target) && 
+                !notificationButton.contains(event.target)) {
+                notificationPanel.classList.add('hidden');
+            }
+        });
+        
+        // Mark all as read button
+        const markAllReadButton = document.getElementById('mark-all-read');
+        if (markAllReadButton) {
+            markAllReadButton.addEventListener('click', () => {
+                markAllNotificationsRead();
+            });
+        }
     }
     
-    // Notification sound toggle
+    // Setup notification sound toggle
     const soundToggle = document.getElementById('notification-sound-toggle');
     if (soundToggle) {
-        // Set initial state
-        soundToggle.checked = getNotificationSoundSetting();
-        
-        // Setup change event
-        soundToggle.addEventListener('change', function() {
-            toggleNotificationSounds(this.checked);
+        soundToggle.checked = notificationSoundEnabled;
+        soundToggle.addEventListener('change', (e) => {
+            toggleNotificationSounds(e.target.checked);
         });
     }
 }
@@ -266,29 +269,135 @@ function setupNotificationPanel() {
  * @param {string} notificationId - The ID of the notification
  */
 function markNotificationRead(notificationId) {
-    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
-        notificationSocket.send(JSON.stringify({
-            'type': 'mark_read',
-            'notification_id': notificationId
-        }));
-    } else {
-        // Fallback to API if WebSocket is not available
-        markNotificationReadAPI(notificationId);
+    const notification = document.querySelector(`[data-notification-id="${notificationId}"]`);
+    if (notification) {
+        notification.classList.remove('bg-blue-50');
+        notification.classList.add('bg-white');
     }
+    
+    // Call API to mark as read
+    markNotificationReadAPI(notificationId);
 }
 
 /**
  * Mark all notifications as read
  */
 function markAllNotificationsRead() {
-    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
-        notificationSocket.send(JSON.stringify({
-            'type': 'mark_all_read'
-        }));
-    } else {
-        // Fallback to API if WebSocket is not available
-        markAllNotificationsReadAPI();
+    const notifications = document.querySelectorAll('.notification-item');
+    notifications.forEach(notification => {
+        notification.classList.remove('bg-blue-50');
+        notification.classList.add('bg-white');
+    });
+    
+    // Call API to mark all as read
+    markAllNotificationsReadAPI();
+}
+
+/**
+ * Fetch notification count
+ */
+async function fetchNotificationCount() {
+    try {
+        const response = await fetch('/api/notifications/count/');
+        const data = await response.json();
+        updateNotificationCount(data.count);
+    } catch (error) {
+        console.error('Error fetching notification count:', error);
     }
+}
+
+/**
+ * Fetch notifications for the notification panel
+ */
+async function fetchNotifications() {
+    try {
+        const response = await fetch('/api/notifications/');
+        const data = await response.json();
+        renderNotifications(data.notifications);
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+    }
+}
+
+/**
+ * Render notifications in the notification panel
+ * @param {Array} notifications - List of notification objects
+ */
+function renderNotifications(notifications) {
+    const notificationList = document.getElementById('notification-list');
+    if (!notificationList) return;
+    
+    if (!notifications || notifications.length === 0) {
+        notificationList.innerHTML = `
+            <div class="p-4 text-center text-gray-500">
+                No notifications
+            </div>
+        `;
+        return;
+    }
+    
+    let notificationHTML = '';
+    
+    notifications.forEach(notification => {
+        const bgClass = notification.is_read ? 'bg-white' : 'bg-blue-50';
+        const timeAgo = getTimeAgo(notification.created_at);
+        
+        notificationHTML += `
+            <div class="notification-item ${bgClass} p-3 border-b hover:bg-gray-50 transition-colors cursor-pointer" 
+                data-notification-id="${notification.id}" 
+                onclick="markNotificationRead('${notification.id}')">
+                <div class="flex items-start">
+                    <div class="mr-3 mt-0.5">
+                        <span class="inline-block w-2 h-2 rounded-full ${notification.is_read ? 'bg-gray-300' : 'bg-blue-500'}"></span>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm text-gray-800 mb-1">${notification.message}</p>
+                        <p class="text-xs text-gray-500">${timeAgo}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    notificationList.innerHTML = notificationHTML;
+}
+
+/**
+ * Format a date as a "time ago" string
+ * @param {string} dateString - ISO date string
+ * @returns {string} Time ago string (e.g. "2 hours ago")
+ */
+function getTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) {
+        return 'just now';
+    }
+    
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) {
+        return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    }
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    }
+    
+    const days = Math.floor(hours / 24);
+    if (days < 30) {
+        return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    }
+    
+    const months = Math.floor(days / 30);
+    if (months < 12) {
+        return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    }
+    
+    const years = Math.floor(months / 12);
+    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
 }
 
 /**
@@ -297,7 +406,7 @@ function markAllNotificationsRead() {
  */
 async function markNotificationReadAPI(notificationId) {
     try {
-        await fetch(`/api/notifications/${notificationId}/read/`, {
+        const response = await fetch(`/api/notifications/${notificationId}/read/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -305,9 +414,11 @@ async function markNotificationReadAPI(notificationId) {
             }
         });
         
-        // Refresh notification list
-        if (typeof refreshNotifications === 'function') {
-            refreshNotifications();
+        if (response.ok) {
+            // Update count
+            const countResponse = await fetch('/api/notifications/count/');
+            const data = await countResponse.json();
+            updateNotificationCount(data.count);
         }
     } catch (error) {
         console.error('Error marking notification as read:', error);
@@ -319,7 +430,7 @@ async function markNotificationReadAPI(notificationId) {
  */
 async function markAllNotificationsReadAPI() {
     try {
-        await fetch('/api/notifications/read-all/', {
+        const response = await fetch('/api/notifications/read-all/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -327,12 +438,9 @@ async function markAllNotificationsReadAPI() {
             }
         });
         
-        // Update notification count
-        updateNotificationCount(0);
-        
-        // Refresh notification list
-        if (typeof refreshNotifications === 'function') {
-            refreshNotifications();
+        if (response.ok) {
+            // Update count to zero
+            updateNotificationCount(0);
         }
     } catch (error) {
         console.error('Error marking all notifications as read:', error);
@@ -346,6 +454,7 @@ async function markAllNotificationsReadAPI() {
 function getCsrfToken() {
     const name = 'csrftoken';
     let cookieValue = null;
+    
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
@@ -356,11 +465,19 @@ function getCsrfToken() {
             }
         }
     }
+    
     return cookieValue;
 }
+
+// Initialize notifications when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.querySelector('.notification-count')) {
+        initNotifications();
+    }
+});
 
 // Make functions available globally
 window.connectNotificationWebSocket = connectNotificationWebSocket;
 window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
-window.initNotifications = initNotifications;
+window.toggleNotificationSounds = toggleNotificationSounds;

@@ -30,75 +30,114 @@ function initDashboardWebSocket(userId) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${userId}/`;
     
-    // Create new WebSocket connection
-    dashboardSocket = new WebSocket(wsUrl);
+    try {
+        // Create new WebSocket connection
+        dashboardSocket = new WebSocket(wsUrl);
+        
+        // Setup event handlers
+        dashboardSocket.onopen = function(e) {
+            console.log('Dashboard WebSocket connection established');
+            if (typeof showToast === 'function') {
+                showToast('Connected to real-time updates', 'success');
+            }
+            
+            // Reset reconnection state
+            isReconnecting = false;
+            reconnectAttempts = 0;
+            
+            // Request initial dashboard data
+            dashboardSocket.send(JSON.stringify({
+                'type': 'request_dashboard_data'
+            }));
+            
+            // Start ping interval to keep connection alive
+            startPingInterval();
+            
+            // Update status indicator
+            updateConnectionStatus(true);
+        };
+        
+        dashboardSocket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                
+                // Handle different message types
+                switch(data.type) {
+                    case 'session_update':
+                        handleSessionUpdate(data);
+                        break;
+                    case 'booking_update':
+                        handleBookingUpdate(data);
+                        break;
+                    case 'notification_update':
+                        handleNotificationUpdate(data);
+                        break;
+                    case 'session_request_update':
+                        handleSessionRequestUpdate(data);
+                        break;
+                    case 'dashboard_data':
+                        handleDashboardData(data);
+                        break;
+                    case 'pong':
+                        // Ping response received, connection is alive
+                        break;
+                    default:
+                        console.log('Unknown message type:', data.type);
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+            }
+        };
+        
+        dashboardSocket.onclose = function(e) {
+            console.log('Dashboard WebSocket connection closed');
+            clearInterval(pingInterval);
+            
+            // Update status indicator
+            updateConnectionStatus(false);
+            
+            // Attempt to reconnect if not closing deliberately
+            if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                isReconnecting = true;
+                setTimeout(() => {
+                    reconnectAttempts++;
+                    console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+                    initDashboardWebSocket(userId);
+                }, RECONNECT_DELAY);
+            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                if (typeof showToast === 'function') {
+                    showToast('Connection lost. Please refresh the page.', 'error');
+                }
+            }
+        };
+        
+        dashboardSocket.onerror = function(e) {
+            console.error('Dashboard WebSocket error:', e);
+            updateConnectionStatus(false);
+        };
+    } catch (error) {
+        console.error('Error initializing WebSocket:', error);
+        updateConnectionStatus(false);
+    }
+}
+
+/**
+ * Update connection status indicator
+ * @param {boolean} connected - Whether connection is established
+ */
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('ws-status-indicator');
+    if (!indicator) return;
     
-    // Setup event handlers
-    dashboardSocket.onopen = function(e) {
-        console.log('Dashboard WebSocket connection established');
-        showToast('Connected to real-time updates', 'success');
-        
-        // Reset reconnection state
-        isReconnecting = false;
-        reconnectAttempts = 0;
-        
-        // Request initial dashboard data
-        dashboardSocket.send(JSON.stringify({
-            'type': 'request_dashboard_data'
-        }));
-        
-        // Start ping interval to keep connection alive
-        startPingInterval();
-    };
-    
-    dashboardSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        
-        // Handle different message types
-        switch(data.type) {
-            case 'session_update':
-                handleSessionUpdate(data);
-                break;
-            case 'booking_update':
-                handleBookingUpdate(data);
-                break;
-            case 'notification_update':
-                handleNotificationUpdate(data);
-                break;
-            case 'session_request_update':
-                handleSessionRequestUpdate(data);
-                break;
-            case 'dashboard_data':
-                handleDashboardData(data);
-                break;
-            case 'pong':
-                // Ping response received, connection is alive
-                break;
-            default:
-                console.log('Unknown message type:', data.type);
-        }
-    };
-    
-    dashboardSocket.onclose = function(e) {
-        console.log('Dashboard WebSocket connection closed');
-        clearInterval(pingInterval);
-        
-        // Attempt to reconnect if not closing deliberately
-        if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-            isReconnecting = true;
-            setTimeout(() => {
-                reconnectAttempts++;
-                console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-                initDashboardWebSocket(userId);
-            }, RECONNECT_DELAY);
-        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            showToast('Connection lost. Please refresh the page.', 'error');
-        }
-    };
-    
-    dashboardSocket.onerror = function(e) {
-        console.error('Dashboard WebSocket error:', e);
-    };
+    if (connected) {
+        indicator.classList.remove('bg-red-500');
+        indicator.classList.add('bg-green-500');
+        indicator.setAttribute('title', 'Connected to real-time updates');
+    } else {
+        indicator.classList.remove('bg-green-500');
+        indicator.classList.add('bg-red-500');
+        indicator.setAttribute('title', 'Disconnected from real-time updates');
+    }
 }
 
 /**
@@ -132,7 +171,9 @@ function handleSessionUpdate(data) {
     updateSessionStats(data.stats);
     
     // Show notification
-    showToast(data.message || 'Session updated', 'info');
+    if (typeof showToast === 'function') {
+        showToast(data.message || 'Session updated', 'info');
+    }
 }
 
 /**
@@ -149,7 +190,9 @@ function handleBookingUpdate(data) {
     updateBookingStats(data.stats);
     
     // Show notification
-    showToast(data.message || 'Booking updated', 'info');
+    if (typeof showToast === 'function') {
+        showToast(data.message || 'Booking updated', 'info');
+    }
 }
 
 /**
@@ -166,7 +209,7 @@ function handleNotificationUpdate(data) {
     }
     
     // Show toast for new notification
-    if (data.notification && data.notification.message) {
+    if (data.notification && data.notification.message && typeof showToast === 'function') {
         showToast(data.notification.message, 'info');
     }
 }
@@ -182,7 +225,9 @@ function handleSessionRequestUpdate(data) {
     }
     
     // Show notification
-    showToast(data.message || 'Session request updated', 'info');
+    if (typeof showToast === 'function') {
+        showToast(data.message || 'Session request updated', 'info');
+    }
 }
 
 /**

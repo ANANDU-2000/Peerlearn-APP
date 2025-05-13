@@ -1,12 +1,16 @@
 /**
  * API Client for PeerLearn
- * Provides a standardized way to communicate with the backend API
+ * Provides consistent methods for making API requests to the backend
  */
 
-// Get CSRF token from cookies
+/**
+ * Get CSRF token from cookies
+ * @returns {string} - CSRF token
+ */
 function getCsrfToken() {
     const name = 'csrftoken';
     let cookieValue = null;
+    
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
@@ -17,6 +21,7 @@ function getCsrfToken() {
             }
         }
     }
+    
     return cookieValue;
 }
 
@@ -32,7 +37,6 @@ async function apiRequest(url, method, data = null, withCredentials = true) {
     try {
         const headers = {
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
         };
         
         // Add CSRF token for non-GET requests
@@ -41,47 +45,61 @@ async function apiRequest(url, method, data = null, withCredentials = true) {
         }
         
         const options = {
-            method,
-            headers,
-            credentials: withCredentials ? 'include' : 'same-origin'
+            method: method,
+            headers: headers,
+            credentials: withCredentials ? 'same-origin' : 'omit'
         };
         
-        if (data && method !== 'GET') {
+        // Add request body for POST, PUT, PATCH requests
+        if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
             options.body = JSON.stringify(data);
         }
         
+        // Make the request
         const response = await fetch(url, options);
         
-        // Check if the response is JSON
-        const contentType = response.headers.get('content-type');
-        const isJson = contentType && contentType.includes('application/json');
-        
-        // Parse response based on content type
-        let responseData;
-        if (isJson) {
-            responseData = await response.json();
-        } else {
-            responseData = await response.text();
-        }
-        
-        // Check for error responses
+        // Handle HTTP errors
         if (!response.ok) {
-            const error = new Error(isJson && responseData.detail ? responseData.detail : 'API request failed');
+            // Try to get error details from response body
+            let errorData = null;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                // Response body isn't JSON
+            }
+            
+            const error = new Error(
+                errorData?.detail || errorData?.message || 
+                `API request failed with status ${response.status}`
+            );
             error.status = response.status;
-            error.data = responseData;
+            error.statusText = response.statusText;
+            error.data = errorData;
             throw error;
         }
         
-        return responseData;
-    } catch (error) {
-        console.error('API request error:', error);
+        // Check if response is empty (e.g. 204 No Content)
+        if (response.status === 204) {
+            return null;
+        }
         
-        // Show error toast if available
+        // Parse response body as JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        } else {
+            return await response.text();
+        }
+    } catch (error) {
+        // Log error and rethrow
+        console.error('API request failed:', error);
+        
+        // Show user-friendly error message
         if (typeof showToast === 'function') {
-            const message = error.data && error.data.detail 
-                ? error.data.detail 
-                : 'An error occurred while communicating with the server.';
-            showToast(message, 'error');
+            showToast(
+                error.data?.detail || error.message || 'An error occurred. Please try again.',
+                'error'
+            );
         }
         
         throw error;
@@ -94,7 +112,7 @@ async function apiRequest(url, method, data = null, withCredentials = true) {
  * @returns {Promise} A promise that resolves with the session data
  */
 async function fetchSession(sessionId) {
-    return apiRequest(`/api/sessions/${sessionId}/`, 'GET');
+    return await apiRequest(`/api/sessions/${sessionId}/`, 'GET');
 }
 
 /**
@@ -103,7 +121,7 @@ async function fetchSession(sessionId) {
  * @returns {Promise} A promise that resolves with the created session
  */
 async function createSession(sessionData) {
-    return apiRequest('/api/sessions/create/', 'POST', sessionData);
+    return await apiRequest('/api/sessions/', 'POST', sessionData);
 }
 
 /**
@@ -113,7 +131,7 @@ async function createSession(sessionData) {
  * @returns {Promise} A promise that resolves with the updated session
  */
 async function updateSession(sessionId, sessionData) {
-    return apiRequest(`/api/sessions/${sessionId}/update/`, 'PUT', sessionData);
+    return await apiRequest(`/api/sessions/${sessionId}/`, 'PUT', sessionData);
 }
 
 /**
@@ -122,7 +140,7 @@ async function updateSession(sessionId, sessionData) {
  * @returns {Promise} A promise that resolves when the session is deleted
  */
 async function deleteSession(sessionId) {
-    return apiRequest(`/api/sessions/${sessionId}/delete/`, 'DELETE');
+    return await apiRequest(`/api/sessions/${sessionId}/`, 'DELETE');
 }
 
 /**
@@ -131,7 +149,7 @@ async function deleteSession(sessionId) {
  * @returns {Promise} A promise that resolves when the session is published
  */
 async function publishSession(sessionId) {
-    return apiRequest(`/api/sessions/${sessionId}/publish/`, 'POST');
+    return await apiRequest(`/api/sessions/${sessionId}/publish/`, 'POST');
 }
 
 /**
@@ -141,7 +159,7 @@ async function publishSession(sessionId) {
  * @returns {Promise} A promise that resolves when the session is cancelled
  */
 async function cancelSession(sessionId, reason) {
-    return apiRequest(`/api/sessions/${sessionId}/cancel/`, 'POST', { reason });
+    return await apiRequest(`/api/sessions/${sessionId}/cancel/`, 'POST', { reason });
 }
 
 /**
@@ -150,7 +168,7 @@ async function cancelSession(sessionId, reason) {
  * @returns {Promise} A promise that resolves with the booking data
  */
 async function bookSession(sessionId) {
-    return apiRequest(`/api/sessions/${sessionId}/book/`, 'POST');
+    return await apiRequest(`/api/sessions/${sessionId}/book/`, 'POST');
 }
 
 /**
@@ -160,7 +178,7 @@ async function bookSession(sessionId) {
  * @returns {Promise} A promise that resolves when the booking is cancelled
  */
 async function cancelBooking(bookingId, reason) {
-    return apiRequest(`/api/bookings/${bookingId}/cancel/`, 'POST', { reason });
+    return await apiRequest(`/api/bookings/${bookingId}/cancel/`, 'POST', { reason });
 }
 
 /**
@@ -169,7 +187,7 @@ async function cancelBooking(bookingId, reason) {
  * @returns {Promise} A promise that resolves with the notifications data
  */
 async function fetchNotifications(unreadOnly = false) {
-    return apiRequest(`/api/notifications/?unread_only=${unreadOnly ? 1 : 0}`, 'GET');
+    return await apiRequest(`/api/notifications/?unread_only=${unreadOnly ? '1' : '0'}`, 'GET');
 }
 
 /**
@@ -178,7 +196,7 @@ async function fetchNotifications(unreadOnly = false) {
  * @returns {Promise} A promise that resolves when the notification is marked as read
  */
 async function markNotificationRead(notificationId) {
-    return apiRequest(`/api/notifications/${notificationId}/read/`, 'POST');
+    return await apiRequest(`/api/notifications/${notificationId}/read/`, 'POST');
 }
 
 /**
@@ -186,7 +204,7 @@ async function markNotificationRead(notificationId) {
  * @returns {Promise} A promise that resolves when all notifications are marked as read
  */
 async function markAllNotificationsRead() {
-    return apiRequest('/api/notifications/read-all/', 'POST');
+    return await apiRequest('/api/notifications/read-all/', 'POST');
 }
 
 /**
@@ -195,7 +213,7 @@ async function markAllNotificationsRead() {
  * @returns {Promise} A promise that resolves with the created request
  */
 async function submitSessionRequest(requestData) {
-    return apiRequest('/api/session-requests/create/', 'POST', requestData);
+    return await apiRequest('/api/session-requests/', 'POST', requestData);
 }
 
 /**
@@ -205,7 +223,7 @@ async function submitSessionRequest(requestData) {
  * @returns {Promise} A promise that resolves with the updated request
  */
 async function respondToSessionRequest(requestId, responseData) {
-    return apiRequest(`/api/session-requests/${requestId}/respond/`, 'POST', responseData);
+    return await apiRequest(`/api/session-requests/${requestId}/respond/`, 'POST', responseData);
 }
 
 /**
@@ -215,10 +233,10 @@ async function respondToSessionRequest(requestId, responseData) {
  * @returns {Promise} A promise that resolves when the feedback is submitted
  */
 async function submitFeedback(bookingId, feedbackData) {
-    return apiRequest(`/api/bookings/${bookingId}/feedback/`, 'POST', feedbackData);
+    return await apiRequest(`/api/bookings/${bookingId}/feedback/`, 'POST', feedbackData);
 }
 
-// Make functions available globally
+// Export functions globally
 window.apiRequest = apiRequest;
 window.fetchSession = fetchSession;
 window.createSession = createSession;
