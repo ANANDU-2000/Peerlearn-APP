@@ -1,89 +1,141 @@
 /**
- * Toasts and notification system for PeerLearn
+ * Toast notification utility for PeerLearn
+ * Provides consistent toast notifications throughout the application
  */
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Initialize Alpine component for toasts
-  window.toastSystem = function() {
-    return {
-      toasts: [],
-      visible: [],
-      
-      // Add a new toast notification
-      add(message, type = 'info', duration = 5000) {
-        const id = Date.now();
-        const toast = { id, message, type };
-        
-        this.toasts.push(toast);
-        this.visible.push(id);
-        
-        // Auto remove after duration
-        if (duration > 0) {
-          setTimeout(() => {
-            this.remove(id);
-          }, duration);
-        }
-        
-        return id;
-      },
-      
-      // Remove a toast by ID
-      remove(id) {
-        const index = this.visible.indexOf(id);
-        if (index !== -1) {
-          this.visible.splice(index, 1);
-          
-          // Clean up toasts array after some delay
-          setTimeout(() => {
-            const toastIndex = this.toasts.findIndex(t => t.id === id);
-            if (toastIndex !== -1) {
-              this.toasts.splice(toastIndex, 1);
-            }
-          }, 500);
-        }
-      },
-      
-      // Get toast icon based on type
-      getIcon(type) {
-        switch(type) {
-          case 'success':
-            return `<svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>`;
-          case 'error':
-            return `<svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-            </svg>`;
-          case 'warning':
-            return `<svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-            </svg>`;
-          default:
-            return `<svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-            </svg>`;
-        }
-      },
-      
-      // Get background color based on type
-      getBgColor(type) {
-        switch(type) {
-          case 'success': return 'bg-green-50';
-          case 'error': return 'bg-red-50';
-          case 'warning': return 'bg-yellow-50';
-          default: return 'bg-blue-50';
-        }
-      },
-      
-      // Get border color based on type
-      getBorderColor(type) {
-        switch(type) {
-          case 'success': return 'border-green-400';
-          case 'error': return 'border-red-400';
-          case 'warning': return 'border-yellow-400';
-          default: return 'border-blue-400';
-        }
-      }
-    };
-  };
-});
+// Toast container
+let toastContainer = null;
+
+// Initialize toast container
+function initToastContainer() {
+    if (toastContainer) return;
+    
+    // Create toast container if it doesn't exist
+    toastContainer = document.createElement('div');
+    toastContainer.className = 'fixed top-0 right-0 p-4 z-50 space-y-4 max-w-md w-full';
+    document.body.appendChild(toastContainer);
+}
+
+/**
+ * Show a toast notification
+ * @param {string} message - The message to display
+ * @param {string} type - The type of toast (success, error, info, warning)
+ * @param {number} duration - How long to display the toast in ms (0 for no auto-dismiss)
+ * @returns {HTMLElement} - The toast element
+ */
+function showToast(message, type = 'info', duration = 5000) {
+    initToastContainer();
+    
+    // Create toast
+    const toast = document.createElement('div');
+    toast.className = `transform translate-x-0 transition-all duration-300 ease-in-out 
+                      flex items-center justify-between p-4 mb-3 rounded-lg shadow-lg 
+                      text-white max-w-md w-full`;
+    
+    // Set background color based on type
+    switch (type) {
+        case 'success':
+            toast.classList.add('bg-green-600');
+            break;
+        case 'error':
+            toast.classList.add('bg-red-600');
+            break;
+        case 'warning':
+            toast.classList.add('bg-yellow-600');
+            break;
+        case 'info':
+        default:
+            toast.classList.add('bg-blue-600');
+            break;
+    }
+    
+    // Add icon based on type
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            break;
+        case 'error':
+            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            break;
+        case 'warning':
+            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+            break;
+        case 'info':
+        default:
+            icon = '<svg class="w-6 h-6 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            break;
+    }
+    
+    // Set content
+    toast.innerHTML = `
+        <div class="flex items-center">
+            ${icon}
+            <div class="text-sm font-medium">${message}</div>
+        </div>
+        <button type="button" class="ml-4 focus:outline-none">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    `;
+    
+    // Add to container
+    toastContainer.appendChild(toast);
+    
+    // Start with the toast translated
+    toast.style.transform = 'translateX(100%)';
+    
+    // Animate in
+    setTimeout(() => {
+        toast.style.transform = 'translateX(0)';
+    }, 10);
+    
+    // Set up dismiss button
+    const dismissBtn = toast.querySelector('button');
+    dismissBtn.addEventListener('click', () => {
+        removeToast(toast);
+    });
+    
+    // Auto dismiss
+    if (duration > 0) {
+        setTimeout(() => {
+            removeToast(toast);
+        }, duration);
+    }
+    
+    return toast;
+}
+
+/**
+ * Remove a toast with animation
+ * @param {HTMLElement} toast - The toast element to remove
+ */
+function removeToast(toast) {
+    // If toast is already being removed, do nothing
+    if (toast.classList.contains('removing')) return;
+    
+    toast.classList.add('removing');
+    toast.style.transform = 'translateX(100%)';
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 300);
+}
+
+/**
+ * Remove all toasts
+ */
+function clearAllToasts() {
+    if (!toastContainer) return;
+    
+    // Get all toasts
+    const toasts = toastContainer.querySelectorAll('div');
+    toasts.forEach(toast => {
+        removeToast(toast);
+    });
+}
+
+// Make toast utility available globally
+window.showToast = showToast;
+window.clearAllToasts = clearAllToasts;
