@@ -61,9 +61,8 @@
 
                     <!-- Session lists based on tab -->
                     <div class="mt-6">
-                        {% if sub_tab == 'today' %}
-                            <!-- Today's sessions -->
-                            <div id="today-sessions-content" class="sessions-tab-content" data-tab="today">
+                        <!-- Today's sessions tab content - visible when today tab is active -->
+                        <div id="today-sessions-content" class="sessions-tab-content {% if sub_tab != 'today' %}hidden{% endif %}" data-tab="today">
                             {% if today_sessions %}
                             <div class="bg-white shadow overflow-hidden sm:rounded-md">
                                 <ul class="divide-y divide-gray-200">
@@ -216,9 +215,8 @@
                                 </div>
                             </div>
                             {% endif %}
-                        {% elif sub_tab == 'upcoming' %}
-                            <!-- Upcoming sessions -->
-                            <div id="upcoming-sessions-content" class="sessions-tab-content" data-tab="upcoming">
+                        <!-- Upcoming sessions tab content - visible when upcoming tab is active -->
+                        <div id="upcoming-sessions-content" class="sessions-tab-content {% if sub_tab != 'upcoming' %}hidden{% endif %}" data-tab="upcoming">
                             {% if upcoming_sessions %}
                             <div class="bg-white shadow overflow-hidden sm:rounded-md sessions-container">
                                 <ul class="divide-y divide-gray-200" id="sessions-list">
@@ -379,9 +377,8 @@
                                 </div>
                             </div>
                             {% endif %}
-                        {% else %}
-                            <!-- Past sessions -->
-                            <div id="past-sessions-content" class="sessions-tab-content" data-tab="past">
+                        <!-- Past sessions tab content - visible when past tab is active -->
+                        <div id="past-sessions-content" class="sessions-tab-content {% if sub_tab != 'past' %}hidden{% endif %}" data-tab="past">
                             {% if past_sessions %}
                             <div class="bg-white shadow overflow-hidden sm:rounded-md">
                                 <ul class="divide-y divide-gray-200">
