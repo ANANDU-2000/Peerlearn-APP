@@ -1,0 +1,87 @@
+You are the Replit Core AI Agent. Generate the *Advanced “Create Session”* feature page for the Mentor Dashboard in PeerLearn—a Django+Channels+SQLite3+TailwindCSS+Alpine.js module—covering UI, UX, real-time, DB logic, error handling, post-publish flows, and integration with live room controls. No further input needed.
+
+ROUTE: /dashboard/mentor/create-session (mentor-only; middleware redirect others)
+
+LAYOUT: two-column form (desktop) / stacked (mobile)
+• Left column (60%): form fields  
+• Right column (40%): live preview + tips
+
+FIELDS (with inline autosuggest, spell-check & professional tooltips):
+1. *Session Title* (text, min 10 chars)  
+   – Tooltip: “Use clear, learner-focused titles: ‘Advanced Python Metaprogramming’”  
+   – Auto-capitalize, spell-check, length counter  
+2. *Domain Tags* (multi-tag input)  
+   – Autosuggest from taxonomy (AI, Web Dev, Biology…)  
+   – On tag entry, show matching learner demand stats  
+3. *Learner Demand Tip*  
+   – Right panel shows “X learners requested topics in this domain this week”  
+4. *Start Date/Time* (datetime-picker)  
+   – Must be > now (frontend + backend)  
+   – Past selection disabled  
+   – Error: “Please choose a future start time ⏱”  
+5. *End Date/Time* (auto-calc duration)  
+   – Autofill + duration display (e.g. “Duration: 1h 30m”)  
+   – Validation: end > start  
+6. *Free / Paid Toggle*  
+   – If Paid: show *Price (INR)* input (min ₹50, max ₹50,000)  
+   – Validation: numeric + bounds  
+7. *Thumbnail Upload* (file preview)  
+   – Live preview thumbnail  
+   – Validate: image/jpeg/png, ≤2 MB  
+   – Error: “Invalid file type” / “File too large”  
+8. *Description* (textarea, optional)  
+   – Rich-text support; word limit 200  
+   – Tooltip: “Explain learning outcomes, prerequisites”
+
+ACTIONS:
+• *Create Session ▶* (primary, right-aligned)  
+   – Disabled until all required fields valid  
+• *Cancel* (secondary)
+
+ON SUBMIT:
+1. Frontend validation; show inline red❌/green✔  
+2. AJAX POST /api/sessions/ →  
+   • Save Session(mentor, title, tags, schedule, price, room_code=UUID4, status=scheduled) in SQLite3  
+   • If DB error → retry modal + toast “Save failed, retry?”  
+   • On success → toast “Session Created ✔”  
+
+3. Real-time notifications via Channels:  
+   • Broadcast WS new_session on sessions:new → landing + /sessions pages  
+   • ML service updates recommendations cache  
+
+4. Redirect → /dashboard/mentor/my-sessions → Upcoming sub-tab
+
+POST-PUBLISH UPDATES:
+• Session appears in:  
+  – Landing carousel (Live & Upcoming)  
+  – Learner Dash Recommended & Sessions pages  
+  – /sessions filter results  
+• Countdown timer auto-updates via Alpine.js  
+• Booking status shown as sessions are booked: “Booked (3)” badge  
+• Mentor “My Sessions” shows edit✎ and delete🗑 for each future session  
+
+REAL-TIME & ERROR HANDLING:
+• WS channels: sessions:{mentor_id} for live/join events  
+• If learner books/joins: toast “Alice booked your session” in Requests tab  
+• If start time passes with no bookings → WS notify mentor “No bookings; consider rescheduling”  
+• Edit allowed until T–5 min before start; on edit: reschedule notifications to learners  
+• Auto-terminate sessions > end_time + 10 min → status=completed; WS session.ended
+
+WEBRTC ROOM CONTROLS (linked from Go Live▶):
+• Mentor can mute/unmute learner audio/video  
+• Kick user → remove peer, WS “learner.kicked”  
+• Chat & whiteboard sync via sessions:{room_code}  
+• Handle STUN/TURN failures with toast “Network issue; retry”  
+• On media errors → fallback audio, toast “Video unavailable”
+
+STATS & FEEDBACK:
+• Mentor Profile shows “Total learners taught: N” (count Bookings.completed)  
+• After session end, prompt mentor for *rating feedback* per learner → save Feedback  
+• Leaner sees “Rate your mentor” toast → modal
+
+SECURITY & TESTS:
+• Role guard, CSRF, input sanitization  
+• Pytest for form validation, API, WS consumers  
+• Flake8, Black, isort
+
+Deliver templates, views, serializers, Alpine.js components, and Channels consumers for this “Create Session” flow—fully integrated, error-resilient, and performance-tuned.

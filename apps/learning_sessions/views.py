@@ -588,7 +588,7 @@ def accept_session_request(request, request_id):
             Notification.objects.create(
                 user=session_request.learner,
                 message=f"Your session request '{session_request.title}' has been accepted! Please complete the payment to confirm.",
-                link=reverse('payments:create', kwargs={'booking_id': booking.id})
+                link=reverse('payments:process', kwargs={'booking_id': booking.id})
             )
         
         messages.success(request, 'Request accepted and session created!')
