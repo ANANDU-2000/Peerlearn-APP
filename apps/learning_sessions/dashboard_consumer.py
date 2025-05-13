@@ -21,6 +21,8 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         Called when the websocket is handshaking.
         """
         try:
+            print(f"WebSocket connection attempt from {self.scope.get('client')}")
+            
             # Get authenticated user
             user = self.scope.get('user')
             
@@ -51,11 +53,36 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             await self.accept()
             print(f"WebSocket connection accepted for user {user.id}")
             
-            # Join the dashboard group - make sure channel layer is available
-            if not hasattr(self, 'channel_layer'):
-                print("ERROR: No channel layer available!")
+            # Send a welcome message immediately to ensure connection is working
+            try:
                 await self.send(text_data=json.dumps({
-                    'error': 'Channel layer not available',
+                    'type': 'connection_established',
+                    'message': f'Connected to dashboard for user {user.id}',
+                    'timestamp': timezone.now().isoformat()
+                }))
+                print(f"Sent welcome message to user {user.id}")
+            except Exception as e:
+                print(f"Error sending welcome message: {str(e)}")
+            
+            # Join the dashboard group - make sure channel layer is available
+            try:
+                from channels.layers import get_channel_layer
+                if not hasattr(self, 'channel_layer') or self.channel_layer is None:
+                    self.channel_layer = get_channel_layer()
+                    print(f"Retrieved channel layer: {self.channel_layer.__class__.__name__}")
+                
+                if not self.channel_layer:
+                    print("ERROR: Failed to get channel layer")
+                    await self.send(text_data=json.dumps({
+                        'error': 'Channel layer not available',
+                        'type': 'connection_error'
+                    }))
+                    await self.close(code=4002)
+                    return
+            except Exception as e:
+                print(f"ERROR getting channel layer: {str(e)}")
+                await self.send(text_data=json.dumps({
+                    'error': f'Failed to get channel layer: {str(e)}',
                     'type': 'connection_error'
                 }))
                 await self.close(code=4002)
@@ -68,17 +95,33 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                     self.channel_name
                 )
                 print(f"Added to group: {self.dashboard_group_name}")
-            except Exception as e:
-                print(f"Error adding to group: {str(e)}")
+                
+                # Send another confirmation after joining group
                 await self.send(text_data=json.dumps({
-                    'error': f'Failed to join dashboard group: {str(e)}',
+                    'type': 'group_joined',
+                    'group': self.dashboard_group_name,
+                    'timestamp': timezone.now().isoformat()
+                }))
+            except Exception as e:
+                error_msg = f"Error adding to group: {str(e)}"
+                print(error_msg)
+                await self.send(text_data=json.dumps({
+                    'error': error_msg,
                     'type': 'connection_error'
                 }))
                 await self.close(code=4005)
                 return
                 
             # Send initial dashboard data
-            await self.send_dashboard_data()
+            try:
+                await self.send_dashboard_data()
+                print(f"Sent initial dashboard data to user {user.id}")
+            except Exception as e:
+                print(f"Error sending dashboard data: {str(e)}")
+                await self.send(text_data=json.dumps({
+                    'error': f'Error loading dashboard data: {str(e)}',
+                    'type': 'data_error'
+                }))
             
         except Exception as e:
             print(f"Error in WebSocket connect: {str(e)}")
@@ -97,24 +140,48 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         Called when the WebSocket closes.
         """
         try:
+            # Log the disconnection with the close code
+            user_id = "unknown"
+            if hasattr(self, 'user') and self.user:
+                user_id = self.user.id
+                print(f"WebSocket disconnection: User {user_id} with code {code}")
+            else:
+                print(f"WebSocket disconnection: Unknown user with code {code}")
+                
+            # Get a better description of the close code
+            code_descriptions = {
+                1000: "Normal closure",
+                1001: "Going away (page navigation)",
+                1006: "Abnormal closure (connection lost)",
+                1011: "Internal server error",
+                4000: "General application error",
+                4001: "Not authenticated",
+                4002: "No channel layer",
+                4003: "Authentication mismatch",
+                4004: "URL path not found",
+                4005: "Group join error"
+            }
+            reason = code_descriptions.get(code, f"Unknown reason (code {code})")
+            print(f"Close reason: {reason}")
+                
             # Only attempt to leave the group if we successfully joined it
-            if hasattr(self, 'dashboard_group_name') and hasattr(self, 'channel_layer'):
+            if hasattr(self, 'dashboard_group_name') and hasattr(self, 'channel_layer') and self.channel_layer is not None:
                 try:
+                    # Attempt to get a fresh channel layer if needed
+                    if self.channel_layer is None:
+                        from channels.layers import get_channel_layer
+                        self.channel_layer = get_channel_layer()
+                    
                     # Leave room group
                     await self.channel_layer.group_discard(
                         self.dashboard_group_name,
                         self.channel_name
                     )
-                    print(f"User disconnected from dashboard group: {self.dashboard_group_name}, code: {code}")
+                    print(f"User {user_id} removed from dashboard group: {self.dashboard_group_name}")
                 except Exception as group_error:
                     print(f"Error leaving dashboard group: {str(group_error)}")
             else:
-                print(f"Disconnected without group membership, code: {code}")
-                
-            if hasattr(self, 'user'):
-                print(f"User {self.user.id} disconnected from dashboard WebSocket")
-            else:
-                print(f"Unknown user disconnected from dashboard WebSocket")
+                print(f"Disconnected without valid group membership, code: {code}")
                 
         except Exception as e:
             print(f"Error in dashboard consumer disconnect: {str(e)}")
@@ -123,70 +190,118 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         """
         Called when we get data from the client.
         """
-        if not text_data:
-            return
-            
         try:
+            if not text_data:
+                print("Received empty WebSocket message")
+                return
+                
+            print(f"Received WebSocket message: {text_data[:100]}...")
             data = json.loads(text_data)
             action = data.get('action')
-            print(f"Received WebSocket action: {action}")
+            
+            print(f"Processing WebSocket action: {action}")
             
             if action == 'get_dashboard_data':
-                await self.send_dashboard_data()
+                # Request dashboard data
+                try:
+                    await self.send_dashboard_data()
+                    print(f"Sent dashboard data to user {self.user.id}")
+                except Exception as e:
+                    error_msg = f"Error sending dashboard data: {str(e)}"
+                    print(error_msg)
+                    await self.send(text_data=json.dumps({
+                        'type': 'error',
+                        'message': 'Error loading dashboard data',
+                        'details': str(e)
+                    }))
                 
             elif action == 'mark_notification_read':
+                # Mark notification as read
                 notification_id = data.get('notification_id')
                 if notification_id:
                     try:
-                        # Use await with database_sync_to_async functions - it now returns a result instead of sending directly
-                        result = await self.mark_notification_read(notification_id)
+                        print(f"Marking notification {notification_id} as read for user {self.user.id}")
+                        # Use await with database_sync_to_async functions 
+                        result = await database_sync_to_async(self.mark_notification_read)(notification_id)
                         
-                        # Now send the result to the client
+                        # Send the result to the client
                         await self.send(text_data=json.dumps({
                             'type': 'notification_read',
                             'notification_id': result.get('notification_id'),
                             'success': result.get('success'),
-                            'error': result.get('error', None)
+                            'error': result.get('error', None),
+                            'timestamp': timezone.now().isoformat()
                         }))
                         
-                        # Also notify all clients if successful
-                        if result.get('success'):
-                            await self.channel_layer.send(self.channel_name, {
-                                "type": "notification_update",
-                                "action": "mark_read",
-                                "notification_id": notification_id
-                            })
+                        # Notify clients if successful
+                        if result.get('success') and hasattr(self, 'channel_layer') and self.channel_layer:
+                            await self.channel_layer.group_send(
+                                self.dashboard_group_name,
+                                {
+                                    "type": "notification_update",
+                                    "action": "mark_read",
+                                    "notification_id": notification_id,
+                                    "timestamp": timezone.now().isoformat()
+                                }
+                            )
                     except Exception as notify_error:
-                        print(f"Error marking notification read: {str(notify_error)}")
+                        error_msg = f"Error marking notification read: {str(notify_error)}"
+                        print(error_msg)
                         await self.send(text_data=json.dumps({
                             'type': 'error',
-                            'message': 'Failed to mark notification as read'
+                            'message': 'Failed to mark notification as read',
+                            'details': str(notify_error)
                         }))
+                else:
+                    print("Missing notification_id in mark_notification_read action")
+                    await self.send(text_data=json.dumps({
+                        'type': 'error',
+                        'message': 'Missing notification ID'
+                    }))
                     
             elif action == 'mark_all_notifications_read':
+                # Mark all notifications as read
                 try:
-                    # Use await with database_sync_to_async functions - it now returns a result instead of sending directly
-                    result = await self.mark_all_notifications_read()
+                    print(f"Marking all notifications read for user {self.user.id}")
+                    # Use await with database_sync_to_async functions
+                    result = await database_sync_to_async(self.mark_all_notifications_read)()
                     
-                    # Now send the result to the client
+                    # Send the result to the client
                     await self.send(text_data=json.dumps({
                         'type': 'all_notifications_read',
                         'success': result.get('success'),
-                        'count': result.get('count', 0)
+                        'count': result.get('count', 0),
+                        'timestamp': timezone.now().isoformat()
                     }))
                     
-                    # Also notify all clients if successful
-                    if result.get('success'):
-                        await self.channel_layer.send(self.channel_name, {
-                            "type": "notification_update",
-                            "action": "mark_all_read"
-                        })
+                    # Notify clients if successful
+                    if result.get('success') and hasattr(self, 'channel_layer') and self.channel_layer:
+                        await self.channel_layer.group_send(
+                            self.dashboard_group_name,
+                            {
+                                "type": "notification_update",
+                                "action": "mark_all_read",
+                                "timestamp": timezone.now().isoformat()
+                            }
+                        )
                 except Exception as notify_error:
-                    print(f"Error marking all notifications read: {str(notify_error)}")
+                    error_msg = f"Error marking all notifications read: {str(notify_error)}"
+                    print(error_msg)
                     await self.send(text_data=json.dumps({
                         'type': 'error',
-                        'message': 'Failed to mark notifications as read'
+                        'message': 'Failed to mark notifications as read',
+                        'details': str(notify_error)
                     }))
+            
+            elif action == 'ping':
+                # Simple ping/pong for connection testing
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'timestamp': timezone.now().isoformat(),
+                    'session_id': data.get('session_id', None)
+                }))
+                print(f"Responded to ping from user {self.user.id}")
+                
             else:
                 print(f"Unknown WebSocket action received: {action}")
                 await self.send(text_data=json.dumps({
@@ -194,18 +309,24 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                     'message': f'Unknown action: {action}'
                 }))
                 
-        except json.JSONDecodeError:
-            print("Invalid JSON received in WebSocket message")
+        except json.JSONDecodeError as json_err:
+            print(f"Invalid JSON received in WebSocket message: {str(json_err)}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
-                'message': 'Invalid message format'
+                'message': 'Invalid message format',
+                'details': 'Message is not valid JSON'
             }))
         except Exception as e:
-            print(f"Error in dashboard consumer receive: {str(e)}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Error processing request'
-            }))
+            error_msg = f"Error in dashboard consumer receive: {str(e)}"
+            print(error_msg)
+            try:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Error processing request',
+                    'details': str(e)
+                }))
+            except Exception as send_err:
+                print(f"Error sending error response: {str(send_err)}")
     
     async def session_update(self, event):
         """
