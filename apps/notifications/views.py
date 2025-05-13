@@ -18,13 +18,16 @@ def notifications_list(request):
     """
     Get a list of notifications for the current user.
     """
+    # Get unread count first
+    unread_count = Notification.objects.filter(
+        user=request.user,
+        read=False
+    ).count()
+    
     # Get the user's notifications
     notifications = Notification.objects.filter(
         user=request.user
     ).order_by('-created_at')[:50]  # Limit to 50 most recent notifications
-    
-    # Count unread notifications
-    unread_count = notifications.filter(read=False).count()
     
     # Format the notifications for JSON response
     notifications_data = []

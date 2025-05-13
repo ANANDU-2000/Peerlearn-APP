@@ -1,0 +1,157 @@
+# PeerLearn Project Dependencies Documentation
+
+This document provides an overview of all dependencies used in the PeerLearn project, explaining their purpose and role within the application.
+
+## Core Framework
+
+1. **Django (4.2.10)**
+   - Core web framework for backend development
+   - Provides ORM, URL routing, templating, authentication, and admin interface
+   - Used for all core functionality including user management, session handling, and data processing
+
+2. **Django REST Framework (3.14.0)**
+   - Extension for building RESTful APIs in Django
+   - Used for the API endpoints that power frontend interactions
+   - Provides serialization, authentication, and documentation capabilities
+
+## Real-time Communication
+
+3. **Channels (4.0.0)**
+   - Django extension providing WebSocket support and asynchronous handling
+   - Core library for all real-time features in PeerLearn
+   - Powers live session updates, notifications, and WebRTC signaling
+
+4. **Channels Redis (4.1.0)**
+   - Redis channel layer backend for Django Channels
+   - Used for WebSocket message routing and distribution
+   - Supports scaling WebSocket connections across multiple servers
+
+5. **Daphne (4.0.0)**
+   - ASGI server for Django Channels
+   - Handles HTTP and WebSocket connections
+   - Used in production to serve both standard HTTP and WebSocket connections
+
+6. **WebSockets (11.0.3)**
+   - Python implementation of the WebSocket protocol
+   - Used for client-server real-time communication
+   - Helps with WebRTC signaling and dashboard updates
+
+## Database and Caching
+
+7. **PostgreSQL Client (psycopg2-binary 2.9.9)**
+   - PostgreSQL database adapter for Python
+   - Used for production database connection
+   - Supports advanced PostgreSQL features like JSON fields and full-text search
+
+8. **Redis (5.0.1)**
+   - In-memory data structure store
+   - Used for caching, session storage, and as a message broker
+   - Supports the real-time functionality of the platform
+
+9. **Django Redis (5.4.0)**
+   - Redis cache backend for Django
+   - Provides caching for session data, database queries, and template fragments
+   - Improves performance for frequently accessed data
+
+## Task Processing
+
+10. **Celery (5.3.4)**
+    - Distributed task queue for background processing
+    - Handles email sending, session reminders, and other asynchronous tasks
+    - Supports scheduled tasks for recurring operations
+
+## Payment Processing
+
+11. **Razorpay (1.4.1)**
+    - Python client for the Razorpay payment gateway
+    - Used for processing payments from learners
+    - Handles payment verification and webhook events
+
+12. **Stripe (7.7.0)**
+    - Alternative payment gateway (for certain regions)
+    - Handles subscription payments and marketplace payouts
+    - Supports mentor payout functionality
+
+## File Handling and Media
+
+13. **Pillow (10.1.0)**
+    - Python Imaging Library
+    - Handles image processing, resizing, and validation
+    - Used for profile pictures and session materials
+
+14. **Django Storages (1.14.2)**
+    - Collection of storage backends for Django
+    - Used with boto3 for S3 storage in production
+    - Handles file uploads and media storage
+
+15. **Boto3 (1.28.63)**
+    - AWS SDK for Python
+    - Used for S3 bucket operations for file storage
+    - Supports CDN integration for static and media files
+
+## Configuration and Security
+
+16. **Python-dotenv (1.0.0)**
+    - Reads key-value pairs from .env files
+    - Used to manage environment variables and sensitive configurations
+    - Separates configuration from code
+
+17. **Cryptography (41.0.4)**
+    - Cryptographic recipes and primitives
+    - Used for securing sensitive data and tokens
+    - Supports encryption for certain user data
+
+## Frontend Enhancement
+
+18. **Django Crispy Forms (2.0)**
+    - Form rendering application for Django
+    - Improves form rendering and styling
+    - Integrates with Tailwind CSS for consistent UI
+
+19. **Whitenoise (6.5.0)**
+    - Static file serving for Python web apps
+    - Used in production to serve static files efficiently
+    - Eliminates need for separate static file server
+
+20. **Django CORS Headers (4.3.0)**
+    - Django app for handling CORS headers
+    - Manages Cross-Origin Resource Sharing
+    - Required for API access from frontend applications
+
+## Communication Services
+
+21. **Twilio (8.9.1)**
+    - API for SMS, voice, and video communication
+    - Used for SMS notifications and reminders
+    - Provides fallback communication channels
+
+## Deployment
+
+22. **Gunicorn (21.2.0)**
+    - WSGI HTTP server for UNIX
+    - Used in production to serve Django
+    - Provides performance and reliability
+
+## Frontend Libraries (CDN-served, not in pip requirements)
+
+1. **Tailwind CSS**
+   - Utility-first CSS framework
+   - Used for responsive UI components and styling
+   - Responsible for the overall look and feel
+
+2. **Alpine.js**
+   - Lightweight JavaScript framework
+   - Used for reactive components without full SPA architecture
+   - Powers dynamic UI elements like dropdowns, tabs, and forms
+
+3. **Feather Icons**
+   - Simple, elegant SVG icon set
+   - Used throughout the interface for consistent iconography
+   - Provides visual clarity and recognition
+
+4. **Chart.js**
+   - JavaScript charting library
+   - Used for analytics, earnings, and dashboard visualizations
+   - Provides interactive data representations
+
+These dependencies collectively create a robust, scalable, and feature-rich platform for online mentorship and learning.

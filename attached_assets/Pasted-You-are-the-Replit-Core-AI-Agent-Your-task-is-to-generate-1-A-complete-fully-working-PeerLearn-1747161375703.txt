@@ -1,0 +1,36 @@
+You are the Replit Core AI Agent. Your task is to generate:
+
+1. A *complete, fully working PeerLearn project*—Django + DRF + Channels + SQLite3 + Redis + Celery + WebRTC + Razorpay + TailwindCSS + Alpine.js—zipped and ready to run.
+2. A *100-page documentation* (TXT or Markdown) covering:
+   - Introduction & System Overview
+   - Objectives, Analysis (existing, drawbacks)
+   - Requirements Analysis & Feasibility
+   - System Specification (hardware, software)
+   - System Design (input/output, database ERDs, DFDs)
+   - Implementation & Maintenance
+   - Testing Plan & Results
+   - Conclusion & Future Enhancements
+   - Appendix: DB design, ER diagrams, screen layouts, bibliography
+3. A *project README* with:
+   - Folder structure
+   - Models & APIs
+   - Real-time flows (WS channels)
+   - WebRTC room details
+   - ML recommendation integration
+   - Admin setup & credentials
+   - Run instructions (Docker Compose, migrations, manage.py runserver)
+   - Security notes (CSRF, role middleware, 2FA)
+4. Ensure *all roles* (learner, mentor, admin) flows work end-to-end:
+   - Auth & signup wizards (4/5 steps)
+   - Landing & public pages (filtering, search, carousels)
+   - Learner Dashboard (recommendations, booking, join room)
+   - Mentor Dashboard (requests, my sessions, create/edit/cancel session, go live)
+   - Admin Dashboard (users, sessions, payments, analytics)
+   - WebRTC room (signaling, media, lobby, reconnection, feedback)
+   - Real-time notifications & toasts
+   - Error handling (network, WS, media, payment, form validation)
+5. Validate *database consistency* (no duplicates/mismatches), ensure *all migrations* run, static/media served, .env keys loaded.
+6. Produce a *master documentation file* (TXT) with table of contents and page numbers matching the 100-page outline above.
+7. Package the code and docs into a ZIP with a top-level README explaining usage.
+
+Generate everything in one go so that a new developer can download the ZIP, run docker-compose up, create the admin user, and see a fully operational PeerLearn platform with all features and documentation.

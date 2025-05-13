@@ -1,0 +1,155 @@
+# PeerLearn Project Structure
+
+PeerLearn is an advanced EdTech platform enabling personalized 1:1 video mentorship through intelligent digital learning interactions, with a focus on professional skill development and knowledge transfer.
+
+## Directory Structure
+
+```
+peerlearn/
+├── apps/                          # Django applications
+│   ├── admin_panel/               # Admin dashboard functionality
+│   │   ├── migrations/            # Database migrations for admin panel
+│   │   ├── templates/             # Admin panel templates
+│   │   ├── __init__.py
+│   │   ├── admin.py               # Django admin configuration
+│   │   ├── apps.py                # App configuration
+│   │   ├── models.py              # Admin-specific models
+│   │   ├── urls.py                # Admin panel URL routing
+│   │   └── views.py               # Admin panel views
+│   ├── core/                      # Core application features
+│   │   ├── management/            # Custom management commands
+│   │   ├── migrations/            # Database migrations for core app
+│   │   ├── templates/             # Core app templates
+│   │   ├── __init__.py
+│   │   ├── admin.py               # Django admin configuration
+│   │   ├── apps.py                # App configuration
+│   │   ├── models.py              # Core app models
+│   │   ├── urls.py                # Core app URL routing
+│   │   └── views.py               # Core app views
+│   ├── learning_sessions/         # Learning session functionality
+│   │   ├── migrations/            # Database migrations for learning sessions
+│   │   ├── templates/             # Learning session templates
+│   │   ├── __init__.py
+│   │   ├── admin.py               # Django admin configuration
+│   │   ├── apps.py                # App configuration
+│   │   ├── consumers.py           # WebSocket consumers
+│   │   ├── dashboard_consumer.py  # Dashboard WebSocket consumer
+│   │   ├── models.py              # Learning session models
+│   │   ├── session_consumer.py    # Session WebRTC WebSocket consumer
+│   │   ├── urls.py                # Learning session URL routing
+│   │   └── views.py               # Learning session views
+│   ├── notifications/             # Notification system
+│   │   ├── migrations/            # Database migrations for notifications
+│   │   ├── templates/             # Notification templates
+│   │   ├── __init__.py
+│   │   ├── admin.py               # Django admin configuration
+│   │   ├── apps.py                # App configuration
+│   │   ├── consumers.py           # Notification WebSocket consumers
+│   │   ├── models.py              # Notification models
+│   │   ├── urls.py                # Notification URL routing
+│   │   ├── utils.py               # Notification utility functions
+│   │   └── views.py               # Notification views
+│   ├── payments/                  # Payment processing functionality
+│   │   ├── migrations/            # Database migrations for payments
+│   │   ├── templates/             # Payment templates
+│   │   ├── __init__.py
+│   │   ├── admin.py               # Django admin configuration
+│   │   ├── apps.py                # App configuration
+│   │   ├── models.py              # Payment and payout models
+│   │   ├── urls.py                # Payment URL routing
+│   │   └── views.py               # Payment views with Razorpay integration
+│   └── users/                     # User authentication and profiles
+│       ├── migrations/            # Database migrations for users
+│       ├── templates/             # User templates
+│       ├── __init__.py
+│       ├── admin.py               # Django admin configuration
+│       ├── apps.py                # App configuration
+│       ├── forms.py               # User forms (registration, profile, etc.)
+│       ├── models.py              # Custom user model
+│       ├── urls.py                # User URL routing
+│       └── views.py               # User views
+├── media/                         # User-uploaded files
+│   ├── profile_pictures/          # User profile pictures
+│   └── session_materials/         # Materials for learning sessions
+├── peerlearn/                     # Project configuration
+│   ├── __init__.py
+│   ├── asgi.py                    # ASGI configuration for websockets
+│   ├── celery.py                  # Celery configuration for background tasks
+│   ├── routing.py                 # WebSocket routing
+│   ├── settings.py                # Django settings
+│   ├── urls.py                    # Main URL routing
+│   └── wsgi.py                    # WSGI configuration
+├── static/                        # Static files
+│   ├── css/                       # CSS stylesheets
+│   ├── img/                       # Static images
+│   ├── js/                        # JavaScript files
+│   │   ├── api-client.js          # API client utilities
+│   │   ├── auth.js                # Authentication functionality
+│   │   ├── dashboard-ws.js        # Dashboard WebSocket functionality
+│   │   ├── notifications.js       # Notifications system
+│   │   ├── toasts.js              # Toast notification system
+│   │   └── webrtc/                # WebRTC functionality
+│   │       ├── adapter.js         # WebRTC adapter for browser compatibility
+│   │       └── room.js            # WebRTC room implementation
+│   └── vendor/                    # Third-party libraries
+├── templates/                     # Global templates
+│   ├── admin/                     # Admin templates
+│   ├── dashboard_base.html        # Base template for dashboard
+│   ├── email/                     # Email templates
+│   ├── learners_dash/             # Learner dashboard templates
+│   ├── mentors/                   # Mentor profiles templates
+│   ├── mentors_dash/              # Mentor dashboard templates
+│   │   ├── sessions.html          # Mentor sessions template
+│   │   └── sessions_detail.html   # Mentor session detail template
+│   ├── sessions/                  # Session templates
+│   │   └── room.html              # WebRTC room template
+│   ├── admin_dash/                # Admin dashboard templates
+│   ├── auth/                      # Authentication templates
+│   ├── base.html                  # Base template
+│   ├── components/                # Reusable template components
+│   └── errors/                    # Error templates
+├── manage.py                      # Django management script
+├── pyproject.toml                 # Python project configuration
+├── requirements.txt               # Python dependencies
+├── uv.lock                        # Lock file for dependencies
+└── .replit                        # Replit configuration
+```
+
+## Key Components Overview
+
+### Django Apps
+
+1. **admin_panel**: Admin dashboard for platform management, user oversight, and analytics
+2. **core**: Core application features, homepage, and public areas
+3. **learning_sessions**: Main functionality for creating, managing, and conducting learning sessions
+4. **notifications**: Real-time notification system using WebSockets
+5. **payments**: Integration with Razorpay for payment processing and mentor payouts
+6. **users**: Custom user model, authentication, and user profiles for mentors and learners
+
+### Key Technology Components
+
+1. **WebSockets**: Implemented using Django Channels for real-time communication
+   - Dashboard updates (dashboard_consumer.py)
+   - Notifications (notifications/consumers.py)
+   - Live session rooms (session_consumer.py)
+
+2. **WebRTC**: For real-time video/audio communication in learning sessions
+   - Frontend implementation in static/js/webrtc/room.js
+   - Server-side signaling in learning_sessions/session_consumer.py
+
+3. **Frontend Technologies**:
+   - Tailwind CSS for styling
+   - Alpine.js for reactive components
+   - Vanilla JavaScript for core functionality
+
+4. **Background Tasks**:
+   - Celery for handling asynchronous tasks
+   - Redis for task queueing and caching
+
+5. **Payment Processing**:
+   - Razorpay integration for secure payments
+   - Custom payout system for mentors
+
+6. **Authentication**:
+   - Custom user model with role-based permissions
+   - Separate workflows for mentors and learners

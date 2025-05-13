@@ -50,6 +50,9 @@ function initNotifications() {
             console.warn('User ID meta tag exists but is empty, notifications system cannot initialize');
             return;
         }
+        console.log('Set USER_ID from meta tag:', window.USER_ID);
+    } else {
+        console.log('Using existing USER_ID:', window.USER_ID);
     }
 
     console.log('Initializing notifications system for user:', window.USER_ID);
