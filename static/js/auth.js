@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
       showSkillSuggestions: false,
       searchTerm: '',
       skillSearchTerm: '',
+      resumeFromLocal: false,
       formData: {
         username: '',
         email: '',

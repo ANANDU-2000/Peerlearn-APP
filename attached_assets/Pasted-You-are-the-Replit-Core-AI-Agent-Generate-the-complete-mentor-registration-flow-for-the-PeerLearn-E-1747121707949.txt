@@ -1,0 +1,65 @@
+You are the Replit Core AI Agent. Generate the complete mentor registration flow for the PeerLearn EdTech app using Django, TailwindCSS, Alpine.js, SQLite3.
+
+Route: /signup/mentor  
+Role: mentor  
+Method: multi-step form with full validation, DB save, toast alerts, error handling, and redirect on completion.
+
+Layout (Web):  
+- Centered card, fixed width (max-w-xl), white background, shadows, rounded-lg  
+- Progress bar (Step 1 of 5) at top  
+- Form fields below with “Next ▶” and “Back ◀” buttons  
+
+Layout (Mobile):  
+- Fullscreen step layout  
+- Sticky bottom nav (Back, Next)  
+- Step indicator + validation at top  
+- Smooth transition animations via Alpine.js
+
+Form Steps:
+1. *Basic Info*  
+   • Full Name (text), Email (email), Password (masked)  
+   • Real-time: green tick or red border  
+   • Validate: email format, uniqueness, strong password  
+2. *Domain Expertise*  
+   • Multi-tag input (e.g. Web Dev, Data Science)  
+   • Suggestion list, spell correction  
+3. *Skills & Certifications*  
+   • Multi-select dropdowns  
+   • Auto-complete suggestions  
+4. *Bio & Qualifications*  
+   • Textarea input with word count limit  
+   • Optional academic tags  
+5. *Profile Picture & Intro Video*  
+   • File input with preview  
+   • Validate type (jpeg/mp4) and size  
+   • Optional intro video link (YouTube allowed)
+
+Final Step:  
+- Submit → Save data to CustomUser with role='mentor'  
+- Fields: name, email, password (hashed), domain_expertise[], skills[], bio, qualifications, profile_image, video_url  
+- DB: SQLite3  
+- Toast: “Mentor profile created successfully ✔”  
+- Redirect: /dashboard/mentor
+
+Error Handling:
+- Email exists = inline “Email already registered ❌”  
+- Empty required field = red border + shake effect  
+- Image upload fail = toast “Image upload failed ❌”  
+- DB save fail = modal retry with fallback  
+- If user refreshes, show popup: “Resume registration?” with saved draft (localStorage via Alpine.js)  
+- On logout or connection lost = alert: “You're offline. Changes will be saved once reconnected.”
+
+Security:  
+- CSRF token in form  
+- Password hashed before save  
+- Server-side validation backup for all fields
+
+UX Details:
+- Input height ≥44px  
+- Buttons = Tailwind bg-blue-600 text-white hover:bg-blue-700  
+- Success = green check animation  
+- Alpine transition between steps (slide-left, slide-right)
+
+Redirect Logic:
+- If role is not mentor → redirect to appropriate dashboard after login  
+- After submit: auto login → /dashboard/mentor
