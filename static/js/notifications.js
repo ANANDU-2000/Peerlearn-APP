@@ -79,14 +79,14 @@ function connectNotificationWebSocket() {
         if (userIdMeta) {
             window.USER_ID = userIdMeta.getAttribute('content');
         } else {
-            console.error('User ID meta tag not found, notifications system cannot initialize');
+            console.debug('User ID meta tag not found - likely on a public page without authentication');
             return;
         }
     }
     
     // Verify we have a user ID
     if (!window.USER_ID) {
-        console.error('User ID is empty, notifications system cannot initialize');
+        console.warn('User ID meta tag exists but is empty, notifications system cannot initialize');
         return;
     }
     
@@ -114,9 +114,23 @@ function connectNotificationWebSocket() {
  * Handle WebSocket open event
  */
 function onNotificationSocketOpen(event) {
-    console.log('Notification WebSocket connected');
+    console.log('Notification WebSocket connected successfully');
+    
+    // Reset reconnection variables
     reconnectAttempts = 0;
     reconnectInterval = 2000;
+    
+    // Update notification icon if we're on a dashboard page
+    const notificationIndicator = document.getElementById('notification-indicator');
+    if (notificationIndicator) {
+        notificationIndicator.classList.remove('text-gray-500');
+        notificationIndicator.classList.add('text-green-500');
+    }
+    
+    // Optionally show a toast message on reconnection after failure
+    if (reconnectAttempts > 0 && window.showToast) {
+        window.showToast('Notification service reconnected', 'success');
+    }
 }
 
 /**
