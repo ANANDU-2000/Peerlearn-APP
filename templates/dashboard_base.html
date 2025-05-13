@@ -164,7 +164,7 @@
     <!-- Core JS libraries -->
     {% if user.is_authenticated %}
     <!-- Hidden user ID for WebSocket connections -->
-    <meta name="user-id" content="{{ user.id }}">
+    <meta name="user-id" content="{{ request.user.id }}">
     
     <!-- Load scripts in optimized order -->
     <script src="{% static 'js/toasts.js' %}"></script>
