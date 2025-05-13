@@ -701,6 +701,7 @@ def mentor_create_advanced_session(request):
     
     from apps.learning_sessions.forms import SessionForm
     from apps.learning_sessions.models import Session
+    from apps.notifications.models import Notification
     import uuid
     
     if request.method == 'POST':
@@ -723,6 +724,15 @@ def mentor_create_advanced_session(request):
             session.topics = [topic.strip() for topic in topics_str.split(',') if topic.strip()]
             
             session.save()
+            
+            # Create notification for mentor
+            Notification.objects.create(
+                user=request.user,
+                title='Session Created',
+                message=f'Your session "{session.title}" has been created successfully.',
+                notification_type='session_created',
+                reference_id=session.id
+            )
             
             messages.success(request, 'Session created successfully!')
             return redirect('users:mentor_sessions')

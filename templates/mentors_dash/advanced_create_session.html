@@ -335,16 +335,29 @@
                                         </button>
                                         
                                         <button 
-                                            type="submit" 
+                                            type="button" 
                                             x-show="currentStep === 4"
-                                            :disabled="!isFormValid()"
-                                            form="session-form"
+                                            :disabled="!isFormValid() || isSubmitting"
+                                            @click="submitForm()"
                                             class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transform transition hover:scale-105"
                                         >
-                                            Publish Session
-                                            <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                            </svg>
+                                            <template x-if="!isSubmitting">
+                                                <div class="flex items-center">
+                                                    <span>Publish Session</span>
+                                                    <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </template>
+                                            <template x-if="isSubmitting">
+                                                <div class="flex items-center">
+                                                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    <span>Publishing...</span>
+                                                </div>
+                                            </template>
                                         </button>
                                     </div>
                                 </div>
@@ -523,7 +536,7 @@
                     </div>
                     
                     <!-- Hidden form to submit all data at once -->
-                    <form id="session-form" action="{% url 'users:mentor_create_session' %}" method="post" enctype="multipart/form-data" class="hidden">
+                    <form id="session-form" action="{% url 'users:mentor_create_advanced_session' %}" method="post" enctype="multipart/form-data" class="hidden">
                         {% csrf_token %}
                         <input type="hidden" name="title" x-model="formData.title">
                         <input type="hidden" name="topics" x-model="formData.topics">
@@ -533,7 +546,9 @@
                         <input type="hidden" name="price" x-model="formData.price">
                         <input type="hidden" name="is_free" x-model="formData.is_free">
                         <input type="hidden" name="max_participants" x-model="formData.max_participants">
-                        <!-- Note: thumbnail can't be a hidden input, we'll move the actual file input here -->
+                        <input type="hidden" id="thumbnail-filename" name="thumbnail_filename" value="">
+                        <!-- We need to clone the file input here for submission -->
+                        <div id="thumbnail-container"></div>
                     </form>
                 </div>
             `;
@@ -563,6 +578,7 @@
                 max_participants: '10',
                 is_free: false
             },
+            isSubmitting: false,
             
             titleError: '',
             topicsError: '',
@@ -892,6 +908,33 @@
                 } else {
                     this.priceError = '';
                 }
+            },
+            
+            submitForm() {
+                if (!this.isFormValid()) {
+                    return;
+                }
+                
+                this.isSubmitting = true;
+                
+                // Set thumbnail in the form if it exists
+                const fileInput = document.getElementById('id_thumbnail');
+                const thumbnailContainer = document.getElementById('thumbnail-container');
+                
+                if (fileInput.files && fileInput.files[0]) {
+                    // Clone the file input and append to the form
+                    const clone = fileInput.cloneNode(true);
+                    clone.name = 'thumbnail';
+                    
+                    // Clear any previous input
+                    thumbnailContainer.innerHTML = '';
+                    thumbnailContainer.appendChild(clone);
+                }
+                
+                // Submit the form after a short delay to allow the loading state to show
+                setTimeout(() => {
+                    document.getElementById('session-form').submit();
+                }, 100);
             }
         }
     }
