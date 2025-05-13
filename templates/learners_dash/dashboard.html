@@ -171,17 +171,12 @@
         
         // Connect to WebSocket for real-time updates with exponential backoff reconnection
         const setupWebSocket = () => {
-            // In development mode, WebSocket might be disabled to prevent console spam
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                console.log('Notification WebSocket is disabled in development mode');
-                // Still set up polling for updates in development
-                setupPolling();
-                return;
-            }
+            // Always try WebSocket first, regardless of environment
+            // We'll fall back to polling if WebSocket connection fails
             
             let socket = null;
             let reconnectAttempts = 0;
-            const maxReconnectAttempts = 5;
+            const maxReconnectAttempts = 3;
             const baseReconnectDelay = 1000; // Start with 1 second delay
             
             function connect() {
@@ -253,7 +248,7 @@
                             connect();
                         }, delay);
                     } else {
-                        console.log('WebSocket disconnected. Real-time updates disabled.');
+                        console.log('WebSocket disconnected. Falling back to AJAX polling.');
                         // Fall back to polling after max reconnect attempts
                         setupPolling();
                     }
