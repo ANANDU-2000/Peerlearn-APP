@@ -196,7 +196,7 @@
             {% if session_requests %}
                 <div class="space-y-4">
                     {% for request in session_requests %}
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                        <div class="{% if request.status == 'counter_offer' and request.is_free or request.counter_offer == 0 %}bg-white rounded-lg shadow-sm overflow-hidden border-2 border-green-400{% else %}bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200{% endif %}">
                             <div class="p-4 sm:p-5">
                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                                     <div class="flex items-start space-x-3 mb-3 sm:mb-0">
@@ -233,12 +233,20 @@
                                                     {% elif request.status == 'rejected' %}
                                                         bg-red-100 text-red-800
                                                     {% elif request.status == 'counter_offer' %}
-                                                        bg-blue-100 text-blue-800
+                                                        {% if request.is_free or request.counter_offer == 0 %}
+                                                            bg-green-100 text-green-800
+                                                        {% else %}
+                                                            bg-blue-100 text-blue-800
+                                                        {% endif %}
                                                     {% else %}
                                                         bg-gray-100 text-gray-800
                                                     {% endif %}
                                                 ">
-                                                    {{ request.get_status_display }}
+                                                    {% if request.status == 'counter_offer' and request.is_free or request.counter_offer == 0 %}
+                                                        Free Offer
+                                                    {% else %}
+                                                        {{ request.get_status_display }}
+                                                    {% endif %}
                                                 </span>
                                             </div>
                                         </div>
