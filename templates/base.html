@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -133,6 +134,12 @@
             feather.replace();
         });
     </script>
+    
+    <!-- Core JavaScript Files -->
+    <script src="{% static 'js/toasts.js' %}"></script>
+    <script src="{% static 'js/api-client.js' %}"></script>
+    <script src="{% static 'js/notifications.js' %}"></script>
+    <script src="{% static 'js/dashboard-ws.js' %}"></script>
     
     {% block extra_js %}{% endblock %}
 </body>
