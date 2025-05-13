@@ -6,37 +6,48 @@ let notificationCount = 0;
  * Connects to the WebSocket for real-time notifications
  */
 function connectNotificationWebSocket() {
-    // Determine the correct WebSocket protocol based on the page protocol
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
-    
-    // Create WebSocket connection
-    notificationSocket = new WebSocket(wsUrl);
-    
-    // Connection opened
-    notificationSocket.addEventListener('open', (event) => {
-        console.log('Notification WebSocket connection established');
-    });
-    
-    // Connection closed
-    notificationSocket.addEventListener('close', (event) => {
-        console.log('Notification WebSocket connection closed');
-        // Try to reconnect after 5 seconds
-        setTimeout(() => {
-            connectNotificationWebSocket();
-        }, 5000);
-    });
-    
-    // Connection error
-    notificationSocket.addEventListener('error', (event) => {
-        console.error('Notification WebSocket error:', event);
-    });
-    
-    // Listen for messages
-    notificationSocket.addEventListener('message', (event) => {
-        const data = JSON.parse(event.data);
-        handleNotification(data);
-    });
+    try {
+        // WebSocket is disabled in this version, will be enabled in production
+        console.log('Notification WebSocket is disabled in development mode');
+        return;
+        
+        // The following code is disabled but kept for production use
+        /*
+        // Determine the correct WebSocket protocol based on the page protocol
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
+        
+        // Create WebSocket connection
+        notificationSocket = new WebSocket(wsUrl);
+        
+        // Connection opened
+        notificationSocket.addEventListener('open', (event) => {
+            console.log('Notification WebSocket connection established');
+        });
+        
+        // Connection closed
+        notificationSocket.addEventListener('close', (event) => {
+            console.log('Notification WebSocket connection closed');
+            // Try to reconnect after 5 seconds
+            setTimeout(() => {
+                connectNotificationWebSocket();
+            }, 5000);
+        });
+        
+        // Connection error
+        notificationSocket.addEventListener('error', (event) => {
+            console.error('Notification WebSocket error:', event);
+        });
+        
+        // Listen for messages
+        notificationSocket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data);
+            handleNotification(data);
+        });
+        */
+    } catch (error) {
+        console.error('Error setting up notification WebSocket:', error);
+    }
 }
 
 /**

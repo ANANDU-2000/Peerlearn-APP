@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <!-- Logo -->
             <div class="flex-shrink-0">
-                <a href="{% url 'home' %}" class="flex items-center space-x-2">
+                <a href="{{ user.get_dashboard_url }}" class="flex items-center space-x-2">
                     <span class="text-3xl">🎓</span>
                     <span class="text-xl font-bold text-primary-600 hidden sm:inline-block">PeerLearn</span>
                 </a>
