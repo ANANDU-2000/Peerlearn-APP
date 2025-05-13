@@ -25,7 +25,10 @@
         </div>
         
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
-            <form method="post" enctype="multipart/form-data" class="p-6 sm:p-8" action="{% url 'users:mentor_signup' %}" x-data="mentorSignupForm()" x-init="initForm()">
+            <form method="post" enctype="multipart/form-data" class="p-6 sm:p-8" action="{% url 'users:mentor_signup' %}" 
+                  x-data="mentorSignupForm()"
+                  x-init="initForm()"
+                  x-cloak>
                 {% csrf_token %}
                 
                 {% if form.errors %}
