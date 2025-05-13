@@ -191,6 +191,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if there's saved form data in localStorage
         const savedData = localStorage.getItem('mentorSignupFormData');
         
+        // Set default email validation state
+        this.emailValid = false;
+        
         if (savedData) {
           try {
             // Ask user if they want to resume registration
@@ -223,6 +226,11 @@ document.addEventListener('DOMContentLoaded', function() {
               if (parsedData.previewUrl) {
                 this.previewUrl = parsedData.previewUrl;
               }
+              
+              // Check if the saved email is valid
+              if (this.formData.email) {
+                this.checkEmailExists();
+              }
             } else {
               // If user doesn't want to resume, clear the stored data
               localStorage.removeItem('mentorSignupFormData');
@@ -235,6 +243,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add form change listener to save data as user types
         this.setupFormAutoSave();
+        
+        // Set up email validation event
+        const emailInput = document.getElementById('id_email');
+        if (emailInput) {
+          emailInput.addEventListener('blur', () => {
+            this.checkEmailExists();
+          });
+          
+          // Add debounced input handler for real-time validation
+          let emailTimeout;
+          emailInput.addEventListener('input', () => {
+            clearTimeout(emailTimeout);
+            emailTimeout = setTimeout(() => {
+              this.checkEmailExists();
+            }, 500); // Wait 500ms after typing stops
+          });
+        }
         
         // Form initialization happens in the template with Django template tags
         this.validateCurrentStep();
@@ -301,22 +326,78 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       },
       
+      checkEmailExists() {
+        const email = this.formData.email;
+        
+        // Don't check empty emails
+        if (!email || email.trim() === '') {
+          this.emailExists = false;
+          this.emailValid = false;
+          this.emailMessage = '';
+          return;
+        }
+        
+        // Validate email format first
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          this.emailValid = false;
+          this.emailMessage = 'Please enter a valid email address';
+          return;
+        }
+        
+        // Show loading state
+        this.emailChecking = true;
+        
+        // Make API call to check if email exists
+        fetch(`/users/api/check-email/?email=${encodeURIComponent(email)}`)
+          .then(response => response.json())
+          .then(data => {
+            this.emailExists = data.exists;
+            this.emailValid = data.is_valid && !data.exists;
+            this.emailMessage = data.message;
+            
+            // Update validation status
+            this.updateInputValidation('id_email', this.emailValid);
+            
+            // Update overall step validation
+            this.validateStep1();
+          })
+          .catch(error => {
+            console.error('Error checking email:', error);
+            // Fallback to simple regex validation on error
+            this.emailValid = emailRegex.test(email);
+            this.updateInputValidation('id_email', this.emailValid);
+          })
+          .finally(() => {
+            this.emailChecking = false;
+          });
+      },
+      
       validateStep1() {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const usernameRegex = /^[a-zA-Z0-9@.+_-]+$/;
         
-        const isEmailValid = emailRegex.test(this.formData.email);
+        // For immediate feedback while API is checking
+        const isBasicEmailValid = emailRegex.test(this.formData.email);
+        
+        // For final validation, consider both format and existence check
+        const isEmailValid = this.emailValid;
+        
         const isUsernameValid = usernameRegex.test(this.formData.username) && this.formData.username.length <= 150;
+        const isNameValid = this.formData.first_name.trim().length > 0 && this.formData.last_name.trim().length > 0;
         const isPasswordValid = this.formData.password1.length >= 8;
         const doPasswordsMatch = this.formData.password1 === this.formData.password2;
         
         // Update input field borders based on validation
-        this.updateInputValidation('id_email', isEmailValid);
         this.updateInputValidation('id_username', isUsernameValid);
+        this.updateInputValidation('id_first_name', this.formData.first_name.trim().length > 0);
+        this.updateInputValidation('id_last_name', this.formData.last_name.trim().length > 0);
         this.updateInputValidation('id_password1', isPasswordValid);
         this.updateInputValidation('id_password2', doPasswordsMatch && this.formData.password2.length > 0);
         
-        this.isStepValid = isEmailValid && isUsernameValid && isPasswordValid && doPasswordsMatch;
+        // For email, we set validation in the checkEmailExists function
+        
+        this.isStepValid = isEmailValid && isUsernameValid && isNameValid && isPasswordValid && doPasswordsMatch;
       },
       
       validateStep2() {
