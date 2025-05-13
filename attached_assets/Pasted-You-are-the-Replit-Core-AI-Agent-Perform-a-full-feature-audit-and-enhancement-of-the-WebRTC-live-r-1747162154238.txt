@@ -1,0 +1,105 @@
+You are the Replit Core AI Agent. Perform a full-feature audit and enhancement of the *WebRTC live room system* and *Mentor Dashboard – My Sessions* module in PeerLearn. Ensure all flows, buttons, sub-tabs, real-time status updates, and video/audio features work flawlessly for both learners and mentors. Use Django+Channels+SQLite3+TailwindCSS+Alpine.js. Include all fixes, real-time enhancements, and error handling logic. No further input needed.
+
+────────────────────────────────────────────
+1. GO LIVE & JOIN ROOM – END-TO-END FLOW
+────────────────────────────────────────────
+• ✅ Mentor clicks *Go Live ▶*:
+   – Route: /dashboard/mentor/my-sessions
+   – Check: session.status == 'scheduled' and current_time ≥ start_time - 15 mins
+   – Action: POST /api/sessions/{id}/go_live/ → status='live', started_at=now()
+   – Result: redirect to /session/{room_code}/, WS session.live broadcast
+
+• ✅ Learner sees Join ▶ (T–5m):
+   – Route: /dashboard/learner/activity
+   – Checks Booking.confirmed + session.status == 'live'
+   – Action: GET /api/sessions/{id}/authorize_join/
+   – Result: redirect to /session/{room_code}/
+
+• ✅ BOTH ROLES enter /session/{room_code}/:
+   – Auth check: only mentor or booked learner
+   – WS: connect to sessions:{room_code}
+   – Lobby: show who’s present (learner.join)
+   – Video: peer-to-peer via STUN/TURN; auto fallback audio
+
+────────────────────────────────────────────
+2. VIDEO/AUDIO CAMERA ENSUREMENT
+────────────────────────────────────────────
+• ✅ WebRTC camera/audio connection:
+   – Use navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+   – Handle device errors:
+     - “Permission denied” → toast + audio-only fallback
+     - “Device not found” → toast “Camera/Mic missing”
+
+• ✅ Mentor video shows full-width (desktop) or full-height (mobile)
+• ✅ Learner video appears in secondary pane
+• ✅ Reconnection logic:
+   – WS ping/pong to detect disconnects
+   – If crash or reload: auto resume session if time < end_time
+   – ICE restart on retry
+
+────────────────────────────────────────────
+3. MENTOR DASHBOARD: MY SESSIONS
+────────────────────────────────────────────
+• ✅ Sub-tabs:
+   – Today: shows sessions for current date
+   – Upcoming: future sessions (status='scheduled')
+   – Past: completed or cancelled
+
+• ✅ Real-time updates:
+   – WS sessions:{mentor_id} receives:
+     • new_bookings (update "Booked (N)")
+     • learner.join (show attendee toast)
+     • session.live (show “LIVE NOW” badge)
+     • session.cancelled or ended
+
+• ✅ Buttons:
+   – Go Live ▶ (enabled in valid window only)
+   – Edit ✎ (enabled until 5 min before start)
+   – Cancel 🗑 (allowed until session starts)
+
+• ✅ Countdown timer (hh:mm:ss) powered by Alpine.js
+• ✅ WS triggers immediate UI updates across:
+   – Landing page
+   – Learner dashboards
+   – Mentor my-sessions
+
+────────────────────────────────────────────
+4. ERROR HANDLING
+────────────────────────────────────────────
+• Network issues:
+   – Toast: “Network lost. Reconnecting…”
+   – Retry every 5s until WS/session restored
+
+• Media issues:
+   – Fallback to audio-only if camera fails
+   – Prompt: “Your camera is not available”
+
+• Go Live errors:
+   – If session already started → toast “Already live”
+   – If session expired → toast “Time over – session ended”
+
+• Join errors:
+   – Unauthorized access → toast “Book this session first”
+   – Session not live → toast “Mentor has not started the session yet”
+
+────────────────────────────────────────────
+5. ENSURE FULL FUNCTIONALITY & SECURITY
+────────────────────────────────────────────
+• ✅ CSRF protection, role-check middleware on all views
+• ✅ Secure STUN/TURN credentials in ENV
+• ✅ SQLite3 persistence for all models
+• ✅ WS auth via Django Tokens
+
+• ✅ All expected flows:
+   – Mentor publishes → Learner books → Mentor goes live → Learner joins → Both see video → Session ends → Feedback
+
+────────────────────────────────────────────
+6. DELIVERABLES
+────────────────────────────────────────────
+• All corrected views, templates, consumers, Alpine.js logic, and Django routes
+• Full UI/UX real-time flows across Mentor and Learner Dashboards
+• WebRTC room page that works 100% with dual video, chat, fallback, and analytics
+• Test scripts to confirm Go Live, Join, and reconnect scenarios work
+• Final message: “Main features fully operational. Video/Audio confirmed. All real-time flows functional.”
+
+Use this prompt to ensure PeerLearn’s core live session flow works reliably with all UI, camera, WS, DB, and real-time updates fully integrated.

@@ -9,6 +9,7 @@ app_name = 'payments'
 
 urlpatterns = [
     # Payment creation and processing
+    path('process/<int:booking_id>/', views.payment_create, name='process'),  # Added for compatibility
     path('create/<int:booking_id>/', views.payment_create, name='payment_create'),
     path('detail/<int:payment_id>/', views.payment_detail, name='payment_detail'),
     path('success/<int:payment_id>/', views.payment_success, name='payment_success'),

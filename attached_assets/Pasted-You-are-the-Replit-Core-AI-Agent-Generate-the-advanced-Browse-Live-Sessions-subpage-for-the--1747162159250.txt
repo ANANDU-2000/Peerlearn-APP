@@ -1,0 +1,65 @@
+You are the Replit Core AI Agent. Generate the *advanced “Browse & Live Sessions”* subpage for the *Learner Dashboard* in PeerLearn—covering real-time recommended, scheduled, and live sessions, booking/join flows, video room entry, notifications, and error handling. Use Django+Channels+SQLite3+TailwindCSS+Alpine.js. No further guidance needed.
+
+ROUTE: /dashboard/learner/sessions (learner-only; middleware guard)
+
+1. LAYOUT & NAVIGATION  
+• *Web*: sidebar “Sessions” highlight + main content  
+• *Mobile*: bottom-nav icon “Sessions” + header “Browse Sessions”  
+• Tabs:  
+  A. *Recommended* (ML via /api/recommendations)  
+  B. *Scheduled* (all future sessions from DB ordered by schedule)  
+  C. *Live Now* (filter status='live')  
+
+2. SESSION CARDS  
+Each card shows:  
+• Thumbnail + title (2-line truncate)  
+• Mentor name/avatar + domains tags  
+• Schedule:  
+  – *Recommended/Scheduled*: countdown hh:mm:ss via Alpine.js  
+  – *Live Now*: red LIVE badge + elapsed timer  
+• Price badge (INR or “Free”)  
+• *Actions*:  
+  – *Book ▶* (if status in [‘scheduled’] and not booked)  
+  – *Join ▶* (if status=‘live’ and learner has Booking)  
+  – *Booked ✔* badge if already booked  
+
+3. BOOK ▶ FLOW  
+• If unauthenticated → Auth-Selector modal  
+• Else → bottom sheet: session details + [Confirm ▶] or [Pay via Razorpay ▶]  
+  – On success: create Booking+Payment in SQLite3; WS → requests:{mentor_id} + notifications:{learner_id}; toast “Booked✔”  
+  – Update card to “Booked ✔”  
+
+4. JOIN ▶ FLOW  
+• Learner clicks *Join ▶*:  
+  – AJAX GET /api/sessions/{id}/authorize_join/ → verify Booking.confirmed & status in ['live']  
+  – On 200 OK → redirect /session/{room_code}/  
+  – Else → toast “Please book first” or “Session not live”  
+
+5. REAL-TIME UPDATES  
+• WS channels:  
+  – sessions:{session_id} broadcasts session.live, learner.join/leave → update card badges, attendee counts, toasts “Alice joined.”  
+  – notifications:{learner_id} for booking confirmations & reminders  
+• Celery tasks: T−30min reminders → WS/email; T+1hr feedback prompts  
+
+6. NOTIFICATIONS & TOASTS  
+• On session.live: toast “Session ‘X’ is live—Join now!”  
+• On booking: toast “You’ve booked ‘X’”  
+• On WS learner.join in live tab: “Alice has joined the room”  
+
+7. UI/UX & STYLING  
+• *Web*: 3-column responsive grid, hover:scale cards, skeleton loaders >1s, spinner >3s  
+• *Mobile*: swipeable tabs, full-width cards, bottom-sheet menus, tap targets ≥44px  
+• Buttons: primary blue, hover scale, disabled opacity  
+• Alpine.js for countdown, toasts, sheet transitions  
+
+8. ERROR HANDLING & FALLBACKS  
+• Network/WS drop → retry/backoff + toast “Reconnecting…”  
+• Razorpay fail → retry modal + toast  
+• Unauthorized → toast + redirect to Auth  
+• Session expired → toast “Session ended” + disable actions  
+
+9. ACCESS CONTROL  
+• Only learners see “Book”/“Join”; mentors see a static view with no actions  
+• Admin access barred  
+
+Deliver Django views, serializers, URL routes, templates, Alpine.js, and Channels consumers to implement this polished, real-time “Browse & Live Sessions” subpage with full booking, join, and notification flows.
