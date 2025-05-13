@@ -34,8 +34,9 @@ urlpatterns = [
     path('booking/<int:booking_id>/cancel/', views.cancel_booking, name='cancel_booking'),
     path('booking/<int:booking_id>/feedback/', views.submit_feedback, name='feedback'),
     
-    # WebRTC room
+    # WebRTC room and live functionality
     path('room/<uuid:room_code>/', views.session_room, name='room'),
+    path('room/<uuid:room_code>/go-live/', views.go_live_session, name='go_live'),
     
     # API endpoints
     path('api/status/', api_views.session_status_api, name='status_api'),

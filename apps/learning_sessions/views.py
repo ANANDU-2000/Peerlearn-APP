@@ -9,6 +9,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib import messages
+from django.utils import timezone
+from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse, HttpResponseForbidden
@@ -767,3 +769,63 @@ def cancel_session_request(request, request_id):
         messages.success(request, 'Session request cancelled successfully.')
     
     return redirect('users:learner_dashboard')
+
+@login_required
+def go_live_session(request, room_code):
+    """View to make a session go live and redirect to the room."""
+    # Get the session
+    session = get_object_or_404(Session, room_code=room_code)
+    
+    # Check if user is the mentor
+    if session.mentor != request.user:
+        messages.error(request, 'Only the mentor can make this session go live.')
+        return redirect('users:mentor_dashboard')
+    
+    # Check if session is in scheduled status
+    if session.status != Session.SCHEDULED:
+        if session.status == Session.LIVE:
+            # Session is already live, just redirect to the room
+            messages.info(request, 'Session is already live. Joining now.')
+        else:
+            messages.error(request, f'Cannot go live with a session that is {session.get_status_display().lower()}.')
+            return redirect('users:mentor_session_detail', session_id=session.id)
+    
+    # Calculate time until session
+    time_until_session = session.schedule - timezone.now()
+    
+    # Check if it's too early to go live (more than 15 min before scheduled time)
+    if time_until_session > timezone.timedelta(minutes=15):
+        messages.error(
+            request, 
+            f'It\'s too early to go live. You can make the session live within 15 minutes of the scheduled time.'
+        )
+        return redirect('users:mentor_session_detail', session_id=session.id)
+    
+    # Check if it's too late (session has already ended)
+    if time_until_session < timezone.timedelta(minutes=-session.duration):
+        messages.error(
+            request, 
+            f'This session was scheduled to end {abs(time_until_session.total_seconds() // 60 + session.duration)} minutes ago.'
+        )
+        return redirect('users:mentor_session_detail', session_id=session.id)
+    
+    # Update session status to live
+    session.status = Session.LIVE
+    session.save()
+    
+    # Notify all confirmed learners
+    from apps.notifications.models import Notification
+    
+    for booking in session.bookings.filter(status=Booking.CONFIRMED):
+        Notification.objects.create(
+            user=booking.learner,
+            message=f"Session '{session.title}' is now live! Join now.",
+            notification_type='session_live',
+            reference_id=session.id,
+            link=f"/sessions/room/{session.room_code}/"
+        )
+    
+    messages.success(request, 'Session is now live. Joining room...')
+    
+    # Redirect to the session room
+    return redirect('sessions:room', room_code=session.room_code)
