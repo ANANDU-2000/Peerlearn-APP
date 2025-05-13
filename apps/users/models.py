@@ -111,11 +111,11 @@ class CustomUser(AbstractUser):
     def get_dashboard_url(self):
         """Get the dashboard URL based on user role."""
         if self.is_learner:
-            return '/dashboard/learner/'
+            return '/users/dashboard/learner/'
         elif self.is_mentor:
-            return '/dashboard/mentor/'
+            return '/users/dashboard/mentor/'
         elif self.is_admin_user:
-            return '/dashboard/admin/'
+            return '/admin/'
         return '/'
 
 class UserRating(models.Model):

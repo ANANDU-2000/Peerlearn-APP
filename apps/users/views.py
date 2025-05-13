@@ -195,12 +195,12 @@ def get_top_mentors(user, limit=6):
     
     # Get all mentors with high ratings (4+ stars)
     top_rated = CustomUser.objects.filter(
-        is_mentor=True,
+        role=CustomUser.MENTOR,
         is_active=True,
-        ratings__rating__gte=4  # Only consider high ratings
+        ratings_received__rating__gte=4  # Only consider high ratings
     ).annotate(
-        avg_rating=Avg('ratings__rating'),
-        rating_count=Count('ratings')
+        avg_rating=Avg('ratings_received__rating'),
+        rating_count=Count('ratings_received')
     ).filter(
         rating_count__gte=3  # At least 3 ratings
     ).order_by('-avg_rating')[:limit]
@@ -212,7 +212,7 @@ def get_top_mentors(user, limit=6):
         # Get mentors who aren't already in top_rated
         existing_ids = [mentor.id for mentor in top_rated]
         active_mentors = CustomUser.objects.filter(
-            is_mentor=True, 
+            role=CustomUser.MENTOR, 
             is_active=True
         ).exclude(
             id__in=existing_ids
@@ -227,8 +227,14 @@ def get_top_mentors(user, limit=6):
 
 def learner_dashboard(request):
     """View for learner dashboard with tab navigation support."""
+    # Check if user is authenticated first
+    if not request.user.is_authenticated:
+        messages.error(request, 'You must be logged in to access the dashboard.')
+        return redirect('login')
+        
+    # Then check if user is a learner
     if not request.user.is_learner:
-        messages.error(request, 'Access denied.')
+        messages.error(request, 'Access denied. This dashboard is for learners only.')
         return redirect(request.user.get_dashboard_url())
     
     # Get active tab from query parameter, default to 'home'
