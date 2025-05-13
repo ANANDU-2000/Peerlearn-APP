@@ -1,450 +1,325 @@
 /**
- * Notifications management for PeerLearn
- * Handles WebSocket connections for real-time notifications
+ * Notifications System for PeerLearn
+ * Provides real-time notifications via WebSocket
  */
 
+// Store notification data
+let notificationsData = {
+    count: 0,
+    items: [],
+    readCount: 0
+};
+
+// WebSocket connection
 let notificationSocket = null;
-let notificationsPingInterval = null;
-const NOTIFICATION_PING_INTERVAL = 30000; // 30 seconds
-let notificationSoundEnabled = true;
+let reconnectAttempts = 0;
+let reconnectInterval = 2000; // Start with 2s
+const maxReconnectAttempts = 5;
 
 /**
- * Initialize notification WebSocket connection
- * @param {string} userId - The ID of the current user
+ * Initialize notifications system
+ * This is called from Alpine.js initialization
  */
-function connectNotificationWebSocket(userId) {
-    if (!userId) {
-        console.error('User ID not provided. Cannot initialize notification WebSocket.');
+function initNotifications() {
+    // Check if the current user is logged in and has a user ID
+    if (typeof USER_ID === 'undefined') {
+        console.error('USER_ID not defined, notifications system cannot initialize');
         return;
     }
 
+    // Connect to WebSocket for notifications
+    connectNotificationWebSocket();
+    
+    // Load initial notifications via API
+    fetchNotifications();
+    
+    // Setup refresh interval (every 5 minutes)
+    setInterval(fetchNotifications, 5 * 60 * 1000);
+}
+
+/**
+ * Connect to the notifications WebSocket
+ */
+function connectNotificationWebSocket() {
     // Close existing connection if any
     if (notificationSocket) {
         notificationSocket.close();
-        notificationSocket = null;
     }
-
-    // Determine WebSocket protocol (ws or wss)
+    
+    // Create WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${userId}/`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${USER_ID}/`;
     
-    try {
-        // Create new WebSocket connection
-        notificationSocket = new WebSocket(wsUrl);
-        
-        // Setup event handlers
-        notificationSocket.onopen = function(e) {
-            console.log('Notification WebSocket connection established');
-            
-            // Start ping interval to keep connection alive
-            startNotificationPingInterval();
-        };
-        
-        notificationSocket.onmessage = function(e) {
-            try {
-                const data = JSON.parse(e.data);
-                
-                // Handle different message types
-                switch(data.type) {
-                    case 'notification':
-                        handleNewNotification(data);
-                        break;
-                    case 'notification_count':
-                        updateNotificationCount(data.count);
-                        break;
-                    case 'pong':
-                        // Ping response received, connection is alive
-                        break;
-                    default:
-                        console.log('Unknown notification message type:', data.type);
-                }
-            } catch (error) {
-                console.error('Error processing notification WebSocket message:', error);
-            }
-        };
-        
-        notificationSocket.onclose = function(e) {
-            console.log('Notification WebSocket connection closed');
-            clearInterval(notificationsPingInterval);
-            
-            // Attempt to reconnect after a delay
-            setTimeout(() => {
-                connectNotificationWebSocket(userId);
-            }, 3000);
-        };
-        
-        notificationSocket.onerror = function(e) {
-            console.error('Notification WebSocket error:', e);
-        };
-    } catch (error) {
-        console.error('Error initializing notification WebSocket:', error);
-    }
+    // Create new WebSocket connection
+    notificationSocket = new WebSocket(wsUrl);
+    
+    // Event handlers for WebSocket
+    notificationSocket.onopen = onNotificationSocketOpen;
+    notificationSocket.onmessage = onNotificationSocketMessage;
+    notificationSocket.onclose = onNotificationSocketClose;
+    notificationSocket.onerror = onNotificationSocketError;
 }
 
 /**
- * Start ping interval to keep connection alive
+ * Handle WebSocket open event
  */
-function startNotificationPingInterval() {
-    // Clear existing interval if any
-    if (notificationsPingInterval) {
-        clearInterval(notificationsPingInterval);
-    }
-    
-    // Send ping every 30 seconds
-    notificationsPingInterval = setInterval(() => {
-        if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
-            notificationSocket.send(JSON.stringify({ 'type': 'ping' }));
-        }
-    }, NOTIFICATION_PING_INTERVAL);
+function onNotificationSocketOpen(event) {
+    console.log('Notification WebSocket connected');
+    reconnectAttempts = 0;
+    reconnectInterval = 2000;
 }
 
 /**
- * Handle new notification message
- * @param {Object} data - The notification data
+ * Handle WebSocket message event
  */
-function handleNewNotification(data) {
-    // Play notification sound if enabled
-    if (notificationSoundEnabled) {
-        playNotificationSound();
-    }
+function onNotificationSocketMessage(event) {
+    const data = JSON.parse(event.data);
+    console.log('Notification received:', data);
     
-    // Show notification as toast
-    if (typeof showToast === 'function') {
-        showToast(data.message, mapNotificationTypeToToastType(data.level));
-    }
-    
-    // Update notification count
-    if (data.count !== undefined) {
+    // Handle different types of notification events
+    if (data.type === 'notification_update') {
+        // Process the new notification
+        processNewNotification(data.notification);
+    } else if (data.type === 'notification_read') {
+        // Update read status
+        updateNotificationReadStatus(data.notification_id);
+    } else if (data.type === 'notification_count') {
+        // Update unread count
         updateNotificationCount(data.count);
     }
+}
+
+/**
+ * Handle WebSocket close event
+ */
+function onNotificationSocketClose(event) {
+    console.log('Notification WebSocket closed:', event);
     
-    // Refresh notification list if available
-    if (typeof refreshNotificationList === 'function') {
-        refreshNotificationList();
+    // Attempt to reconnect with exponential backoff
+    if (reconnectAttempts < maxReconnectAttempts) {
+        setTimeout(() => {
+            reconnectAttempts++;
+            reconnectInterval = Math.min(30000, reconnectInterval * 2); // Max 30s
+            connectNotificationWebSocket();
+        }, reconnectInterval);
+    } else {
+        console.error('Max reconnect attempts reached for notification WebSocket');
     }
 }
 
 /**
- * Map notification level to toast type
- * @param {string} level - Notification level ('info', 'warning', 'error', 'success')
- * @returns {string} Toast type
+ * Handle WebSocket error event
  */
-function mapNotificationTypeToToastType(level) {
-    switch (level) {
-        case 'warning':
-            return 'warning';
-        case 'error':
-            return 'error';
-        case 'success':
-            return 'success';
-        case 'info':
-        default:
-            return 'info';
+function onNotificationSocketError(error) {
+    console.error('Notification WebSocket error:', error);
+}
+
+/**
+ * Process a new notification
+ * @param {Object} notification - The notification data
+ */
+function processNewNotification(notification) {
+    // Add notification to list
+    notificationsData.items.unshift(notification);
+    
+    // Update counter if notification is unread
+    if (!notification.read) {
+        notificationsData.count++;
+        updateNotificationCounter();
+    }
+    
+    // Update Alpine.js data if using Alpine
+    updateAlpineNotificationData();
+    
+    // Show toast notification
+    showNotificationToast(notification);
+}
+
+/**
+ * Show toast for new notification
+ * @param {Object} notification - The notification data
+ */
+function showNotificationToast(notification) {
+    if (window.showToast) {
+        window.showToast(notification.message, 'info');
     }
 }
 
 /**
  * Update notification count in UI
- * @param {number} count - The number of unread notifications
+ * @param {number} count - The new notification count
  */
 function updateNotificationCount(count) {
-    const notificationCountElements = document.querySelectorAll('.notification-count');
+    notificationsData.count = count;
+    updateNotificationCounter();
+    updateAlpineNotificationData();
+}
+
+/**
+ * Update the notification counter badge in UI
+ */
+function updateNotificationCounter() {
+    // Update counter in UI
+    const counters = document.querySelectorAll('.notification-counter');
     
-    notificationCountElements.forEach(el => {
-        el.textContent = count;
-        
-        // Toggle visibility based on count
-        if (count > 0) {
-            el.classList.remove('hidden');
+    counters.forEach(counter => {
+        // Only show counter if there are unread notifications
+        if (notificationsData.count > 0) {
+            counter.textContent = notificationsData.count;
+            counter.classList.remove('hidden');
         } else {
-            el.classList.add('hidden');
+            counter.textContent = '0';
+            counter.classList.add('hidden');
         }
     });
 }
 
 /**
- * Play notification sound
+ * Update Alpine.js notification data
+ * This assumes Alpine.js is used and has notificationCount in its data
  */
-function playNotificationSound() {
-    try {
-        const sound = new Audio('/static/sounds/notification.mp3');
-        sound.volume = 0.5;
-        sound.play();
-    } catch (error) {
-        console.error('Error playing notification sound:', error);
-    }
-}
-
-/**
- * Toggle notification sounds
- * @param {boolean} enabled - Whether to enable notification sounds
- */
-function toggleNotificationSounds(enabled) {
-    notificationSoundEnabled = enabled;
-    localStorage.setItem('notification_sound_enabled', enabled ? 'true' : 'false');
-}
-
-/**
- * Get notification sound setting
- * @returns {boolean} Whether notification sounds are enabled
- */
-function getNotificationSoundSetting() {
-    const setting = localStorage.getItem('notification_sound_enabled');
-    return setting === null ? true : setting === 'true';
-}
-
-/**
- * Initialize notifications panel
- */
-function initNotifications() {
-    // Load notification sound setting
-    notificationSoundEnabled = getNotificationSoundSetting();
-    
-    // Get user ID for WebSocket connection
-    const userIdElement = document.querySelector('meta[name="user-id"]');
-    if (userIdElement) {
-        const userId = userIdElement.getAttribute('content');
-        if (userId) {
-            connectNotificationWebSocket(userId);
-        }
-    }
-    
-    // Setup notification panel UI
-    setupNotificationPanel();
-    
-    // Fetch initial notification count
-    fetchNotificationCount();
-}
-
-/**
- * Setup notification panel event listeners
- */
-function setupNotificationPanel() {
-    // Toggle notification panel
-    const notificationButton = document.getElementById('notification-button');
-    const notificationPanel = document.getElementById('notification-panel');
-    
-    if (notificationButton && notificationPanel) {
-        notificationButton.addEventListener('click', () => {
-            const isHidden = notificationPanel.classList.contains('hidden');
-            
-            if (isHidden) {
-                notificationPanel.classList.remove('hidden');
-                fetchNotifications();
-            } else {
-                notificationPanel.classList.add('hidden');
+function updateAlpineNotificationData() {
+    // Find elements with x-data containing notificationCount
+    document.querySelectorAll('[x-data]').forEach(el => {
+        if (el.__x) {
+            // Check if this Alpine component has notificationCount
+            if ('notificationCount' in el.__x.getUnobservedData()) {
+                // Update the value
+                el.__x.$data.notificationCount = notificationsData.count;
+                
+                // If it also has notifications array
+                if ('notifications' in el.__x.getUnobservedData()) {
+                    el.__x.$data.notifications = notificationsData.items;
+                }
             }
-        });
-        
-        // Close panel when clicking outside
-        document.addEventListener('click', (event) => {
-            if (!notificationPanel.classList.contains('hidden') && 
-                !notificationPanel.contains(event.target) && 
-                !notificationButton.contains(event.target)) {
-                notificationPanel.classList.add('hidden');
-            }
-        });
-        
-        // Mark all as read button
-        const markAllReadButton = document.getElementById('mark-all-read');
-        if (markAllReadButton) {
-            markAllReadButton.addEventListener('click', () => {
-                markAllNotificationsRead();
-            });
         }
-    }
-    
-    // Setup notification sound toggle
-    const soundToggle = document.getElementById('notification-sound-toggle');
-    if (soundToggle) {
-        soundToggle.checked = notificationSoundEnabled;
-        soundToggle.addEventListener('change', (e) => {
-            toggleNotificationSounds(e.target.checked);
-        });
-    }
+    });
 }
 
 /**
  * Mark a notification as read
- * @param {string} notificationId - The ID of the notification
+ * @param {number} notificationId - The notification ID
  */
-function markNotificationRead(notificationId) {
-    const notification = document.querySelector(`[data-notification-id="${notificationId}"]`);
-    if (notification) {
-        notification.classList.remove('bg-blue-50');
-        notification.classList.add('bg-white');
-    }
+function markNotificationAsRead(notificationId) {
+    // Find notification in the list
+    const notification = notificationsData.items.find(n => n.id === notificationId);
     
-    // Call API to mark as read
-    markNotificationReadAPI(notificationId);
+    if (notification && !notification.read) {
+        // Update locally
+        notification.read = true;
+        notificationsData.count = Math.max(0, notificationsData.count - 1);
+        
+        // Update UI
+        updateNotificationCounter();
+        updateAlpineNotificationData();
+        
+        // Send to server via WebSocket if connected
+        if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
+            notificationSocket.send(JSON.stringify({
+                type: 'mark_read',
+                notification_id: notificationId
+            }));
+        } else {
+            // Fallback to API if WebSocket not available
+            markReadViaAPI(notificationId);
+        }
+    }
 }
 
 /**
  * Mark all notifications as read
  */
-function markAllNotificationsRead() {
-    const notifications = document.querySelectorAll('.notification-item');
-    notifications.forEach(notification => {
-        notification.classList.remove('bg-blue-50');
-        notification.classList.add('bg-white');
+function markAllNotificationsAsRead() {
+    // Update locally
+    notificationsData.items.forEach(notification => {
+        notification.read = true;
     });
+    notificationsData.count = 0;
     
-    // Call API to mark all as read
-    markAllNotificationsReadAPI();
-}
-
-/**
- * Fetch notification count
- */
-async function fetchNotificationCount() {
-    try {
-        const response = await fetch('/api/notifications/count/');
-        const data = await response.json();
-        updateNotificationCount(data.count);
-    } catch (error) {
-        console.error('Error fetching notification count:', error);
+    // Update UI
+    updateNotificationCounter();
+    updateAlpineNotificationData();
+    
+    // Send to server via WebSocket if connected
+    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
+        notificationSocket.send(JSON.stringify({
+            type: 'mark_all_read'
+        }));
+    } else {
+        // Fallback to API if WebSocket not available
+        markAllReadViaAPI();
     }
 }
 
 /**
- * Fetch notifications for the notification panel
+ * Update notification read status locally
+ * @param {number} notificationId - The notification ID
  */
-async function fetchNotifications() {
-    try {
-        const response = await fetch('/api/notifications/');
-        const data = await response.json();
-        renderNotifications(data.notifications);
-    } catch (error) {
-        console.error('Error fetching notifications:', error);
-    }
-}
-
-/**
- * Render notifications in the notification panel
- * @param {Array} notifications - List of notification objects
- */
-function renderNotifications(notifications) {
-    const notificationList = document.getElementById('notification-list');
-    if (!notificationList) return;
+function updateNotificationReadStatus(notificationId) {
+    // Find notification in the list
+    const notification = notificationsData.items.find(n => n.id === notificationId);
     
-    if (!notifications || notifications.length === 0) {
-        notificationList.innerHTML = `
-            <div class="p-4 text-center text-gray-500">
-                No notifications
-            </div>
-        `;
-        return;
-    }
-    
-    let notificationHTML = '';
-    
-    notifications.forEach(notification => {
-        const bgClass = notification.is_read ? 'bg-white' : 'bg-blue-50';
-        const timeAgo = getTimeAgo(notification.created_at);
+    if (notification && !notification.read) {
+        // Update locally
+        notification.read = true;
+        notificationsData.count = Math.max(0, notificationsData.count - 1);
         
-        notificationHTML += `
-            <div class="notification-item ${bgClass} p-3 border-b hover:bg-gray-50 transition-colors cursor-pointer" 
-                data-notification-id="${notification.id}" 
-                onclick="markNotificationRead('${notification.id}')">
-                <div class="flex items-start">
-                    <div class="mr-3 mt-0.5">
-                        <span class="inline-block w-2 h-2 rounded-full ${notification.is_read ? 'bg-gray-300' : 'bg-blue-500'}"></span>
-                    </div>
-                    <div class="flex-grow">
-                        <p class="text-sm text-gray-800 mb-1">${notification.message}</p>
-                        <p class="text-xs text-gray-500">${timeAgo}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    notificationList.innerHTML = notificationHTML;
+        // Update UI
+        updateNotificationCounter();
+        updateAlpineNotificationData();
+    }
 }
 
 /**
- * Format a date as a "time ago" string
- * @param {string} dateString - ISO date string
- * @returns {string} Time ago string (e.g. "2 hours ago")
+ * Fetch notifications from API
  */
-function getTimeAgo(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-    
-    if (seconds < 60) {
-        return 'just now';
-    }
-    
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) {
-        return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
-    }
-    
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) {
-        return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-    }
-    
-    const days = Math.floor(hours / 24);
-    if (days < 30) {
-        return `${days} ${days === 1 ? 'day' : 'days'} ago`;
-    }
-    
-    const months = Math.floor(days / 30);
-    if (months < 12) {
-        return `${months} ${months === 1 ? 'month' : 'months'} ago`;
-    }
-    
-    const years = Math.floor(months / 12);
-    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
-}
-
-/**
- * Mark a notification as read via API
- * @param {string} notificationId - The ID of the notification
- */
-async function markNotificationReadAPI(notificationId) {
-    try {
-        const response = await fetch(`/api/notifications/${notificationId}/read/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            }
+function fetchNotifications() {
+    // Call API to get notifications
+    fetch('/users/api/notifications/')
+        .then(response => response.json())
+        .then(data => {
+            // Update local data
+            notificationsData.items = data.notifications;
+            notificationsData.count = data.unread_count;
+            
+            // Update UI
+            updateNotificationCounter();
+            updateAlpineNotificationData();
+        })
+        .catch(error => {
+            console.error('Error fetching notifications:', error);
         });
-        
-        if (response.ok) {
-            // Update count
-            const countResponse = await fetch('/api/notifications/count/');
-            const data = await countResponse.json();
-            updateNotificationCount(data.count);
+}
+
+/**
+ * Mark notification read via API (fallback if WebSocket unavailable)
+ * @param {number} notificationId - The notification ID
+ */
+function markReadViaAPI(notificationId) {
+    fetch(`/users/api/notifications/${notificationId}/read/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         }
-    } catch (error) {
+    }).catch(error => {
         console.error('Error marking notification as read:', error);
-    }
+    });
 }
 
 /**
- * Mark all notifications as read via API
+ * Mark all notifications read via API (fallback if WebSocket unavailable)
  */
-async function markAllNotificationsReadAPI() {
-    try {
-        const response = await fetch('/api/notifications/read-all/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            }
-        });
-        
-        if (response.ok) {
-            // Update count to zero
-            updateNotificationCount(0);
+function markAllReadViaAPI() {
+    fetch('/users/api/notifications/read-all/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         }
-    } catch (error) {
+    }).catch(error => {
         console.error('Error marking all notifications as read:', error);
-    }
+    });
 }
 
 /**
@@ -469,15 +344,7 @@ function getCsrfToken() {
     return cookieValue;
 }
 
-// Initialize notifications when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.querySelector('.notification-count')) {
-        initNotifications();
-    }
-});
-
-// Make functions available globally
-window.connectNotificationWebSocket = connectNotificationWebSocket;
-window.markNotificationRead = markNotificationRead;
-window.markAllNotificationsRead = markAllNotificationsRead;
-window.toggleNotificationSounds = toggleNotificationSounds;
+// Export functions for global use
+window.initNotifications = initNotifications;
+window.markNotificationAsRead = markNotificationAsRead;
+window.markAllNotificationsAsRead = markAllNotificationsAsRead;

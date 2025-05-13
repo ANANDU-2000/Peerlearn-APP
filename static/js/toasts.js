@@ -1,160 +1,179 @@
 /**
- * Toast notification system for PeerLearn
- * Provides a consistent way to show notifications to users
+ * Toast notifications system for PeerLearn
+ * Displays temporary notifications for user feedback
  */
 
-// Toast defaults
-const TOAST_DEFAULTS = {
-    duration: 5000,      // Default duration in ms
-    position: 'bottom',  // Position on screen (bottom or top)
-    dismissible: true    // Whether toast can be dismissed by clicking
+// Toast container element - will be created if it doesn't exist
+let toastContainer = null;
+
+// Toast colors based on type
+const TOAST_COLORS = {
+    success: {
+        background: 'bg-green-100',
+        border: 'border-green-400',
+        text: 'text-green-700',
+        icon: `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>`
+    },
+    error: {
+        background: 'bg-red-100',
+        border: 'border-red-400',
+        text: 'text-red-700',
+        icon: `<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+              </svg>`
+    },
+    warning: {
+        background: 'bg-yellow-100',
+        border: 'border-yellow-400',
+        text: 'text-yellow-700',
+        icon: `<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>`
+    },
+    info: {
+        background: 'bg-blue-100',
+        border: 'border-blue-400',
+        text: 'text-blue-700',
+        icon: `<svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+              </svg>`
+    }
 };
 
-let toastContainer = null;
-let toastIdCounter = 0;
+// Default toast duration in milliseconds
+const DEFAULT_DURATION = 5000;
 
 /**
- * Initialize toast notification system
+ * Initialize the toast container
  */
-function initToasts() {
-    // Check if container already exists
-    if (document.getElementById('toast-container')) {
-        toastContainer = document.getElementById('toast-container');
-        return;
+function initToastContainer() {
+    // Create container if it doesn't exist
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col space-y-4';
+        document.body.appendChild(toastContainer);
     }
-    
-    // Create toast container if it doesn't exist
-    toastContainer = document.createElement('div');
-    toastContainer.id = 'toast-container';
-    toastContainer.className = 'fixed z-50 p-4 flex flex-col items-center w-full md:max-w-md';
-    
-    // Set position (bottom or top)
-    if (TOAST_DEFAULTS.position === 'top') {
-        toastContainer.classList.add('top-0', 'right-0');
-    } else {
-        toastContainer.classList.add('bottom-0', 'right-0');
-    }
-    
-    document.body.appendChild(toastContainer);
 }
 
 /**
  * Show a toast notification
  * @param {string} message - The message to display
- * @param {string} type - The type of toast (success, error, info, warning)
- * @param {Object} options - Optional configuration options
+ * @param {string} type - The type of toast (success, error, warning, info)
+ * @param {number} duration - How long to display the toast in ms
  */
-function showToast(message, type = 'info', options = {}) {
-    if (!message) return;
+function showToast(message, type = 'info', duration = DEFAULT_DURATION) {
+    initToastContainer();
     
-    // Ensure container is initialized
-    if (!toastContainer) {
-        initToasts();
-    }
-    
-    // Merge default options with provided options
-    const settings = { ...TOAST_DEFAULTS, ...options };
+    // Get color scheme based on type
+    const colors = TOAST_COLORS[type] || TOAST_COLORS.info;
     
     // Create toast element
-    const toastId = `toast-${++toastIdCounter}`;
     const toast = document.createElement('div');
-    toast.id = toastId;
-    toast.className = 'mb-3 p-4 rounded-lg shadow-lg min-w-full md:min-w-[320px] flex items-start toast-enter';
-    toast.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+    toast.className = `flex items-center p-4 mb-4 rounded-lg border ${colors.background} ${colors.border} ${colors.text} transition-all duration-300 ease-in-out transform translate-x-0 opacity-0 max-w-xs sm:max-w-sm md:max-w-md`;
+    toast.setAttribute('role', 'alert');
     
-    // Set appropriate background color based on type
-    switch (type.toLowerCase()) {
-        case 'success':
-            toast.classList.add('bg-green-100', 'text-green-800', 'border-l-4', 'border-green-500');
-            break;
-        case 'error':
-            toast.classList.add('bg-red-100', 'text-red-800', 'border-l-4', 'border-red-500');
-            break;
-        case 'warning':
-            toast.classList.add('bg-yellow-100', 'text-yellow-800', 'border-l-4', 'border-yellow-500');
-            break;
-        case 'info':
-        default:
-            toast.classList.add('bg-blue-100', 'text-blue-800', 'border-l-4', 'border-blue-500');
-            break;
-    }
-    
-    // Create toast content
-    const content = document.createElement('div');
-    content.className = 'flex-grow pr-3';
-    content.textContent = message;
-    
-    // Create dismiss button if dismissible
-    const dismissButton = document.createElement('button');
-    dismissButton.className = 'text-gray-500 hover:text-gray-700 focus:outline-none';
-    dismissButton.innerHTML = '&times;';
-    dismissButton.onclick = () => dismissToast(toastId);
-    
-    // Assemble toast
-    toast.appendChild(content);
-    if (settings.dismissible) {
-        toast.appendChild(dismissButton);
-    }
+    // Add content to toast
+    toast.innerHTML = `
+        <div class="inline-flex flex-shrink-0 justify-center items-center w-8 h-8 mr-3">
+            ${colors.icon}
+        </div>
+        <div class="text-sm font-normal flex-grow">${message}</div>
+        <button type="button" class="ml-3 -mx-1.5 -my-1.5 rounded-lg p-1.5 inline-flex h-8 w-8 ${colors.text} hover:opacity-75">
+            <span class="sr-only">Close</span>
+            <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+        </button>
+    `;
     
     // Add to container
     toastContainer.appendChild(toast);
     
+    // Setup close button
+    const closeButton = toast.querySelector('button');
+    closeButton.addEventListener('click', () => {
+        removeToast(toast);
+    });
+    
+    // Show toast with animation
+    requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0');
+        toast.classList.add('opacity-100');
+    });
+    
     // Set auto-dismiss timeout
-    if (settings.duration > 0) {
-        setTimeout(() => {
-            if (document.getElementById(toastId)) {
-                dismissToast(toastId);
-            }
-        }, settings.duration);
-    }
+    const timeout = setTimeout(() => {
+        removeToast(toast);
+    }, duration);
     
-    // Add click handler to dismiss
-    if (settings.dismissible) {
-        toast.addEventListener('click', () => dismissToast(toastId));
-    }
+    // Store timeout on element for cleanup
+    toast._timeout = timeout;
     
-    return toastId;
+    // Add sound notification
+    playNotificationSound();
+    
+    // Return the toast element
+    return toast;
 }
 
 /**
- * Dismiss a toast notification
- * @param {string} toastId - The ID of the toast to dismiss
+ * Remove a toast element with animation
+ * @param {HTMLElement} toast - The toast element to remove
  */
-function dismissToast(toastId) {
-    const toast = document.getElementById(toastId);
-    if (!toast) return;
+function removeToast(toast) {
+    // Skip if already being removed
+    if (toast._isRemoving) return;
+    toast._isRemoving = true;
     
-    // Animate dismissal
-    toast.classList.remove('toast-enter');
-    toast.classList.add('toast-exit');
+    // Clear timeout if exists
+    if (toast._timeout) {
+        clearTimeout(toast._timeout);
+    }
     
-    // Remove after animation completes
+    // Animate out
+    toast.classList.add('opacity-0', 'translate-x-full');
+    
+    // Remove after animation
     setTimeout(() => {
-        if (toast && toast.parentNode) {
+        if (toast.parentNode) {
             toast.parentNode.removeChild(toast);
         }
     }, 300);
 }
 
 /**
- * Clear all toast notifications
+ * Play a notification sound
  */
-function clearToasts() {
-    if (!toastContainer) return;
-    
-    // Get all toasts
-    const toasts = toastContainer.querySelectorAll('[id^="toast-"]');
-    
-    // Dismiss each toast
-    toasts.forEach(toast => {
-        dismissToast(toast.id);
-    });
+function playNotificationSound() {
+    try {
+        const audio = new Audio('/static/sounds/notification.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(err => {
+            console.log('Could not play notification sound:', err);
+        });
+    } catch (err) {
+        console.log('Error playing notification sound:', err);
+    }
 }
 
-// Initialize toast system when DOM is loaded
-document.addEventListener('DOMContentLoaded', initToasts);
+/**
+ * Clear all toasts
+ */
+function clearAllToasts() {
+    if (toastContainer) {
+        const toasts = toastContainer.querySelectorAll('div[role="alert"]');
+        toasts.forEach(toast => {
+            removeToast(toast);
+        });
+    }
+}
 
-// Make toast functions available globally
+// Make functions available globally
 window.showToast = showToast;
-window.dismissToast = dismissToast;
-window.clearToasts = clearToasts;
+window.clearAllToasts = clearAllToasts;
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', initToastContainer);
