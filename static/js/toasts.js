@@ -3,6 +3,13 @@
  * Displays temporary notifications for user feedback
  */
 
+// Use an IIFE to prevent variable name collisions
+(function() {
+// Don't re-initialize if already defined
+if (typeof window.showToast !== 'undefined') {
+    return;
+}
+
 // Toast container element - will be created if it doesn't exist
 // Use window object to avoid duplicate declaration
 if (typeof window.peerLearnToastContainer === 'undefined') {
