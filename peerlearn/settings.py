@@ -82,16 +82,24 @@ DATABASES = {
     }
 }
 
-# Redis configuration for channels
+# Channel Layers Configuration
+# Use in-memory channel layer for simplicity and reliability during development
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [(os.getenv('REDIS_HOST', 'localhost'), 
-                       int(os.getenv('REDIS_PORT', 6379)))],
-        },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
+
+# Redis channel layer configuration (commented out for now - enable when Redis is available)
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             'hosts': [(os.getenv('REDIS_HOST', 'localhost'), 
+#                       int(os.getenv('REDIS_PORT', 6379)))],
+#         },
+#     },
+# }
 
 # Cache configuration
 CACHES = {

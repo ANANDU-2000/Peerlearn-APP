@@ -2,11 +2,14 @@
 ASGI routing configuration for peerlearn project.
 """
 
-from django.urls import path, include
+import os
+import django
+from django.urls import path, re_path, include
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
+import importlib
 
 # Import websocket patterns from all apps
 from apps.learning_sessions.routing import websocket_urlpatterns as session_urlpatterns
@@ -15,11 +18,40 @@ from apps.notifications.routing import websocket_urlpatterns as notification_url
 # Get Django ASGI application for HTTP handling
 django_asgi_app = get_asgi_application()
 
+# Print all imported WebSocket URL patterns for debugging
+print("Session WebSocket URL patterns:")
+for pattern in session_urlpatterns:
+    print(f" - {pattern.pattern}")
+
+print("Notification WebSocket URL patterns:")
+for pattern in notification_urlpatterns:
+    print(f" - {pattern.pattern}")
+
+# Define a 404 catch-all handler for debugging
+def ws_404_handler(scope):
+    """
+    Handle WebSocket 404 errors by logging the URL that wasn't matched.
+    """
+    async def asgi(receive, send):
+        print(f"WebSocket 404 - Path not found: {scope['path']}")
+        await send({
+            "type": "websocket.close",
+            "code": 4004,
+            "reason": "Path not found",
+        })
+    return asgi
+
 # Combine all websocket URL patterns
 websocket_urlpatterns = [
     # Include app-specific websocket URL patterns
     *session_urlpatterns,
     *notification_urlpatterns,
+    
+    # Add a debug pattern to catch all dashboard WebSocket requests
+    re_path(r'^ws/dashboard/(?P<user_id>.+)/$', importlib.import_module('apps.learning_sessions.dashboard_consumer').DashboardConsumer.as_asgi()),
+    
+    # Add a debugging catch-all pattern for any other URLs
+    re_path(r'^ws/.*$', ws_404_handler),
 ]
 
 # Define the ASGI application with both HTTP and WebSocket support
@@ -28,11 +60,9 @@ application = ProtocolTypeRouter({
     "http": django_asgi_app,
     
     # WebSocket handlers with authentication and origin validation
-    'websocket': AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
-            URLRouter(
-                websocket_urlpatterns
-            )
+    'websocket': AuthMiddlewareStack(
+        URLRouter(
+            websocket_urlpatterns
         )
     ),
 })
