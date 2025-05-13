@@ -5,6 +5,7 @@ URL patterns for the sessions app.
 from django.urls import path
 from . import views
 from . import api_views
+from . import api_endpoints
 
 app_name = 'sessions'
 
@@ -39,4 +40,8 @@ urlpatterns = [
     # API endpoints
     path('api/status/', api_views.session_status_api, name='status_api'),
     path('api/bookings/<int:booking_id>/', api_views.booking_detail_api, name='booking_api'),
+    
+    # New API endpoints with improved error handling and WebSocket integration
+    path('api/create/', api_endpoints.create_session_api, name='create_api'),
+    path('api/session/<int:session_id>/', api_endpoints.session_details_api, name='session_details_api'),
 ]

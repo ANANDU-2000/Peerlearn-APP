@@ -58,11 +58,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         if action == 'mark_read':
             notification_id = data.get('notification_id')
             if notification_id:
-                await self.mark_notification_read(notification_id)
-                await self.send(text_data=json.dumps({
-                    'type': 'notification_read',
-                    'notification_id': notification_id
-                }))
+                result = await self.mark_notification_read(notification_id)
+                if result:
+                    await self.send(text_data=json.dumps({
+                        'type': 'notification_read',
+                        'notification_id': notification_id
+                    }))
         
         elif action == 'mark_all_read':
             await self.mark_all_notifications_read()
@@ -72,67 +73,52 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     
     async def notification_message(self, event):
         """
-        Called when a new notification is created.
+        Called when a notification is sent to the group.
         """
-        # Send notification to WebSocket
+        # Send the notification data to the WebSocket
         await self.send(text_data=json.dumps({
             'type': 'notification',
-            'id': event['id'],
-            'message': event['message'],
-            'link': event['link'],
-            'created_at': event['created_at'],
+            'notification': event['notification']
         }))
     
     @database_sync_to_async
-    def get_unread_notifications(self):
-        """
-        Get user's unread notifications.
-        """
-        user = self.scope['user']
-        notifications = Notification.objects.filter(
-            user=user,
-            read=False
-        ).order_by('-created_at')[:10]  # Limit to recent 10
-        
-        return [
-            {
-                'id': notification.id,
-                'message': notification.message,
-                'link': notification.link,
-                'created_at': notification.created_at.isoformat(),
-            }
-            for notification in notifications
-        ]
-    
-    @database_sync_to_async
     def mark_notification_read(self, notification_id):
-        """
-        Mark a notification as read.
-        """
-        user = self.scope['user']
+        """Mark a notification as read."""
         try:
-            notification = Notification.objects.get(id=notification_id, user=user)
-            notification.read = True
-            notification.save()
+            notification = Notification.objects.get(id=notification_id, user=self.scope['user'])
+            if not notification.read:
+                notification.read = True
+                notification.save()
             return True
         except Notification.DoesNotExist:
             return False
     
     @database_sync_to_async
     def mark_all_notifications_read(self):
-        """
-        Mark all user's notifications as read.
-        """
-        user = self.scope['user']
-        Notification.objects.filter(user=user, read=False).update(read=True)
+        """Mark all notifications as read for the user."""
+        Notification.objects.filter(user=self.scope['user'], read=False).update(read=True)
     
     async def send_unread_notifications(self):
-        """
-        Send all unread notifications to the client.
-        """
+        """Send all unread notifications to the client."""
         notifications = await self.get_unread_notifications()
         
         await self.send(text_data=json.dumps({
             'type': 'unread_notifications',
-            'notifications': notifications,
+            'notifications': notifications
         }))
+    
+    @database_sync_to_async
+    def get_unread_notifications(self):
+        """Get all unread notifications for the user."""
+        notifications = []
+        for notification in Notification.objects.filter(user=self.scope['user'], read=False).order_by('-created_at'):
+            notifications.append({
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'created_at': notification.created_at.isoformat(),
+                'read': notification.read,
+                'notification_type': notification.notification_type,
+                'reference_id': notification.reference_id,
+            })
+        return notifications

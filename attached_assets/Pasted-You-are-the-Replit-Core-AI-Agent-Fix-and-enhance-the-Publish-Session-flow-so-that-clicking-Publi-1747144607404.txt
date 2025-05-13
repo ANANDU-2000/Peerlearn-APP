@@ -1,0 +1,54 @@
+You are the Replit Core AI Agent. Fix and enhance the “Publish Session” flow so that clicking “Publish Session ▶” reliably saves to the database, shows loading states, handles errors, and triggers all real-time updates. Incorporate these requirements into your Django+Channels+SQLite3+Tailwind+Alpine.js module:
+
+ROUTE: /api/sessions/ (POST endpoint backing the Create Session wizard)
+
+1. LOADING STATE  
+   • When “Publish Session ▶” is clicked:  
+     – Disable the button and show an inline spinner (<svg class="animate-spin">) inside the button.  
+     – Dim the form area with opacity-50 and block further input.
+
+2. AJAX SUBMISSION  
+   • Use Alpine.js @click.prevent="submitSession()" to call a JS method that:  
+     – Gathers form data (including file upload via FormData)  
+     – Sends fetch('/api/sessions/', { method:'POST', body: formData, headers:{'X-CSRFToken': csrftoken} }).
+
+3. SUCCESS HANDLING  
+   • On HTTP 201 response:  
+     – Remove spinner, re-enable button.  
+     – Show a top-right toast: “Session published successfully ✔” (green background).  
+     – Redirect after 1s to /dashboard/mentor/my-sessions?tab=Upcoming.  
+     – Broadcast a Channels event on sessions:new so landing pages and learner dashboards auto-refresh.
+
+4. ERROR HANDLING  
+   • On HTTP 400+:  
+     – Remove spinner, re-enable button.  
+     – Parse JSON { field: ["error msg"] } and display inline under each field in red.  
+     – Show a toast: “Failed to publish session—please fix errors.”  
+   • On network failure (no response):  
+     – Remove spinner, re-enable button.  
+     – Show a persistent banner at top: “Network error. Retrying in 5s…” and automatically retry submission up to 3 times.  
+     – If still failing, banner changes to “Failed to save. Retry ▶” with a retry button.
+
+5. BACKEND VIEW  
+   • In your Django ViewSet .create():  
+     – Validate all fields (title length, future datetime, file size/type).  
+     – On validation error: return Response(serializer.errors, status=400).  
+     – On success: serializer.save(room_code=uuid4(), status='scheduled').  
+     – Trigger async_to_sync(channel_layer.group_send)('sessions:new', {...}).
+
+6. DATABASE PERSISTENCE  
+   • Confirm Session record appears in db.sqlite3 with correct fields.  
+   • Image is saved to media/ with a unique filename.  
+   • No duplicates: enforce unique title+mentor+start_time constraint.
+
+7. REAL-TIME UPDATES  
+   • On successful save, your Channels consumer for sessions:new pushes to all connected clients.  
+   • Landing page and /sessions list must listen on sessions:new to prepend the new card.
+
+8. FINAL VERIFICATION  
+   • Clicking “Publish Session ▶”: loader → success toast → redirect → new session visible everywhere.  
+   • Form validation errors appear inline.  
+   • Network errors retry gracefully.  
+   • All database writes verified in SQLite3.
+
+Use this spec to correct the broken publish action and deliver a robust “Create Session” feature with complete UX, error handling, database saves, redirection, and real-time notifications.
