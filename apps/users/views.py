@@ -47,7 +47,10 @@ def mentor_signup(request):
             user.role = CustomUser.MENTOR
             user.save()
             login(request, user)
-            messages.success(request, 'Account created successfully!')
+            messages.success(
+                request, 
+                'Mentor profile created successfully! ✅ You can now create sessions and start mentoring.'
+            )
             return redirect('mentor_dashboard')
     else:
         form = MentorSignUpForm()
