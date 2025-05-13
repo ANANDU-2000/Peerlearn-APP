@@ -369,6 +369,13 @@ def learner_dashboard(request):
     # Get top mentors for recommendations
     top_mentors = get_top_mentors(request.user, 6)
     
+    # Add default rating values for mentors without them
+    for mentor in top_mentors:
+        if not hasattr(mentor, 'avg_rating'):
+            mentor.avg_rating = 0
+        if not hasattr(mentor, 'rating_count'):
+            mentor.rating_count = 0
+    
     context = {
         'recommended_sessions': recommended_sessions,
         'trending_sessions': trending_sessions,
