@@ -101,10 +101,25 @@
                         Tell us about your areas of expertise so learners can find you for relevant topics.
                     </p>
                     
-                    <div>
+                    <div class="relative">
                         <label for="id_expertise" class="block text-sm font-medium text-gray-700">Areas of Expertise</label>
-                        <input type="text" name="expertise" id="id_expertise" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. Python, Web Development, Machine Learning" x-model="formData.expertise" @input="validateStep2()">
+                        <input type="text" name="expertise" id="id_expertise" class="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. Python, Web Development, Machine Learning" 
+                            x-model="formData.expertise" 
+                            @input="handleExpertiseInput($event)" 
+                            @focus="if(formData.expertise.trim()) { searchTerm = formData.expertise.split(',').pop().trim(); showSuggestions = true; }"
+                            @blur="setTimeout(() => showSuggestions = false, 200)">
                         <p class="mt-1 text-xs text-gray-500">Enter your expertise areas separated by commas</p>
+                        
+                        <!-- Expertise suggestions -->
+                        <div x-show="showSuggestions && filteredDomains.length > 0" 
+                             class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 max-h-60 overflow-auto">
+                            <template x-for="domain in filteredDomains" :key="domain">
+                                <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm" 
+                                     @mousedown.prevent="addDomainSuggestion(domain)"
+                                     x-text="domain">
+                                </div>
+                            </template>
+                        </div>
                     </div>
                     
                     <div class="mt-4">

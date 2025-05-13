@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', function() {
       currentStep: 1,
       isStepValid: false,
       previewUrl: null,
+      showSuggestions: false,
+      showSkillSuggestions: false,
+      searchTerm: '',
+      skillSearchTerm: '',
       formData: {
         username: '',
         email: '',
@@ -132,6 +136,34 @@ document.addEventListener('DOMContentLoaded', function() {
         'Programming', 'Web Development', 'Data Science', 'Design', 'Business', 
         'Marketing', 'Mathematics', 'Science', 'Languages', 'Music'
       ],
+      allSkills: [
+        // Programming
+        'JavaScript', 'Python', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Swift', 'TypeScript', 'Kotlin', 'Go',
+        // Web Development
+        'React', 'Angular', 'Vue.js', 'Node.js', 'Express', 'Django', 'Laravel', 'Ruby on Rails', 'ASP.NET',
+        // Data Science
+        'TensorFlow', 'PyTorch', 'Scikit-learn', 'Pandas', 'NumPy', 'R', 'SQL', 'Tableau', 'Power BI',
+        // Design
+        'Photoshop', 'Illustrator', 'Figma', 'Sketch', 'InDesign', 'UI/UX', 'Animation', '3D Modeling',
+        // Business
+        'Marketing', 'SEO', 'Content Writing', 'Social Media', 'Project Management', 'Product Management',
+        // Other
+        'Teaching', 'Public Speaking', 'Writing', 'Translation', 'Video Editing', 'Audio Production'
+      ],
+      
+      get filteredDomains() {
+        if (!this.searchTerm) return [];
+        return this.popularDomains.filter(domain => 
+          domain.toLowerCase().includes(this.searchTerm.toLowerCase())
+        );
+      },
+      
+      get filteredSkills() {
+        if (!this.skillSearchTerm) return [];
+        return this.allSkills.filter(skill => 
+          skill.toLowerCase().includes(this.skillSearchTerm.toLowerCase())
+        );
+      },
       
       initForm() {
         // Form initialization happens in the template with Django template tags
@@ -171,19 +203,66 @@ document.addEventListener('DOMContentLoaded', function() {
         const isPasswordValid = this.formData.password1.length >= 8;
         const doPasswordsMatch = this.formData.password1 === this.formData.password2;
         
+        // Update input field borders based on validation
+        this.updateInputValidation('id_email', isEmailValid);
+        this.updateInputValidation('id_username', isUsernameValid);
+        this.updateInputValidation('id_password1', isPasswordValid);
+        this.updateInputValidation('id_password2', doPasswordsMatch && this.formData.password2.length > 0);
+        
         this.isStepValid = isEmailValid && isUsernameValid && isPasswordValid && doPasswordsMatch;
       },
       
       validateStep2() {
-        this.isStepValid = this.formData.expertise.trim().length > 0;
+        const isExpertiseValid = this.formData.expertise.trim().length > 0;
+        this.updateInputValidation('id_expertise', isExpertiseValid);
+        this.isStepValid = isExpertiseValid;
       },
       
       validateStep3() {
-        this.isStepValid = this.formData.skills.trim().length > 0;
+        const isSkillsValid = this.formData.skills.trim().length > 0;
+        this.updateInputValidation('id_skills', isSkillsValid);
+        this.isStepValid = isSkillsValid;
       },
       
       validateStep4() {
-        this.isStepValid = this.formData.bio.trim().length > 0;
+        const isBioValid = this.formData.bio.trim().length > 0;
+        this.updateInputValidation('id_bio', isBioValid);
+        this.isStepValid = isBioValid;
+      },
+      
+      updateInputValidation(inputId, isValid) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        
+        if (isValid) {
+          input.classList.remove('border-red-500');
+          input.classList.add('border-green-500');
+          
+          // Add check mark if not already present
+          let checkMarkId = `${inputId}-check`;
+          if (!document.getElementById(checkMarkId)) {
+            const checkMark = document.createElement('span');
+            checkMark.id = checkMarkId;
+            checkMark.className = 'absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500';
+            checkMark.innerHTML = '✓';
+            
+            // Find the parent with relative positioning
+            const parent = input.parentElement;
+            if (parent && !parent.classList.contains('relative')) {
+              parent.classList.add('relative');
+            }
+            parent.appendChild(checkMark);
+          }
+        } else {
+          input.classList.remove('border-green-500');
+          input.classList.add('border-red-500');
+          
+          // Remove check mark if present
+          const checkMark = document.getElementById(`${inputId}-check`);
+          if (checkMark) {
+            checkMark.remove();
+          }
+        }
       },
       
       handleFileUpload(event) {
@@ -218,6 +297,73 @@ document.addEventListener('DOMContentLoaded', function() {
         
         this.formData.expertise = expertise.join(', ');
         this.validateStep2();
+      },
+      
+      addDomainSuggestion(domain) {
+        const expertise = this.formData.expertise.split(',').map(item => item.trim()).filter(item => item !== '');
+        
+        if (!this.isDomainSelected(domain)) {
+          expertise.push(domain);
+        }
+        
+        this.formData.expertise = expertise.join(', ');
+        this.searchTerm = '';
+        this.showSuggestions = false;
+        this.validateStep2();
+      },
+      
+      handleExpertiseInput(e) {
+        const value = e.target.value;
+        this.formData.expertise = value;
+        
+        // Get the last term after a comma
+        const terms = value.split(',');
+        const lastTerm = terms[terms.length - 1].trim();
+        
+        if (lastTerm.length > 0) {
+          this.searchTerm = lastTerm;
+          this.showSuggestions = true;
+        } else {
+          this.showSuggestions = false;
+        }
+        
+        this.validateStep2();
+      },
+      
+      isSkillSelected(skill) {
+        const skills = this.formData.skills.split(',').map(item => item.trim());
+        return skills.includes(skill);
+      },
+      
+      addSkillSuggestion(skill) {
+        const skills = this.formData.skills.split(',').map(item => item.trim()).filter(item => item !== '');
+        
+        if (!this.isSkillSelected(skill)) {
+          skills.push(skill);
+        }
+        
+        this.formData.skills = skills.join(', ');
+        this.skillSearchTerm = '';
+        this.showSkillSuggestions = false;
+        this.validateStep3();
+      },
+      
+      handleSkillsInput(e) {
+        const value = e.target.value;
+        this.formData.skills = value;
+        
+        // Get the last term after a comma
+        const terms = value.split(',');
+        const lastTerm = terms[terms.length - 1].trim();
+        
+        if (lastTerm.length > 0) {
+          this.skillSearchTerm = lastTerm;
+          this.showSkillSuggestions = true;
+        } else {
+          this.showSkillSuggestions = false;
+        }
+        
+        this.validateStep3();
       }
     };
   };
