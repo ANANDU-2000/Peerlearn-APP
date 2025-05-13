@@ -57,34 +57,22 @@
             >
                 All
             </button>
+            {% for category in categories %}
             <button 
-                @click="activeTab = 'programming'" 
-                :class="{ 'bg-primary-600 text-white': activeTab === 'programming', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'programming' }"
+                @click="activeTab = '{{ category|slugify }}'" 
+                :class="{ 'bg-primary-600 text-white': activeTab === '{{ category|slugify }}', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== '{{ category|slugify }}' }"
                 class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
             >
+                {{ category }}
+            </button>
+            {% empty %}
+            <button class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1 bg-white text-gray-700">
                 Programming
             </button>
-            <button 
-                @click="activeTab = 'design'" 
-                :class="{ 'bg-primary-600 text-white': activeTab === 'design', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'design' }"
-                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
-            >
+            <button class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1 bg-white text-gray-700">
                 Design
             </button>
-            <button 
-                @click="activeTab = 'business'" 
-                :class="{ 'bg-primary-600 text-white': activeTab === 'business', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'business' }"
-                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
-            >
-                Business
-            </button>
-            <button 
-                @click="activeTab = 'science'" 
-                :class="{ 'bg-primary-600 text-white': activeTab === 'science', 'bg-white text-gray-700 hover:bg-gray-100': activeTab !== 'science' }"
-                class="px-4 py-2 rounded-full font-medium text-sm transition-colors m-1"
-            >
-                Science
-            </button>
+            {% endfor %}
         </div>
         
         <!-- Sessions Carousel -->
@@ -106,107 +94,161 @@
                     <!-- Slide 1 -->
                     <div class="w-full flex-shrink-0 px-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <!-- Session Card 1 -->
-                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
-                                <div class="relative">
-                                    <!-- Live badge or countdown -->
-                                    <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
-                                        <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
-                                        LIVE NOW
+                            {% if live_sessions %}
+                                {% for session in live_sessions %}
+                                <!-- Live Session Card -->
+                                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                    <div class="relative">
+                                        <!-- Live badge -->
+                                        <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
+                                            <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                                            LIVE NOW
+                                        </div>
+                                        
+                                        <!-- Attendees count -->
+                                        <div class="absolute top-3 right-3 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+                                            <span>{{ session.bookings.count }} attending</span>
+                                        </div>
+                                        
+                                        <div class="h-40 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                            <span class="text-4xl">
+                                                {% if session.topics|first == 'Programming' %}💻
+                                                {% elif session.topics|first == 'Design' %}🎨
+                                                {% elif session.topics|first == 'Business' %}💼
+                                                {% elif session.topics|first == 'Science' %}🔬
+                                                {% elif session.topics|first == 'Language' %}🌐
+                                                {% elif session.topics|first == 'Music' %}🎵
+                                                {% elif session.topics|first == 'Cooking' %}🍳
+                                                {% else %}📚{% endif %}
+                                            </span>
+                                        </div>
                                     </div>
-                                    
-                                    <!-- Attendees count -->
-                                    <div class="absolute top-3 right-3 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
-                                        <span>12 attending</span>
-                                    </div>
-                                    
-                                    <div class="h-40 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                                        <span class="text-4xl">💻</span>
+                                    <div class="p-5">
+                                        <div class="flex justify-between mb-2">
+                                            <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">{{ session.topics|first|default:"General" }}</span>
+                                            <span class="text-sm text-gray-600">{{ session.duration }} mins</span>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-900 mb-1">{{ session.title }}</h3>
+                                        <p class="text-sm text-gray-700 mb-3">{{ session.description|truncatechars:60 }}</p>
+                                        <div class="flex items-center mb-3">
+                                            <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0 overflow-hidden">
+                                                {% if session.mentor.profile_picture %}
+                                                    <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.username }}" class="w-full h-full object-cover">
+                                                {% else %}
+                                                    {{ session.mentor.username|slice:":2"|upper }}
+                                                {% endif %}
+                                            </div>
+                                            <span class="text-sm font-medium">{{ session.mentor.get_full_name|default:session.mentor.username }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-bold text-primary-600">{% if session.is_free %}Free{% else %}${{ session.price }}{% endif %}</span>
+                                            <a href="{% url 'sessions:detail' session.id %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                                Join →
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="p-5">
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Programming</span>
-                                        <span class="text-sm text-gray-600">1 hour</span>
-                                    </div>
-                                    <h3 class="text-lg font-bold text-gray-900 mb-1">Python for Beginners</h3>
-                                    <p class="text-sm text-gray-700 mb-3">Learn the basics of Python programming from an expert</p>
-                                    <div class="flex items-center mb-3">
-                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">JD</div>
-                                        <span class="text-sm font-medium">John Doe</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold text-primary-600">$25</span>
-                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                                            Book →
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                                {% endfor %}
+                            {% endif %}
                             
-                            <!-- Session Card 2 -->
-                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
-                                <div class="relative">
-                                    <!-- Countdown -->
-                                    <div class="absolute top-3 left-3 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                        Starts in 3 hours
+                            {% if upcoming_sessions %}
+                                {% for session in upcoming_sessions %}
+                                {% if forloop.counter0 < 3 %}
+                                <!-- Upcoming Session Card -->
+                                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                    <div class="relative">
+                                        <!-- Countdown -->
+                                        <div class="absolute top-3 left-3 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                            Starts {{ session.schedule|timeuntil }}
+                                        </div>
+                                        
+                                        <div class="h-40 bg-gradient-to-br 
+                                            {% if session.topics|first == 'Design' %}from-green-400 to-teal-500
+                                            {% elif session.topics|first == 'Business' %}from-yellow-400 to-orange-500
+                                            {% elif session.topics|first == 'Science' %}from-indigo-400 to-purple-500
+                                            {% elif session.topics|first == 'Language' %}from-red-400 to-pink-500
+                                            {% elif session.topics|first == 'Music' %}from-pink-400 to-red-500
+                                            {% elif session.topics|first == 'Cooking' %}from-orange-400 to-red-500
+                                            {% else %}from-blue-400 to-indigo-500{% endif %}
+                                            flex items-center justify-center">
+                                            <span class="text-4xl">
+                                                {% if session.topics|first == 'Programming' %}💻
+                                                {% elif session.topics|first == 'Design' %}🎨
+                                                {% elif session.topics|first == 'Business' %}💼
+                                                {% elif session.topics|first == 'Science' %}🔬
+                                                {% elif session.topics|first == 'Language' %}🌐
+                                                {% elif session.topics|first == 'Music' %}🎵
+                                                {% elif session.topics|first == 'Cooking' %}🍳
+                                                {% else %}📚{% endif %}
+                                            </span>
+                                        </div>
                                     </div>
-                                    
-                                    <div class="h-40 bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center">
-                                        <span class="text-4xl">🎨</span>
+                                    <div class="p-5">
+                                        <div class="flex justify-between mb-2">
+                                            <span class="text-xs font-semibold px-2 py-1 
+                                                {% if session.topics|first == 'Programming' %}bg-blue-100 text-blue-800
+                                                {% elif session.topics|first == 'Design' %}bg-green-100 text-green-800
+                                                {% elif session.topics|first == 'Business' %}bg-yellow-100 text-yellow-800
+                                                {% elif session.topics|first == 'Science' %}bg-purple-100 text-purple-800
+                                                {% elif session.topics|first == 'Language' %}bg-red-100 text-red-800
+                                                {% elif session.topics|first == 'Music' %}bg-pink-100 text-pink-800
+                                                {% elif session.topics|first == 'Cooking' %}bg-orange-100 text-orange-800
+                                                {% else %}bg-gray-100 text-gray-800{% endif %}
+                                                rounded-full">
+                                                {{ session.topics|first|default:"General" }}
+                                            </span>
+                                            <span class="text-sm text-gray-600">{{ session.duration }} mins</span>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-900 mb-1">{{ session.title }}</h3>
+                                        <p class="text-sm text-gray-700 mb-3">{{ session.description|truncatechars:60 }}</p>
+                                        <div class="flex items-center mb-3">
+                                            <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0 overflow-hidden">
+                                                {% if session.mentor.profile_picture %}
+                                                    <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.username }}" class="w-full h-full object-cover">
+                                                {% else %}
+                                                    {{ session.mentor.username|slice:":2"|upper }}
+                                                {% endif %}
+                                            </div>
+                                            <span class="text-sm font-medium">{{ session.mentor.get_full_name|default:session.mentor.username }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-bold text-primary-600">{% if session.is_free %}Free{% else %}${{ session.price }}{% endif %}</span>
+                                            <a href="{% url 'sessions:detail' session.id %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                                Book →
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="p-5">
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">Design</span>
-                                        <span class="text-sm text-gray-600">45 mins</span>
+                                {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <!-- Placeholder when no live or upcoming sessions -->
+                                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
+                                    <div class="relative">
+                                        <div class="h-40 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                            <span class="text-4xl">💻</span>
+                                        </div>
                                     </div>
-                                    <h3 class="text-lg font-bold text-gray-900 mb-1">UI/UX Design Principles</h3>
-                                    <p class="text-sm text-gray-700 mb-3">Master the fundamentals of user interface design</p>
-                                    <div class="flex items-center mb-3">
-                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">AS</div>
-                                        <span class="text-sm font-medium">Alice Smith</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold text-primary-600">Free</span>
-                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                                            Book →
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Session Card 3 -->
-                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow transform hover:scale-[1.02]">
-                                <div class="relative">
-                                    <!-- Countdown -->
-                                    <div class="absolute top-3 left-3 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                        Tomorrow, 2 PM
-                                    </div>
-                                    
-                                    <div class="h-40 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                                        <span class="text-4xl">💼</span>
+                                    <div class="p-5">
+                                        <div class="flex justify-between mb-2">
+                                            <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Programming</span>
+                                            <span class="text-sm text-gray-600">60 mins</span>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-900 mb-1">Create Your First Session</h3>
+                                        <p class="text-sm text-gray-700 mb-3">No sessions yet - be the first mentor to create one!</p>
+                                        <div class="flex items-center mb-3">
+                                            <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0"></div>
+                                            <span class="text-sm font-medium">Become a Mentor</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-bold text-primary-600">$25</span>
+                                            <a href="{% url 'users:auth_selector' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                                Sign Up →
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="p-5">
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Business</span>
-                                        <span class="text-sm text-gray-600">90 mins</span>
-                                    </div>
-                                    <h3 class="text-lg font-bold text-gray-900 mb-1">Startup Fundraising</h3>
-                                    <p class="text-sm text-gray-700 mb-3">Learn how to pitch investors and raise capital</p>
-                                    <div class="flex items-center mb-3">
-                                        <div class="h-8 w-8 rounded-full bg-gray-200 mr-2 flex-shrink-0">RJ</div>
-                                        <span class="text-sm font-medium">Robert Johnson</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold text-primary-600">$50</span>
-                                        <a href="{% url 'sessions:list' %}" class="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                                            Book →
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     

@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'rest_framework',
     
     # Local apps
+    'apps.core',
     'apps.users',
     'apps.learning_sessions',
     'apps.payments',
