@@ -450,12 +450,14 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             track.enabled = this.audioEnabled;
                         });
                         
-                        // Notify other participants
+                        // Notify other participants about media status change
                         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                             this.websocket.send(JSON.stringify({
-                                type: 'audio_status',
+                                type: 'media_status',
                                 user_id: userId,
-                                enabled: this.audioEnabled
+                                username: userName,
+                                audioEnabled: this.audioEnabled,
+                                videoEnabled: this.videoEnabled
                             }));
                         }
                     }
@@ -472,12 +474,14 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             track.enabled = this.videoEnabled;
                         });
                         
-                        // Notify other participants
+                        // Notify other participants about media status change
                         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                             this.websocket.send(JSON.stringify({
-                                type: 'video_status',
+                                type: 'media_status',
                                 user_id: userId,
-                                enabled: this.videoEnabled
+                                username: userName,
+                                audioEnabled: this.audioEnabled,
+                                videoEnabled: this.videoEnabled
                             }));
                         }
                     }
