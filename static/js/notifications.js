@@ -21,9 +21,17 @@ const maxReconnectAttempts = 5;
  * This is called from Alpine.js initialization
  */
 function initNotifications() {
-    // Check if the current user is logged in and has a user ID
-    if (typeof USER_ID === 'undefined') {
-        console.error('USER_ID not defined, notifications system cannot initialize');
+    // Get user ID from meta tag
+    const userIdMeta = document.querySelector('meta[name="user-id"]');
+    if (!userIdMeta) {
+        console.error('User ID meta tag not found, notifications system cannot initialize');
+        return;
+    }
+    
+    // Store user ID in global variable
+    window.USER_ID = userIdMeta.getAttribute('content');
+    if (!window.USER_ID) {
+        console.error('User ID is empty, notifications system cannot initialize');
         return;
     }
 
@@ -48,7 +56,7 @@ function connectNotificationWebSocket() {
     
     // Create WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${USER_ID}/`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/notifications/${window.USER_ID}/`;
     
     // Create new WebSocket connection
     notificationSocket = new WebSocket(wsUrl);
