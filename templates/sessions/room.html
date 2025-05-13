@@ -599,18 +599,48 @@
     
     // Initialize Alpine.js webRTC room
     document.addEventListener('DOMContentLoaded', function() {
-        // We'll initialize the room from the external room.js file
-        initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, {
-            stun: STUN_SERVER,
-            turn: TURN_SERVER,
-            turnUsername: TURN_USERNAME,
-            turnCredential: TURN_CREDENTIAL
+        console.log("DOM loaded, preparing WebRTC room");
+        console.log("Room info:", {
+            roomCode: ROOM_CODE,
+            userId: USER_ID,
+            userName: USER_NAME,
+            userRole: USER_ROLE
         });
+        
+        // Make sure all the video elements are ready
+        try {
+            const localVideo = document.getElementById('local-video');
+            if (!localVideo) {
+                console.warn("Local video element not found on page load");
+            }
+            
+            const mainVideo = document.getElementById('main-video');
+            if (!mainVideo) {
+                console.warn("Main video element not found on page load");
+            }
+        } catch (e) {
+            console.error("Error checking video elements:", e);
+        }
+        
+        // Initialize the room from the external room.js file
+        try {
+            initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, {
+                stun: STUN_SERVER || 'stun:stun.l.google.com:19302',
+                turn: TURN_SERVER,
+                turnUsername: TURN_USERNAME,
+                turnCredential: TURN_CREDENTIAL
+            });
+            console.log("WebRTC room initialized successfully");
+        } catch (e) {
+            console.error("Failed to initialize WebRTC room:", e);
+            showToast('error', 'Connection Error', 'Failed to initialize video chat. Please refresh the page to try again.');
+        }
         
         // Register Alpine.js component
         window.Alpine = window.Alpine || {};
         document.addEventListener('alpine:init', () => {
             Alpine.data('webRTCRoom', () => window.webRTCRoom());
+            console.log("Alpine component registered");
         });
     });
 </script>

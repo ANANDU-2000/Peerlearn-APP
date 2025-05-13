@@ -425,43 +425,145 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             // Request user media (camera and microphone)
             async requestUserMedia() {
                 try {
-                    // Request camera and microphone
-                    this.localStream = await navigator.mediaDevices.getUserMedia({
-                        audio: true,
-                        video: {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: 'user'
-                        }
-                    });
+                    console.log("Requesting access to camera and microphone...");
+                    
+                    // First check if getUserMedia is supported
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error("getUserMedia is not supported in this browser");
+                    }
+                    
+                    // Try with ideal constraints first
+                    try {
+                        this.localStream = await navigator.mediaDevices.getUserMedia({
+                            audio: true,
+                            video: {
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 },
+                                facingMode: 'user'
+                            }
+                        });
+                        console.log("Successfully obtained media stream with ideal constraints");
+                    } catch (constraintError) {
+                        console.warn("Failed with ideal constraints:", constraintError.message);
+                        
+                        // Fall back to basic constraints
+                        console.log("Trying with basic video constraints...");
+                        this.localStream = await navigator.mediaDevices.getUserMedia({
+                            audio: true,
+                            video: true
+                        });
+                        console.log("Successfully obtained media stream with basic constraints");
+                    }
+                    
+                    // Log tracks for debugging
+                    const videoTracks = this.localStream.getVideoTracks();
+                    const audioTracks = this.localStream.getAudioTracks();
+                    console.log(`Got media stream with ${videoTracks.length} video tracks and ${audioTracks.length} audio tracks`);
+                    
+                    if (videoTracks.length > 0) {
+                        console.log("Video track:", videoTracks[0].label, "enabled:", videoTracks[0].enabled);
+                    }
                     
                     // Set local video
                     const localVideo = document.getElementById('local-video');
                     if (localVideo) {
+                        console.log("Setting local video source");
                         localVideo.srcObject = this.localStream;
                         localVideo.muted = true; // Mute local video to prevent echo
+                        
+                        // Ensure the video starts playing
+                        localVideo.onloadedmetadata = () => {
+                            console.log("Local video metadata loaded");
+                            localVideo.play().catch(e => console.error("Error playing local video:", e));
+                        };
+                    } else {
+                        console.warn("Local video element not found!");
                     }
                     
                     // Set main stream (initially local stream)
                     this.mainStream = this.localStream;
                     const mainVideo = this.$refs.mainVideo;
                     if (mainVideo) {
+                        console.log("Setting main video source");
                         mainVideo.srcObject = this.mainStream;
                         mainVideo.muted = true; // Mute main video when it's local stream
+                        
+                        // Ensure the video starts playing
+                        mainVideo.onloadedmetadata = () => {
+                            console.log("Main video metadata loaded");
+                            mainVideo.play().catch(e => console.error("Error playing main video:", e));
+                        };
+                    } else {
+                        console.warn("Main video element not found!");
                     }
                     
-                    console.log("Local media stream acquired:", this.localStream);
+                    // Update peer connections with the new media stream
+                    this.updatePeerConnections();
+                    
+                    console.log("Local media stream acquired and set up successfully");
                     return this.localStream;
                 } catch (error) {
                     console.error("Error requesting user media:", error);
                     
                     if (error.name === 'NotAllowedError') {
                         showToast('error', 'Permission Denied', 'You need to grant camera and microphone permissions to join the session.');
+                    } else if (error.name === 'NotFoundError') {
+                        showToast('error', 'Device Not Found', 'Camera or microphone not found. Please check your device connections.');
+                    } else if (error.name === 'NotReadableError') {
+                        showToast('error', 'Device In Use', 'Camera or microphone is already in use by another application.');
                     } else {
-                        showToast('error', 'Media Error', 'Could not access camera or microphone. Please check your device settings.');
+                        showToast('error', 'Media Error', `Could not access media devices: ${error.message}`);
                     }
                     
                     throw error;
+                }
+            },
+            
+            // Update peer connections with current media stream
+            updatePeerConnections() {
+                console.log("Updating peer connections with media stream");
+                if (!this.localStream) {
+                    console.warn("No local stream available to add to peer connections");
+                    return;
+                }
+                
+                for (const id in this.peerConnections) {
+                    const connection = this.peerConnections[id];
+                    console.log(`Updating peer connection for user ${id}`);
+                    
+                    // Remove existing tracks
+                    const senders = connection.getSenders();
+                    senders.forEach(sender => {
+                        if (sender.track) {
+                            console.log(`Removing existing ${sender.track.kind} track`);
+                            connection.removeTrack(sender);
+                        }
+                    });
+                    
+                    // Add new tracks
+                    this.localStream.getTracks().forEach(track => {
+                        console.log(`Adding ${track.kind} track to peer connection`);
+                        connection.addTrack(track, this.localStream);
+                    });
+                    
+                    // Create new offer if we're the mentor or the initiator
+                    if (userRole === 'mentor') {
+                        console.log("Creating new offer after track update");
+                        connection.createOffer()
+                            .then(offer => connection.setLocalDescription(offer))
+                            .then(() => {
+                                // Send the offer via WebSocket
+                                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                    this.websocket.send(JSON.stringify({
+                                        type: 'offer',
+                                        user_id: userId,
+                                        recipient_id: id,
+                                        sdp: connection.localDescription
+                                    }));
+                                }
+                            })
+                            .catch(error => console.error("Error creating offer:", error));
+                    }
                 }
             },
             
@@ -495,12 +597,50 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     const videoTracks = this.localStream.getVideoTracks();
                     if (videoTracks.length > 0) {
                         this.videoEnabled = !this.videoEnabled;
+                        console.log("Toggling video to:", this.videoEnabled);
+                        
                         videoTracks.forEach(track => {
+                            console.log(`Setting video track ${track.label} enabled:`, this.videoEnabled);
                             track.enabled = this.videoEnabled;
                         });
                         
+                        // Show placeholder if video is disabled
+                        const localVideo = document.getElementById('local-video');
+                        const localVideoContainer = localVideo?.parentElement;
+                        
+                        if (localVideoContainer) {
+                            // Find or create video placeholder
+                            let placeholder = localVideoContainer.querySelector('.video-placeholder');
+                            
+                            if (!this.videoEnabled) {
+                                // If video is disabled and no placeholder exists, create one
+                                if (!placeholder) {
+                                    console.log("Creating video placeholder");
+                                    placeholder = document.createElement('div');
+                                    placeholder.classList.add('video-placeholder');
+                                    
+                                    const icon = document.createElement('div');
+                                    icon.innerHTML = `
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                        </svg>
+                                        <span>Camera Off</span>
+                                    `;
+                                    placeholder.appendChild(icon);
+                                    localVideoContainer.appendChild(placeholder);
+                                }
+                                placeholder.style.display = 'flex';
+                            } else if (placeholder) {
+                                // If video is enabled, hide the placeholder
+                                console.log("Hiding video placeholder");
+                                placeholder.style.display = 'none';
+                            }
+                        }
+                        
                         // Notify other participants about media status change
                         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            console.log("Sending media status update to peers");
                             this.websocket.send(JSON.stringify({
                                 type: 'media_status',
                                 user_id: userId,
@@ -509,7 +649,11 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 videoEnabled: this.videoEnabled
                             }));
                         }
+                    } else {
+                        console.warn("No video tracks found in local stream");
                     }
+                } else {
+                    console.warn("Cannot toggle video: No local stream available");
                 }
             },
             
