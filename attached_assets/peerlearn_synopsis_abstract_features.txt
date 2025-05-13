@@ -1,0 +1,21 @@
+
+Abstract
+--------
+PeerLearn is a cutting-edge, one-to-one live EdTech platform designed to connect learners with expert mentors in real time. Built on Django, WebRTC, and Razorpay, it delivers personalized live sessions, on-demand requests, and seamless payments. With AI-driven recommendations, robust admin controls, and mobile-first UX, PeerLearn provides an intuitive, secure, and scalable environment for learning and teaching.
+
+Synopsis
+--------
+PeerLearn empowers learners to discover and join live sessions on any topic, from programming to biology, through a streamlined interface with ≤4 clicks for core actions. Mentors can create public sessions, respond to private live requests, and host peer-to-peer video lessons with features like whiteboard, chat, and screen sharing. The system uses Django Channels for real-time notifications, Redis for caching, and Celery for background tasks (reminders and feedback prompts). A multi-step registration wizard ensures accurate profiles, while ML-based interest/expertise embeddings feed personalized recommendations. Admins manage users, sessions, payments, and feedback through a dedicated dashboard.
+
+Main Features
+-------------
+1. **Real-Time 1:1 Video**: WebRTC-powered live sessions with STUN/TURN fallback.
+2. **AI Recommendations**: Personalized session and mentor suggestions based on user interests.
+3. **On-Demand Requests**: Learners can propose new session topics and times directly from mentor profiles.
+4. **Seamless Payments**: Razorpay integration for quick booking, with split revenue tracking.
+5. **Multi-Step Registration**: User-friendly wizards for learner and mentor onboarding.
+6. **Dynamic Dashboards**: Role-specific views with real-time toasts, bell notifications, and analytics.
+7. **Mobile-First UX**: Responsive design, bottom nav, touch-friendly carousels, skeleton loaders.
+8. **Admin Controls**: User management, session moderation, payment oversight, and feedback handling.
+9. **Background Automation**: Celery tasks for reminders, feedback prompts, and draft auto-saves.
+10. **Security & Access**: Role-based route protection, real-time authorization for session rooms.

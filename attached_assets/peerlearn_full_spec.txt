@@ -1,0 +1,234 @@
+
+PeerLearn Platform - Comprehensive Master Specification
+=======================================================
+
+1. Overview
+-----------
+PeerLearn is a premium, personalized one-to-one live EdTech platform. Learners can discover, request, book, and join live sessions with expert mentors. Mentors can create public sessions, respond to on-demand requests, and host real-time video lessons. Admins manage users, sessions, payments, and feedback.
+
+2. Technology Stack & Deployment
+--------------------------------
+- Backend: Django, Django REST Framework, Django Channels
+- Database: SQLite (development) / PostgreSQL (production)
+- Cache & Pub/Sub: Redis
+- Task Queue: Celery + Redis
+- Real-Time Video: WebRTC (STUN/TURN via environment variables)
+- Payments: Razorpay
+- Frontend: Django Templates, Tailwind CSS, Alpine.js
+- Deployment: Docker Compose
+
+3. Folder & Module Layout
+--------------------------
+peerlearn/
+  docker-compose.yml
+  requirements.txt
+  peerlearn/                # Django project
+    settings.py             # Channels, Redis, Razorpay keys
+    asgi.py
+    urls.py
+    wsgi.py
+  apps/
+    users/                  # CustomUser, auth, registration
+    sessions/               # Session, SessionRequest, Booking, signaling
+    payments/               # Razorpay integration, webhooks
+    notifications/          # Notification models & consumers
+    recommendations/        # ML embeddings & caching
+    admin_panel/            # Custom admin UI
+  templates/
+    includes/               # header.html, footer.html, toasts.html, modals.html
+    landing.html
+    auth/                   # selector.html, login.html, signup steps
+    sessions/               # list.html, detail.html, room.html
+    mentors/                # list.html, profile.html
+    learners_dash/          # dashboard.html, activity.html
+    mentors_dash/           # dashboard.html, requests.html, earnings.html
+    admin_dash/             # overview.html, users.html, sessions.html, payments.html, feedback.html
+  static/
+    css/
+    js/                     # webrtc.js, toasts.js, auth.js
+    images/
+  media/                    # uploads
+  db.sqlite3                # SQLite database
+  .env                      # environment variables
+
+4. Data Models (Conceptual)
+----------------------------
+- CustomUser: extends AbstractUser with role (learner/mentor/admin), interests, career_goal, expertise, skills, intro_video.
+- Session: mentor FK, UUID room_code, title, description, topics, schedule (DateTime), price, status (scheduled/live/completed), timestamps.
+- SessionRequest: learner FK, mentor FK, title, domain, proposed_time (DateTime), budget, status (pending/offered/accepted/declined), timestamps.
+- Booking: session FK, learner FK, status (pending/confirmed/cancelled), timestamps.
+- Payment: booking FK, amount, status (initiated/paid/failed), transaction_id.
+- Notification: user FK, message, read (bool), timestamp.
+
+5. Real-Time WebSocket Channels
+-------------------------------
+- requests:{mentor_id}: session request events to mentors.
+- responses:{learner_id}: request status updates to learners.
+- sessions:{room_code}: WebRTC signaling, chat, whiteboard sync.
+- notifications:{user_id}: toasts and bell updates.
+
+6. Global Theming & UX Guidelines
+----------------------------------
+- Colors: Primary Blue #1E3A8A, White, Light Gray accents.
+- Font: Inter (sans-serif).
+- Animations: skeleton loaders; full-screen spinner on slow networks (<2Mbps); button/card hover scale and shadow; Lottie hero animation.
+- Layout: desktop header + sidebar; mobile header + bottom navigation.
+- Accessibility: keyboard nav (Tab, arrow keys for carousels); touch swipe support; tooltips on info icons (ⓘ).
+
+7. Mobile UI/UX Specifics
+-------------------------
+- Header: hamburger menu + mini-logo + bell + avatar.
+- Bottom Nav (authenticated): Home, Sessions, Notifications, Profile.
+- Carousels: full-width, touch targets ≥44px, arrow overlays, center-snap with scale effect.
+- Modals/Sheets: slide-up bottom sheets (~80% height) with swipe-down to dismiss and progress indicator.
+- Offline & Slow Net: offline banner; skeletons if load >1s; spinner if >3s.
+- Tap targets & text: buttons ≥44px tall; text ≥16px.
+
+8. Role-Based Access Controls
+-----------------------------
+| Route/Action                      | Learner   | Mentor    | Admin     | Unauthenticated       |
+|-----------------------------------|-----------|-----------|-----------|-----------------------|
+| View Sessions (/sessions)         | ✔️        | ✔️        | ✔️        | ✔️                    |
+| Book Public Session               | ✔️        | –         | –         | Auth→Learner Signup   |
+| Request Live Session              | ✔️        | –         | –         | Auth→Learner Signup   |
+| /dashboard/learner                | ✔️        | Redirect  | Redirect  | Auth→Learner Signup   |
+| /dashboard/mentor                 | Redirect  | ✔️        | Redirect  | Auth→Mentor Signup    |
+| /dashboard/admin                  | Redirect  | Redirect  | ✔️        | Auth→Admin Login      |
+| Create Public Session             | –         | ✔️        | –         | Auth→Mentor Signup    |
+| Respond to SessionRequest         | –         | ✔️        | –         | –                     |
+| Enter WebRTC Room (/session/...)  | Confirmed | Creator   | –         | Auth + Role Check     |
+
+Unauthorized access shows toast "Access denied" and redirects to appropriate auth flow.
+
+9. Click-to-Next-Step Flows
+---------------------------
+
+9.1 Learner: Book Public Session (≤4 clicks)
+1. Click "Book ➤" on session card → bottom-sheet shows price/free toggle + "Confirm ➤".
+2. Click "Confirm ➤" → Razorpay modal (if paid) or direct confirmation.
+3. (Paid) Click "Pay" → webhook triggers booking + payment records.
+4. Toast "Booked ✔" → bell badge + email; session appears in "My Activity".
+
+9.2 Learner: Request Live Session (≤4 clicks)
+1. Click "Request Live ➤" on mentor card → inline bottom-sheet with fields.
+2. Fill fields & click "Send Request ➤" → creates SessionRequest; WS to mentor.
+3. Toast "Request Sent ✔" → bell badge + emails.
+4. View in "My Activity" feed with status "⏳ Pending".
+
+9.3 Mentor: Respond to Request (≤3 clicks)
+1. In Requests panel, click "Accept ➤" or "Modify & Reply ➤".
+2. (Modify) Adjust time/budget; click "Send Reply ➤".
+3. WS to learner; toast "Replied ✔"; if accepted, Session+Booking created.
+
+9.4 Mentor: Go Live (≤2 clicks)
+1. Click "Go Live ➤" on upcoming session → marks status live; WS broadcast.
+2. Enter room → WebRTC connection established.
+
+10. Page & Subpage Flows
+-------------------------
+
+10.1 Landing Page (/)
+- Header: logo + nav [Home, Sessions, Mentors, About, Login, Signup].
+- Hero: headline, Lottie, "Get Started ➤" → Auth Selector.
+- Carousel A: Live & Upcoming Sessions cards (thumbnail, title, date/time, live badge/countdown, real-time attendees, "Book ➤").
+- Category Tabs: filter carousel.
+- Carousel B: Top Mentors cards (photo, name, domains, rating, "View Profile ➤").
+- How It Works: 3-step row.
+- CTA: Become a Mentor ➤.
+- Footer: links + social icons.
+
+10.2 Auth Selector Modal
+- Cards: Learner vs Mentor.
+- Click opens signup wizard.
+
+10.3 Learner Signup Wizard (/signup/learner)
+- Step 1: Basic Info.
+- Step 2: Interests & Categories.
+- Step 3: Career Goal.
+- Step 4: Profile Pic.
+- Real-time validation; progress bar.
+- Redirect to /dashboard/learner on completion.
+
+10.4 Mentor Signup Wizard (/signup/mentor)
+- Step 1: Basic Info.
+- Step 2: Domain Expertise.
+- Step 3: Skills & Certifications.
+- Step 4: Bio & Qualifications.
+- Step 5: Profile Pic & Intro Video.
+- Validation & progress.
+- Redirect to /dashboard/mentor.
+
+10.5 Sessions Listing (/sessions)
+- Desktop: sidebar filters; Mobile: accordion filters.
+- Search box.
+- Grid/infinite scroll of cards.
+- Skeleton loaders.
+- "Book ➤" opens bottom-sheet or Auth selector.
+
+10.6 Mentors Listing (/mentors)
+- Search & domain filter.
+- Grid of mentor cards.
+- Hover expands preview: domains, rating, live viewers, "Quick Request ➤".
+- Click opens profile or request form.
+
+10.7 Mentor Profile (/mentors/{id})
+- Hero: photo, name, rating, domains, viewers.
+- Sub-tabs: [About, Sessions, Reviews].
+- "Request Live ➤" inline form.
+- Livesession request logic.
+
+10.8 Learner Dashboard (/dashboard/learner)
+- Nav: [Home, Activity, Settings].
+- Section A: ML-based recommended sessions carousel.
+- Section B: Activity Feed with sub-tabs [All, Requests, Bookings].
+- Rows with status chips & actions [Confirm ➤, Join ➤].
+- Bell icon with dropdown last 5 toasts.
+
+10.9 Mentor Dashboard (/dashboard/mentor)
+- Nav: [Home, Requests, My Sessions, Earnings, Settings].
+- Requests panel: live list, actions [Accept ➤, Modify & Reply ➤].
+- My Sessions: sub-tabs [Today, Upcoming, Past].
+- Go Live ➤ buttons.
+- Earnings chart + CSV.
+
+10.10 WebRTC Room (/session/{room_code})
+- Dual video panes.
+- Toolbar: mute, cam toggle, screen share, chat, whiteboard, end.
+- Header: title + timer (countdown then elapsed).
+- Signaling via sessions:{room_code}.
+- End prompts feedback & resource upload.
+
+10.11 Admin Dashboard (/dashboard/admin)
+- Nav & sub-pages: Overview, Users, Sessions, Payments, Feedback.
+- Tables with filters & bulk actions.
+- Real-time online user map.
+- Feedback inbox.
+
+11. Background Jobs & Notifications
+-----------------------------------
+- Celery tasks: T-30min reminders; T+1hr feedback prompts; auto-save drafts.
+- Razorpay webhooks: update payments & bookings.
+- WebSockets: toasts & bell badge updates.
+
+12. UX Enhancements
+-------------------
+- Hover-preview card expansions.
+- Tooltips and info icons.
+- Keyboard nav and touch support.
+- Voice commands (optional).
+- Micro-gamification badges and live viewer counts.
+- Offline caching for static and past data.
+- Merged feeds with status chips to reduce clicks.
+
+13. Click Budget & Flow Summary
+--------------------------------
+- Learner core: Discover → Book/Request → Confirm → Join = ≤4 clicks.
+- Mentor core: Respond → Go Live = ≤3 clicks.
+- Admin core: Search/Act = ≤3 clicks.
+
+14. Wireflows & Diagrams
+------------------------
+Include mermaid or Figma wireflow references for all above pages and flows in your generated output.
+
+---
+Merge this addendum with existing spec. This document fully covers every page, subpage, tab, user action, click flow, UI/UX guideline, backend logic, real-time events, and data persistence for PeerLearn.
