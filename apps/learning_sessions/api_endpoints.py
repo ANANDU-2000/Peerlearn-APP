@@ -97,6 +97,10 @@ def create_session_api(request):
     
     # Create session
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Creating session with data: %s", data)
+        
         session = Session(
             title=data['title'],
             description=data['description'],
@@ -110,52 +114,68 @@ def create_session_api(request):
         # Handle thumbnail if provided
         if 'thumbnail' in request.FILES:
             session.thumbnail = request.FILES['thumbnail']
+            logger.info("Thumbnail added to session")
         
+        logger.info("Saving session...")
         session.save()
+        logger.info("Session saved with ID: %s", session.id)
         
         # Add topics
         if data['topics']:
+            logger.info("Adding topics: %s", data['topics'])
             session.topics = data['topics']
             session.save()
+            logger.info("Topics saved")
         
-        # Create notification for admin
-        Notification.objects.create(
-            user=request.user,
-            message=f"You have created a new session: {session.title}",
-            link=reverse('users:mentor_session_detail', args=[session.id])
-        )
+        # Create notification for mentor
+        logger.info("Creating notification for mentor")
+        try:
+            Notification.objects.create(
+                user=request.user,
+                message=f"You have created a new session: {session.title}",
+                link=reverse('users:mentor_session_detail', args=[session.id])
+            )
+            logger.info("Notification created successfully")
+        except Exception as notif_error:
+            logger.error("Error creating notification: %s", str(notif_error))
         
         # Send real-time update via WebSocket
-        channel_layer = get_channel_layer()
-        
-        # Format session data for WebSocket
-        session_data = {
-            'id': session.id,
-            'title': session.title,
-            'description': session.description,
-            'schedule': session.schedule.isoformat(),
-            'duration': session.duration,
-            'price': float(session.price),
-            'max_participants': session.max_participants,
-            'status': session.status,
-            'created_at': session.created_at.isoformat(),
-            'topics': session.topics,
-            'mentor': {
-                'id': request.user.id,
-                'username': request.user.username,
-                'full_name': f"{request.user.first_name} {request.user.last_name}".strip()
+        try:
+            logger.info("Getting channel layer for WebSocket notification")
+            channel_layer = get_channel_layer()
+            
+            # Format session data for WebSocket
+            session_data = {
+                'id': session.id,
+                'title': session.title,
+                'description': session.description,
+                'schedule': session.schedule.isoformat(),
+                'duration': session.duration,
+                'price': float(session.price),
+                'max_participants': session.max_participants,
+                'status': session.status,
+                'created_at': session.created_at.isoformat(),
+                'topics': session.topics,
+                'mentor': {
+                    'id': request.user.id,
+                    'username': request.user.username,
+                    'full_name': f"{request.user.first_name} {request.user.last_name}".strip()
+                }
             }
-        }
-        
-        # Send to mentor's channel group
-        async_to_sync(channel_layer.group_send)(
-            f"dashboard_{request.user.id}",
-            {
-                'type': 'session_update',
-                'session': session_data,
-                'action': 'created'
-            }
-        )
+            
+            logger.info("Sending WebSocket notification to group: dashboard_%s", request.user.id)
+            # Send to mentor's channel group
+            async_to_sync(channel_layer.group_send)(
+                f"dashboard_{request.user.id}",
+                {
+                    'type': 'session_update',
+                    'session': session_data,
+                    'action': 'created'
+                }
+            )
+            logger.info("WebSocket notification sent successfully")
+        except Exception as ws_error:
+            logger.error("Error sending WebSocket notification: %s", str(ws_error))
         
         # Return success response
         return JsonResponse({
@@ -168,7 +188,10 @@ def create_session_api(request):
         })
         
     except Exception as e:
-        # Return error
+        # Log and return error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error("Error creating session: %s", str(e), exc_info=True)
         return JsonResponse({
             'success': False,
             'errors': {'__all__': [str(e)]}

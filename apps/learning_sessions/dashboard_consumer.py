@@ -285,13 +285,20 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         """
         Called when there's an update to a session.
         """
-        # Forward the update to the client
-        await self.send(text_data=json.dumps({
-            'type': 'session_update',
-            'session': event.get('session', {}),
-            'action': event.get('action', 'updated'),
-            'timestamp': timezone.now().isoformat()
-        }))
+        try:
+            print(f"Received session_update event: action={event.get('action')}, session_id={event.get('session', {}).get('id')}")
+            
+            # Forward the update to the client
+            await self.send(text_data=json.dumps({
+                'type': 'session_update',
+                'session': event.get('session', {}),
+                'action': event.get('action', 'updated'),
+                'timestamp': timezone.now().isoformat()
+            }))
+            
+            print(f"Sent session_update to client: action={event.get('action')}")
+        except Exception as e:
+            print(f"Error in session_update handler: {str(e)}")
     
     async def booking_update(self, event):
         """

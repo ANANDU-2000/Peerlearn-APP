@@ -281,6 +281,8 @@ class ApiClient {
      */
     async createSession(formData) {
         try {
+            console.log('Creating session with form data:', Object.fromEntries(formData.entries()));
+            
             const response = await fetch('/sessions/api/create/', {
                 method: 'POST',
                 headers: {
@@ -289,15 +291,60 @@ class ApiClient {
                 body: formData
             });
             
-            const data = await this.handleResponse(response);
+            console.log('API Response status:', response.status);
+            
+            // Handle non-OK responses
+            if (!response.ok) {
+                console.error('Server error:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Error details:', errorText);
+                
+                if (window.showToast) {
+                    window.showToast(`Error: Server error (${response.status}). Please try again.`, 'error');
+                }
+                
+                return {
+                    success: false, 
+                    errors: {'__all__': [`Server error: ${response.status} ${response.statusText}`]}
+                };
+            }
+            
+            // Parse the response
+            let data;
+            try {
+                data = await response.json();
+                console.log('API Response data:', data);
+            } catch (parseError) {
+                console.error('Error parsing JSON response:', parseError);
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+                
+                if (window.showToast) {
+                    window.showToast('Error: Invalid response from server. Please try again.', 'error');
+                }
+                
+                return {
+                    success: false,
+                    errors: {'__all__': ['Invalid response from server']}
+                };
+            }
             
             if (data.success) {
+                console.log('Session created successfully');
                 if (window.showToast) {
                     window.showToast('Session Created: Your session has been published successfully.', 'success');
                 }
                 setTimeout(() => {
                     window.location.href = '/users/dashboard/mentor/sessions/';
                 }, 1000);
+            } else {
+                console.error('Session creation failed:', data.errors);
+                if (window.showToast) {
+                    const errorMsg = data.errors && data.errors.__all__ 
+                        ? data.errors.__all__[0] 
+                        : 'Failed to create session. Please check the form and try again.';
+                    window.showToast(`Error: ${errorMsg}`, 'error');
+                }
             }
             
             return data;
@@ -306,7 +353,10 @@ class ApiClient {
             if (window.showToast) {
                 window.showToast('Error: There was an error creating your session. Please try again.', 'error');
             }
-            throw error;
+            return {
+                success: false,
+                errors: {'__all__': [error.message || 'Unknown error']}
+            };
         }
     }
 }
