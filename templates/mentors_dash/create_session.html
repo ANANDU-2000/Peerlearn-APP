@@ -288,7 +288,10 @@
 
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700">Session Thumbnail</label>
-                                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md" x-data="{ files: null }">
+                                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md" 
+                                                 x-on:dragover.prevent="$el.classList.add('border-primary-500', 'ring-2', 'ring-primary-500')" 
+                                                 x-on:dragleave.prevent="$el.classList.remove('border-primary-500', 'ring-2', 'ring-primary-500')" 
+                                                 x-on:drop.prevent="handleDrop($event); $el.classList.remove('border-primary-500', 'ring-2', 'ring-primary-500')">
                                                 <div class="space-y-1 text-center">
                                                     <div class="flex flex-col items-center">
                                                         <div x-show="!previewUrl" class="flex text-gray-400">
@@ -301,12 +304,12 @@
                                                     <div class="flex text-sm text-gray-600 justify-center">
                                                         <label for="id_thumbnail" class="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
                                                             <span>Upload a file</span>
-                                                            <input id="id_thumbnail" name="thumbnail" type="file" accept="image/*" class="sr-only" @change="handleFileChange($event)">
+                                                            <input id="id_thumbnail" name="thumbnail" type="file" accept="image/*" class="sr-only" @change="handleImageUpload($event)">
                                                         </label>
                                                         <p class="pl-1">or drag and drop</p>
                                                     </div>
                                                     <p class="text-xs text-gray-500">
-                                                        PNG, JPG, GIF up to 10MB
+                                                        PNG, JPG, GIF up to 5MB
                                                     </p>
                                                 </div>
                                             </div>
@@ -369,20 +372,42 @@
             handleImageUpload(event) {
                 const file = event.target.files[0];
                 if (file) {
-                    if (file.size > 5 * 1024 * 1024) {
-                        this.thumbnailError = 'Image size should be less than 5MB';
-                        this.previewUrl = null;
-                        return;
-                    }
-                    
-                    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-                        this.thumbnailError = 'Only JPEG, PNG, and GIF images are allowed';
-                        this.previewUrl = null;
-                        return;
-                    }
-                    
-                    this.thumbnailError = '';
-                    this.previewUrl = URL.createObjectURL(file);
+                    this.validateAndPreviewImage(file);
+                }
+            },
+            
+            handleDrop(event) {
+                const dt = event.dataTransfer;
+                const file = dt.files[0];
+                
+                if (file) {
+                    document.getElementById('id_thumbnail').files = dt.files;
+                    this.validateAndPreviewImage(file);
+                }
+            },
+            
+            validateAndPreviewImage(file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    this.thumbnailError = 'Image size should be less than 5MB';
+                    this.previewUrl = null;
+                    return false;
+                }
+                
+                if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+                    this.thumbnailError = 'Only JPEG, PNG, and GIF images are allowed';
+                    this.previewUrl = null;
+                    return false;
+                }
+                
+                this.thumbnailError = '';
+                this.previewUrl = URL.createObjectURL(file);
+                return true;
+            },
+            
+            toggleFree() {
+                if (this.formData.is_free) {
+                    this.formData.price = '0';
+                    this.priceError = '';
                 }
             },
             
