@@ -59,27 +59,185 @@
 
             <!-- Tab Content -->
             <div class="mt-6" x-data="sessionManager()" x-init="initializeWebSocket()">
-                <!-- Loading skeleton displayed while data is loading -->
-                <div class="sessions-loading-skeleton" x-show="isLoading" x-cloak>
-                    <div class="animate-pulse space-y-4">
-                        {% for i in '123'|make_list %}
-                            <div class="bg-white shadow rounded-lg p-4">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex-1">
-                                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-                                        <div class="mt-2 h-4 bg-gray-200 rounded w-1/2"></div>
+                {% if not has_any_sessions %}
+                    <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 bg-white shadow rounded-md">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <h3 class="mt-2 text-lg font-medium text-gray-900">No sessions found</h3>
+                        <p class="mt-1 text-sm text-gray-500">You don't have any {{ sub_tab }} sessions. Create a new session to get started.</p>
+                        <div class="mt-6">
+                            <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Create a new session
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Display Today Sessions -->
+                    {% if sub_tab == 'today' %}
+                        <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                            {% for session in today_sessions %}
+                            <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                x-data="{
+                                    showOptionsMenu: false,
+                                    canGoLive: {% if session.can_go_live %}true{% else %}false{% endif %},
+                                    isBusy: false,
+                                    isLive: {% if session.is_live %}true{% else %}false{% endif %},
+                                }">
+                                
+                                <!-- Session header with title and status -->
+                                <div class="px-4 pt-5 pb-2 sm:px-6">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ session.title }}</h3>
+                                            
+                                            <!-- Status badges -->
+                                            <div class="mt-1 flex items-center space-x-2">
+                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                    {% if session.status == 'scheduled' %}bg-gray-100 text-gray-800
+                                                    {% elif session.status == 'live' %}bg-red-100 text-red-800
+                                                    {% elif session.status == 'completed' %}bg-blue-100 text-blue-800
+                                                    {% elif session.status == 'cancelled' %}bg-yellow-100 text-yellow-800{% endif %}">
+                                                    {% if session.status == 'live' %}LIVE NOW{% else %}{{ session.status|title }}{% endif %}
+                                                </span>
+                                                
+                                                <!-- Participants badge -->
+                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Booked
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Dropdown menu for options -->
+                                        <div class="relative">
+                                            <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
+                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                </svg>
+                                            </button>
+                                            
+                                            <!-- Dropdown menu -->
+                                            <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
+                                                <div class="py-1">
+                                                    {% if session.status == 'scheduled' %}
+                                                        <a href="{% url 'users:mentor_session_edit' session_id=session.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                            Edit Session
+                                                        </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if session.status == 'scheduled' %}
+                                                        <a href="#" @click.prevent="cancelSession({{ session.id }})" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                            Cancel Session
+                                                        </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if session.status == 'completed' %}
+                                                        <a href="/sessions/{{ session.id }}/analytics/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                            </svg>
+                                                            View Analytics
+                                                        </a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="w-24 h-10 bg-gray-200 rounded"></div>
+                                </div>
+                                
+                                <!-- Session details -->
+                                <div class="px-4 py-4 sm:px-6">
+                                    <div class="space-y-3">
+                                        <!-- Date and time -->
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span>{{ session.schedule|date:"D, M j, Y" }} at {{ session.schedule|date:"g:i A" }}</span>
+                                        </div>
+                                        
+                                        <!-- Duration -->
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span>{{ session.duration }} minutes</span>
+                                        </div>
+                                        
+                                        <!-- Countdown timer (when scheduled) -->
+                                        {% if session.status == 'scheduled' %}
+                                        <div class="flex items-center text-sm font-medium">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            <span class="countdown-display text-primary-600">Starts in {{ session.countdown_str }}</span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- Session is live indicator -->
+                                        {% if session.is_live %}
+                                        <div class="flex items-center text-sm font-medium">
+                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            <span class="text-red-600 animate-pulse">LIVE NOW - Join the session!</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Action buttons -->
+                                <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+                                    <!-- Go Live button (only show if scheduled) - Allow mentor to join anytime-->
+                                    {% if session.status == 'scheduled' %}
+                                        <button @click="goLive({{ session.id }})" :disabled="isBusy"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                                            <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                            </svg>
+                                            <svg x-show="isBusy" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Go Live
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <!-- Enter Room button (if already live) -->
+                                    {% if session.is_live %}
+                                        <a href="/sessions/{{ session.room_code }}/join/"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                                            </svg>
+                                            Join Room
+                                        </a>
+                                    {% endif %}
+                                    
+                                    <!-- Edit button (only for scheduled sessions that are editable) -->
+                                    {% if session.status == 'scheduled' %}
+                                        <a href="{% url 'users:mentor_session_edit' session_id=session.id %}"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                            </svg>
+                                            Edit
+                                        </a>
+                                    {% endif %}
                                 </div>
                             </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <!-- Actual session cards -->
-                <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3" x-show="!isLoading">
-                    <template x-if="sessions.length > 0">
-                        <template x-for="session in sessions" :key="session.id">
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                             <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
                                 x-data="{
                                     showOptionsMenu: false,
