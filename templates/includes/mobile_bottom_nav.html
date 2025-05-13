@@ -1,43 +1,58 @@
-<!-- Mobile Bottom Navigation - Only visible on small screens -->
-<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 h-14">
-    <div class="grid grid-cols-5 h-full">
-        <a href="{% url 'learner_dashboard' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'home' and 'text-primary-600' or 'text-gray-600' }}">
-            <div class="mb-1">
-                <i data-feather="home" class="w-5 h-5"></i>
-            </div>
-            <span>Home</span>
+<!-- Mobile Bottom Navigation -->
+<div class="fixed inset-x-0 bottom-0 z-10 bg-white border-t border-gray-200 md:hidden">
+    <div class="flex justify-around" x-data="{ activeTab: window.location.pathname.includes('/dashboard/learner') ? 'home' : '' }">
+        <!-- Home -->
+        <a href="{% url 'learner_dashboard' %}" 
+           class="flex flex-col items-center justify-center w-full py-2"
+           :class="{'text-primary-600': activeTab === 'home', 'text-gray-500': activeTab !== 'home'}"
+           @click="activeTab = 'home'">
+            <i data-feather="home" class="w-5 h-5"></i>
+            <span class="text-xs mt-1">Home</span>
         </a>
-        <a href="{% url 'learner_activity' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'activity' and 'text-primary-600' or 'text-gray-600' }}">
-            <div class="mb-1">
-                <i data-feather="refresh-cw" class="w-5 h-5"></i>
-            </div>
-            <span>Activity</span>
+        
+        <!-- Activity -->
+        <a href="{% url 'learner_dashboard' %}?tab=activity" 
+           class="flex flex-col items-center justify-center w-full py-2"
+           :class="{'text-primary-600': activeTab === 'activity', 'text-gray-500': activeTab !== 'activity'}"
+           @click="activeTab = 'activity'">
+            <i data-feather="calendar" class="w-5 h-5"></i>
+            <span class="text-xs mt-1">Activity</span>
         </a>
-        <a href="{% url 'mentor_list' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'mentors' and 'text-primary-600' or 'text-gray-600' }}">
-            <div class="mb-1">
-                <i data-feather="users" class="w-5 h-5"></i>
-            </div>
-            <span>Mentors</span>
+        
+        <!-- Mentors -->
+        <a href="{% url 'learner_dashboard' %}?tab=mentors" 
+           class="flex flex-col items-center justify-center w-full py-2"
+           :class="{'text-primary-600': activeTab === 'mentors', 'text-gray-500': activeTab !== 'mentors'}"
+           @click="activeTab = 'mentors'">
+            <i data-feather="users" class="w-5 h-5"></i>
+            <span class="text-xs mt-1">Mentors</span>
         </a>
-        <a href="#" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'notifications' and 'text-primary-600' or 'text-gray-600' }}">
-            <div class="mb-1 relative">
-                <i data-feather="bell" class="w-5 h-5"></i>
-                {% if unread_notifications_count > 0 %}
-                <span class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-2xs">
-                    {{ unread_notifications_count }}
-                </span>
-                {% endif %}
-            </div>
-            <span>Alerts</span>
+        
+        <!-- Notifications -->
+        <a href="{% url 'learner_dashboard' %}?tab=notifications" 
+           class="flex flex-col items-center justify-center w-full py-2 relative"
+           :class="{'text-primary-600': activeTab === 'notifications', 'text-gray-500': activeTab !== 'notifications'}"
+           @click="activeTab = 'notifications'">
+            <i data-feather="bell" class="w-5 h-5"></i>
+            <span class="text-xs mt-1">Alerts</span>
+            {% if unread_notifications_count > 0 %}
+            <span class="absolute top-1 right-8 flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+            {% endif %}
         </a>
-        <a href="{% url 'learner_profile_update' %}" class="flex flex-col items-center justify-center text-xs {{ active_tab == 'profile' and 'text-primary-600' or 'text-gray-600' }}">
-            <div class="mb-1">
-                <i data-feather="user" class="w-5 h-5"></i>
-            </div>
-            <span>Profile</span>
+        
+        <!-- Profile -->
+        <a href="{% url 'learner_dashboard' %}?tab=profile" 
+           class="flex flex-col items-center justify-center w-full py-2"
+           :class="{'text-primary-600': activeTab === 'profile', 'text-gray-500': activeTab !== 'profile'}"
+           @click="activeTab = 'profile'">
+            <i data-feather="user" class="w-5 h-5"></i>
+            <span class="text-xs mt-1">Profile</span>
         </a>
     </div>
 </div>
 
-<!-- Add padding to bottom of main content when mobile nav is shown -->
-<div class="md:hidden h-14"></div>
+<!-- Add padding to prevent content from being hidden behind the fixed bottom nav -->
+<div class="block md:hidden pb-16"></div>

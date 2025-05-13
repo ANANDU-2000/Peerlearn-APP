@@ -190,10 +190,18 @@ def rate_mentor(request, pk):
 
 @login_required
 def learner_dashboard(request):
-    """View for learner dashboard."""
+    """View for learner dashboard with tab navigation support."""
     if not request.user.is_learner:
         messages.error(request, 'Access denied.')
         return redirect(request.user.get_dashboard_url())
+    
+    # Get active tab from query parameter, default to 'home'
+    active_tab = request.GET.get('tab', 'home')
+    
+    # Validate active tab value
+    valid_tabs = ['home', 'activity', 'mentors', 'notifications', 'profile']
+    if active_tab not in valid_tabs:
+        active_tab = 'home'
     
     # Get ML-based recommendations
     from apps.learning_sessions.models import Session, Booking, SessionRequest
