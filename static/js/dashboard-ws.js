@@ -886,138 +886,269 @@ function createSessionElement(session) {
 /**
  * Update sessions list UI with new data
  * @param {Array} sessions - List of sessions
+ * @param {string} tabFilter - Optional tab to update ('today', 'upcoming', 'past')
  */
-function updateSessionsListUI(sessions) {
+function updateSessionsListUI(sessions, tabFilter) {
     if (!sessions || !Array.isArray(sessions)) {
         console.error('Invalid sessions data for UI update:', sessions);
         return;
     }
     
-    console.log('Updating sessions list with:', sessions.length, 'sessions');
+    console.log('Updating sessions list with:', sessions.length, 'sessions', tabFilter ? `for tab ${tabFilter}` : '');
     
-    // Determine active tab to know which sessions to display
-    const activeTab = document.querySelector('.sub-tab.active');
-    if (!activeTab) {
-        console.warn('No active tab found for session display');
-        return;
+    // Determine active tab if not specified
+    let tabName = tabFilter;
+    if (!tabName) {
+        const activeTab = document.querySelector('.sub-tab.active');
+        if (!activeTab) {
+            console.warn('No active tab found for session display');
+            return;
+        }
+        tabName = activeTab.dataset.tab;
     }
     
-    const tabName = activeTab.dataset.tab;
+    // Find the content element for this tab
     const tabContentElement = document.querySelector(`.sessions-tab-content[data-tab="${tabName}"]`);
-    
     if (!tabContentElement) {
         console.warn(`Tab content element for ${tabName} not found`);
         return;
     }
     
-    // Classify sessions based on date for proper tab placement
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // If we already have the correct tab sessions, no need to filter again
+    let sessionsToDisplay = sessions;
     
-    const todaySessions = [];
-    const upcomingSessions = [];
-    const pastSessions = [];
-    
-    sessions.forEach(session => {
-        // Make sure schedule is a valid date string
-        if (!session.schedule) {
-            console.warn('Session missing schedule date:', session);
-            return;
+    // If we have a mix of sessions for different tabs, filter them
+    if (!tabFilter) {
+        // Classify sessions based on date for proper tab placement
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const todaySessions = [];
+        const upcomingSessions = [];
+        const pastSessions = [];
+        
+        sessions.forEach(session => {
+            // Make sure schedule is a valid date string
+            if (!session.schedule) {
+                console.warn('Session missing schedule date:', session);
+                return;
+            }
+            
+            const sessionDate = new Date(session.schedule);
+            const sessionDay = new Date(sessionDate);
+            sessionDay.setHours(0, 0, 0, 0);
+            
+            const now = new Date();
+            
+            // Check if session is complete or cancelled
+            const isComplete = session.status === 'completed' || session.status === 'cancelled';
+            
+            if (sessionDay.getTime() === today.getTime() && !isComplete) {
+                todaySessions.push(session);
+            } else if (sessionDay > today && !isComplete) {
+                upcomingSessions.push(session);
+            } else {
+                pastSessions.push(session);
+            }
+        });
+        
+        // Determine which sessions to display based on active tab
+        if (tabName === 'today') {
+            sessionsToDisplay = todaySessions;
+        } else if (tabName === 'upcoming') {
+            sessionsToDisplay = upcomingSessions;
+        } else if (tabName === 'past') {
+            sessionsToDisplay = pastSessions;
         }
-        
-        const sessionDate = new Date(session.schedule);
-        const sessionDay = new Date(sessionDate);
-        sessionDay.setHours(0, 0, 0, 0);
-        
-        const now = new Date();
-        
-        // Check if session is complete or cancelled
-        const isComplete = session.status === 'completed' || session.status === 'cancelled';
-        
-        if (sessionDay.getTime() === today.getTime() && !isComplete) {
-            todaySessions.push(session);
-        } else if (sessionDay > today && !isComplete) {
-            upcomingSessions.push(session);
-        } else {
-            pastSessions.push(session);
-        }
-    });
-    
-    // Determine which sessions to display based on active tab
-    let sessionsToDisplay = [];
-    if (tabName === 'today') {
-        sessionsToDisplay = todaySessions;
-    } else if (tabName === 'upcoming') {
-        sessionsToDisplay = upcomingSessions;
-    } else if (tabName === 'past') {
-        sessionsToDisplay = pastSessions;
     }
     
-    // Select the list container in the active tab
-    const sessionsList = tabContentElement.querySelector('ul');
-    if (!sessionsList) {
-        console.warn(`Session list element not found in tab ${tabName}`);
+    console.log(`Displaying ${sessionsToDisplay.length} filtered sessions for tab ${tabName}`);
+    
+    // Find sessions list element
+    const sessionsListContainer = tabContentElement.querySelector('.sessions-container, .session-list-container');
+    if (!sessionsListContainer) {
+        console.warn(`Sessions container not found in tab ${tabName}`);
         
-        // If no list found but we have sessions to display, show a refresh indicator instead
+        // Only show error and refresh if we actually have sessions to display
         if (sessionsToDisplay.length > 0) {
-            // Show refresh in progress and reload page
-            const refreshIndicator = document.createElement('div');
-            refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
-            refreshIndicator.innerHTML = `
+            // Create a temporary container
+            const tempContainer = document.createElement('div');
+            tempContainer.className = 'text-center py-4 bg-white shadow rounded-md';
+            tempContainer.innerHTML = `
                 <div class="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-500"></div>
-                <span class="ml-2">Refreshing sessions...</span>
+                <span class="ml-2">Refreshing sessions list...</span>
             `;
-            tabContentElement.appendChild(refreshIndicator);
+            tabContentElement.appendChild(tempContainer);
             
-            // Reload after short delay
+            // Force refresh after short delay
             setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+                // Reload just this tab, not the whole page
+                switchSessionTab(tabName);
+            }, 1000);
         }
         return;
     }
     
-    // Update the UI with session data instead of refreshing the whole page
-    if (sessionsToDisplay.length > 0) {
-        console.log(`Found ${sessionsToDisplay.length} sessions for tab ${tabName}, updating display...`);
-        
-        // Find the session list in the current tab
-        const sessionsList = tabContentElement.querySelector('ul');
-        if (sessionsList) {
-            // Clear existing sessions first
-            sessionsList.innerHTML = '';
-            
-            // Add each session to the list
-            sessionsToDisplay.forEach(session => {
-                // We'll use the existing session data to render a new session item
-                const sessionItem = createSessionElement(session);
-                if (sessionItem) {
-                    sessionsList.appendChild(sessionItem);
-                }
-            });
-        } else {
-            console.warn('Session list element not found for update');
-        }
-    } else {
-        // If no sessions, show an empty state message
-        tabContentElement.innerHTML = `
-            <div class="text-center py-8">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    // Find the sessions list (ul element)
+    let sessionsList = sessionsListContainer.querySelector('ul');
+    
+    // If no list but we have sessions, create one
+    if (!sessionsList && sessionsToDisplay.length > 0) {
+        sessionsList = document.createElement('ul');
+        sessionsList.className = 'divide-y divide-gray-200';
+        sessionsListContainer.innerHTML = ''; // Clear container
+        sessionsListContainer.appendChild(sessionsList);
+    }
+    
+    // No sessions to display
+    if (sessionsToDisplay.length === 0) {
+        // Show empty state
+        const emptyState = `
+            <div class="text-center py-12 bg-white shadow rounded-md">
+                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No sessions</h3>
-                <p class="mt-1 text-sm text-gray-500">There are no sessions to display in this tab.</p>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">No ${tabName} sessions</h3>
+                <p class="mt-1 text-sm text-gray-500">You don't have any sessions ${tabName === 'today' ? 'scheduled for today' : tabName === 'upcoming' ? 'scheduled for future days' : 'in the past'}.</p>
                 <div class="mt-6">
-                    <a href="/users/dashboard/mentor/create-session/" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        Create Session
+                        Create New Session
                     </a>
                 </div>
             </div>
         `;
+        
+        sessionsListContainer.innerHTML = emptyState;
+        return;
     }
+    
+    // We have sessions and a list element - update it
+    if (sessionsList) {
+        // Clear existing sessions
+        sessionsList.innerHTML = '';
+        
+        // Add each session to the list
+        sessionsToDisplay.forEach(session => {
+            try {
+                // Create and append session element
+                const sessionElement = createSessionElement(session);
+                if (sessionElement) {
+                    sessionsList.appendChild(sessionElement);
+                }
+            } catch (error) {
+                console.error('Error rendering session:', error, session);
+            }
+        });
+        
+        // Initialize countdown timers for new elements
+        initializeSessionCountdowns();
+    }
+}
+
+/**
+ * Initialize countdown timers for session elements
+ */
+function initializeSessionCountdowns() {
+    // Find all elements with countdown values
+    document.querySelectorAll('.countdown-value').forEach(element => {
+        const sessionId = element.dataset.sessionId;
+        if (!sessionId) return;
+        
+        // Update the countdown every minute
+        const updateInterval = setInterval(() => {
+            try {
+                const sessionElement = document.getElementById(`session-${sessionId}`);
+                if (!sessionElement) {
+                    // Session element no longer exists, clear the interval
+                    clearInterval(updateInterval);
+                    return;
+                }
+                
+                // Get the session schedule time from the data attribute
+                const scheduleTimeStr = sessionElement.dataset.scheduleTime;
+                if (!scheduleTimeStr) return;
+                
+                const scheduleTime = new Date(scheduleTimeStr);
+                const now = new Date();
+                
+                // Calculate time difference
+                const diff = scheduleTime - now;
+                
+                // If session time has passed
+                if (diff <= 0) {
+                    element.textContent = 'Live now';
+                    element.classList.add('text-green-600', 'font-medium');
+                    clearInterval(updateInterval);
+                    return;
+                }
+                
+                // Calculate days, hours, minutes
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                // Format the countdown
+                let countdownText = '';
+                if (days > 0) {
+                    countdownText += `${days}d `;
+                }
+                if (hours > 0 || days > 0) {
+                    countdownText += `${hours}h `;
+                }
+                countdownText += `${minutes}m`;
+                
+                // Update the element
+                element.textContent = countdownText;
+            } catch (error) {
+                console.error('Error updating countdown:', error);
+            }
+        }, 60000); // Update every minute
+        
+        // Do an initial update
+        try {
+            const sessionElement = document.getElementById(`session-${sessionId}`);
+            if (!sessionElement) return;
+            
+            const scheduleTimeStr = sessionElement.dataset.scheduleTime;
+            if (!scheduleTimeStr) return;
+            
+            const scheduleTime = new Date(scheduleTimeStr);
+            const now = new Date();
+            
+            // Calculate time difference
+            const diff = scheduleTime - now;
+            
+            // If session time has passed
+            if (diff <= 0) {
+                element.textContent = 'Live now';
+                element.classList.add('text-green-600', 'font-medium');
+                return;
+            }
+            
+            // Calculate days, hours, minutes
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            // Format the countdown
+            let countdownText = '';
+            if (days > 0) {
+                countdownText += `${days}d `;
+            }
+            if (hours > 0 || days > 0) {
+                countdownText += `${hours}h `;
+            }
+            countdownText += `${minutes}m`;
+            
+            // Update the element
+            element.textContent = countdownText;
+        } catch (error) {
+            console.error('Error updating countdown:', error);
+        }
+    });
 }
 
 /**
