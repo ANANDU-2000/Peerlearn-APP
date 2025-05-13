@@ -10,11 +10,25 @@ class Notification(models.Model):
     """
     Model for user notifications.
     """
+    NOTIFICATION_TYPES = (
+        ('info', _('Information')),
+        ('success', _('Success')),
+        ('warning', _('Warning')),
+        ('error', _('Error')),
+    )
+    
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='notifications',
         help_text=_('The user to whom the notification is sent.')
+    )
+    
+    title = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('The notification title.')
     )
     
     message = models.TextField(
@@ -26,6 +40,19 @@ class Notification(models.Model):
         blank=True,
         null=True,
         help_text=_('Link to redirect the user to when clicked.')
+    )
+    
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NOTIFICATION_TYPES,
+        default='info',
+        help_text=_('The type of notification.')
+    )
+    
+    reference_id = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text=_('Optional reference ID for related object (session, booking, etc).')
     )
     
     read = models.BooleanField(
@@ -44,7 +71,8 @@ class Notification(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Notification for {self.user.username}: {self.message[:30]}..."
+        title_display = self.title if self.title else self.message[:30]
+        return f"Notification for {self.user.username}: {title_display}..."
 
     def mark_as_read(self):
         """Mark the notification as read."""

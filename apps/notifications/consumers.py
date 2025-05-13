@@ -115,13 +115,22 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         """Get all unread notifications for the user."""
         notifications = []
         for notification in Notification.objects.filter(user=self.scope['user'], read=False).order_by('-created_at'):
-            notifications.append({
+            # Extract first sentence as title or use a default title
+            title = notification.message.split('.')[0] if notification.message else "New Notification"
+            
+            # Create a notification object with available fields
+            notification_data = {
                 'id': notification.id,
-                'title': notification.title,
+                'title': title,  # Using first sentence as title
                 'message': notification.message,
                 'created_at': notification.created_at.isoformat(),
                 'read': notification.read,
-                'notification_type': notification.notification_type,
-                'reference_id': notification.reference_id,
-            })
+            }
+            
+            # Add link if available
+            if hasattr(notification, 'link') and notification.link:
+                notification_data['link'] = notification.link
+                
+            notifications.append(notification_data)
+            
         return notifications
