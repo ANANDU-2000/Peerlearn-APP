@@ -170,9 +170,17 @@
     
     <!-- Core JS libraries -->
     {% if user.is_authenticated %}
+    <!-- Load toast utility first to avoid initialization issues -->
     <script src="{% static 'js/toasts.js' %}"></script>
-    <script src="{% static 'js/notifications.js' %}"></script>
+    <!-- API client for AJAX requests -->
+    <script src="{% static 'js/api-client.js' %}"></script>
+    <!-- Real-time WebSocket connections -->
     <script src="{% static 'js/dashboard-ws.js' %}"></script>
+    <!-- Notification handling -->
+    <script src="{% static 'js/notifications.js' %}"></script>
+    
+    <!-- Add user ID as hidden input for WebSocket connection -->
+    <input type="hidden" id="user-id" value="{{ user.id }}">
     {% endif %}
     
     {% block extra_js %}{% endblock %}

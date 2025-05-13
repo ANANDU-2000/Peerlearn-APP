@@ -20,61 +20,100 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         """
         Called when the websocket is handshaking.
         """
-        user = self.scope['user']
+        user = self.scope.get('user')
         
-        if not user.is_authenticated:
+        if not user or not user.is_authenticated:
             # Reject the connection if user is not authenticated
-            await self.close()
+            await self.close(code=4001)
             return
         
         # Get user ID from URL path
-        user_id = self.scope['url_route']['kwargs']['user_id']
-        
-        # Ensure the user is connecting to their own dashboard
-        if str(user.id) != user_id:
-            await self.close()
-            return
-        
-        # Create a user-specific dashboard group
-        self.dashboard_group_name = f'dashboard_{user.id}'
-        
-        # Join room group
-        await self.channel_layer.group_add(
-            self.dashboard_group_name,
-            self.channel_name
-        )
-        
-        await self.accept()
-        
-        # Send initial dashboard data
-        await self.send_dashboard_data()
+        try:
+            user_id = self.scope['url_route']['kwargs']['user_id']
+            
+            # Ensure the user is connecting to their own dashboard
+            if str(user.id) != user_id:
+                await self.close(code=4003)
+                return
+                
+            # Create a user-specific dashboard group
+            self.dashboard_group_name = f'dashboard_{user.id}'
+            self.user = user
+            
+            # Make sure we have a channel layer
+            if not hasattr(self, 'channel_layer'):
+                print("ERROR: No channel layer available!")
+                await self.close(code=4002)
+                return
+                
+            # Join room group
+            await self.channel_layer.group_add(
+                self.dashboard_group_name,
+                self.channel_name
+            )
+            
+            await self.accept()
+            
+            # Send initial dashboard data
+            await self.send_dashboard_data()
+            
+        except Exception as e:
+            print(f"Error in dashboard consumer connect: {e}")
+            await self.close(code=4000)
     
-    async def disconnect(self, close_code):
+    async def disconnect(self, code):
         """
         Called when the WebSocket closes.
         """
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.dashboard_group_name,
-            self.channel_name
-        )
+        try:
+            # Only attempt to leave the group if we successfully joined it
+            if hasattr(self, 'dashboard_group_name') and hasattr(self, 'channel_layer'):
+                # Leave room group
+                await self.channel_layer.group_discard(
+                    self.dashboard_group_name,
+                    self.channel_name
+                )
+                print(f"User disconnected from dashboard WebSocket: {code}")
+        except Exception as e:
+            print(f"Error in dashboard consumer disconnect: {e}")
     
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, bytes_data=None):
         """
-        Called when we get a text frame from the client.
+        Called when we get data from the client.
         """
-        data = json.loads(text_data)
-        action = data.get('action')
-        
-        if action == 'get_dashboard_data':
-            await self.send_dashboard_data()
-        
-        elif action == 'mark_notification_read':
-            notification_id = data.get('notification_id')
-            await self.mark_notification_read(notification_id)
-        
-        elif action == 'mark_all_notifications_read':
-            await self.mark_all_notifications_read()
+        if not text_data:
+            return
+            
+        try:
+            data = json.loads(text_data)
+            action = data.get('action')
+            
+            if action == 'get_dashboard_data':
+                await self.send_dashboard_data()
+                
+            elif action == 'mark_notification_read':
+                notification_id = data.get('notification_id')
+                if notification_id:
+                    await self.channel_layer.send(self.channel_name, {
+                        "type": "notification_update",
+                        "action": "mark_read",
+                        "notification_id": notification_id
+                    })
+                    self.mark_notification_read(notification_id)
+                    
+            elif action == 'mark_all_notifications_read':
+                await self.channel_layer.send(self.channel_name, {
+                    "type": "notification_update",
+                    "action": "mark_all_read"
+                })
+                self.mark_all_notifications_read()
+                
+        except Exception as e:
+            print(f"Error in dashboard consumer receive: {e}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Error processing request'
+            }))
     
     async def session_update(self, event):
         """
