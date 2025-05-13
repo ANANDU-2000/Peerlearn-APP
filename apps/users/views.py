@@ -368,7 +368,7 @@ def learner_dashboard(request):
     # Get unread notifications count
     from apps.notifications.models import Notification
     unread_notifications_count = Notification.objects.filter(
-        recipient=request.user,
+        user=request.user,
         read=False
     ).count()
     

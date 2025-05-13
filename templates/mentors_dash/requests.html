@@ -61,7 +61,7 @@
                                                     <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
                                                     </svg>
-                                                    ${{ request.budget }}
+                                                    ₹{{ request.budget }}
                                                 </p>
                                             </div>
                                         </div>
@@ -135,7 +135,7 @@
                                                 <label for="counter_offer" class="block text-sm font-medium text-gray-700">Your Pricing</label>
                                                 <div class="mt-1 relative rounded-md shadow-sm">
                                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                                        <span class="text-gray-500 sm:text-sm">₹</span>
                                                     </div>
                                                     <input type="number" min="1" step="0.01" name="counter_offer" id="counter_offer" class="block w-full pl-7 pr-12 border border-gray-300 rounded-md py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="0.00" value="{{ request.budget }}" required>
                                                 </div>
