@@ -436,6 +436,40 @@
                                             </a>
                                         {% endif %}
                                         
+                                        <!-- Go Live Button - Only show if scheduled and time is less than 15 min away -->
+                                        <div x-data="{ 
+                                            canGoLive: false,
+                                            sessionTime: '{{ booking.session.schedule|date:'c' }}',
+                                            checkGoLive() {
+                                                if (this.canGoLive && '{{ booking.status }}' === 'confirmed' && '{{ booking.session.status }}' === 'scheduled') {
+                                                    const goLiveButton = this.$el.querySelector('.go-live-button');
+                                                    if (goLiveButton) {
+                                                        goLiveButton.classList.remove('hidden');
+                                                    }
+                                                }
+                                            }
+                                        }" 
+                                        x-init="
+                                            // Check if session is within 15 minutes of start
+                                            const sessionDate = new Date(sessionTime);
+                                            const now = new Date();
+                                            const timeUntil = sessionDate - now;
+                                            
+                                            // Update canGoLive if within 15 minutes or past start time
+                                            if (timeUntil <= 15 * 60 * 1000 || timeUntil <= 0) {
+                                                canGoLive = true;
+                                                checkGoLive();
+                                            }
+                                        "
+                                        class="inline-flex items-center">
+                                            {% if booking.status == 'confirmed' and booking.session.status == 'scheduled' %}
+                                                <a href="/sessions/{{ booking.session.room_code }}/join/" 
+                                                   class="go-live-button hidden inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                                    <i data-feather="video" class="w-4 h-4 mr-1"></i> Go Live
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                        
                                         {% if booking.status == 'completed' and not booking.feedback_submitted %}
                                             <button data-feedback-session-id="{{ booking.id }}" class="open-feedback-modal inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                                 <i data-feather="star" class="w-4 h-4 mr-1"></i> Rate & Review
