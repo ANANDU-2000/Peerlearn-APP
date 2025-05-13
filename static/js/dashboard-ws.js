@@ -361,7 +361,7 @@ function handleDashboardData(data) {
  */
 function updateSessionsUI(session, action) {
     // Check if we're on sessions page
-    const sessionsContainer = document.getElementById('sessions-list');
+    const sessionsContainer = document.querySelector('.sessions-tab-content[data-tab="today"], .sessions-tab-content[data-tab="upcoming"], .sessions-tab-content[data-tab="past"]');
     if (!sessionsContainer) return;
     
     // Handle action
@@ -439,8 +439,13 @@ function refreshSessionsList() {
                 console.error('Error refreshing sessions list:', error);
             });
     } else {
-        // Option 2: Fallback to page reload
-        if (document.querySelector('.sessions-container') && !document.querySelector('.sessions-refresh-in-progress')) {
+        // Option 2: Fallback to page reload but preserve the current tab
+        const sessionsContainer = document.querySelector('.sessions-container');
+        if (sessionsContainer && !document.querySelector('.sessions-refresh-in-progress')) {
+            // Determine current tab
+            const currentMainTab = document.querySelector('.main-tab.active')?.dataset?.tab || 'sessions';
+            const currentSubTab = document.querySelector('.sub-tab.active')?.dataset?.tab || 'today';
+            
             // Add refresh indicator
             const refreshIndicator = document.createElement('div');
             refreshIndicator.className = 'sessions-refresh-in-progress text-center py-4';
@@ -448,11 +453,12 @@ function refreshSessionsList() {
                 <div class="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-500"></div>
                 <span class="ml-2">Refreshing sessions...</span>
             `;
-            document.querySelector('.sessions-container').appendChild(refreshIndicator);
+            sessionsContainer.appendChild(refreshIndicator);
             
             // Reload content after a short delay
             setTimeout(() => {
-                window.location.reload();
+                // Redirect to the same page with tab parameters
+                window.location.href = `/users/dashboard/mentor/sessions/?tab=${currentMainTab}&sub_tab=${currentSubTab}`;
             }, 1000);
         }
     }
