@@ -78,6 +78,28 @@ class DashboardSocket {
         if (window.showToast) {
             window.showToast('Connected to real-time updates', 'success', 3000);
         }
+        
+        // Request dashboard data once connected
+        this.requestDashboardData();
+    }
+    
+    /**
+     * Request dashboard data from the server
+     */
+    requestDashboardData() {
+        if (!this.connected || !this.socket) {
+            console.error('WebSocket not connected');
+            return;
+        }
+        
+        try {
+            console.log('Requesting dashboard data');
+            this.socket.send(JSON.stringify({
+                action: 'get_dashboard_data'
+            }));
+        } catch (error) {
+            console.error('Error requesting dashboard data:', error);
+        }
     }
     
     /**
@@ -240,7 +262,7 @@ class DashboardSocket {
         }
         
         this.socket.send(JSON.stringify({
-            action: 'mark_read',
+            action: 'mark_notification_read',
             notification_id: notificationId
         }));
     }
@@ -255,7 +277,7 @@ class DashboardSocket {
         }
         
         this.socket.send(JSON.stringify({
-            action: 'mark_all_read'
+            action: 'mark_all_notifications_read'
         }));
         
         this.unreadNotifications = 0;
