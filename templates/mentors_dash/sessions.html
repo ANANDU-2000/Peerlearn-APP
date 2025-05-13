@@ -34,13 +34,25 @@
                     <div class="hidden sm:block">
                         <div class="border-b border-gray-200">
                             <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                                <a href="{% url 'users:mentor_sessions' %}?tab=today" data-tab="today" class="sub-tab {% if sub_tab == 'today' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=today" 
+                                   data-tab="today" 
+                                   id="tab-today"
+                                   onclick="switchSessionTab('today'); return false;"
+                                   class="sub-tab {% if sub_tab == 'today' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Today
                                 </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" data-tab="upcoming" class="sub-tab {% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=upcoming" 
+                                   data-tab="upcoming" 
+                                   id="tab-upcoming"
+                                   onclick="switchSessionTab('upcoming'); return false;"
+                                   class="sub-tab {% if sub_tab == 'upcoming' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Upcoming
                                 </a>
-                                <a href="{% url 'users:mentor_sessions' %}?tab=past" data-tab="past" class="sub-tab {% if sub_tab == 'past' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                <a href="{% url 'users:mentor_sessions' %}?tab=past" 
+                                   data-tab="past" 
+                                   id="tab-past"
+                                   onclick="switchSessionTab('past'); return false;"
+                                   class="sub-tab {% if sub_tab == 'past' %}border-primary-500 text-primary-600 active{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                                     Past
                                 </a>
                             </nav>

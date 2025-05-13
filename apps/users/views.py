@@ -625,79 +625,117 @@ def mentor_sessions(request):
     from apps.learning_sessions.models import Session, Booking
     from django.utils import timezone
     from django.db import models
+    import logging
+    
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Loading sessions for mentor: {request.user.username} (ID: {request.user.id})")
     
     # Get today's date and time
     now = timezone.now()
     today = now.date()
     
-    # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
-    today_sessions = Session.objects.filter(
-        mentor=request.user, 
-        schedule__date=today,
-        status__in=[Session.SCHEDULED, Session.LIVE]
-    ).distinct().order_by('schedule')
+    # Get current tab from query parameter
+    current_tab = request.GET.get('tab', 'today')
+    logger.info(f"Current sessions tab: {current_tab}")
     
-    upcoming_sessions = Session.objects.filter(
-        mentor=request.user, 
-        schedule__date__gt=today,
-        status=Session.SCHEDULED
-    ).distinct().order_by('schedule')
+    try:
+        # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
+        today_sessions = Session.objects.filter(
+            mentor=request.user, 
+            schedule__date=today,
+            status__in=['scheduled', 'live']  # Use string literals instead of constants
+        ).distinct().order_by('schedule')
+        logger.info(f"Found {today_sessions.count()} sessions for today")
+        
+        upcoming_sessions = Session.objects.filter(
+            mentor=request.user, 
+            schedule__date__gt=today,
+            status='scheduled'  # Use string literal
+        ).distinct().order_by('schedule')
+        logger.info(f"Found {upcoming_sessions.count()} upcoming sessions")
+        
+        past_sessions = Session.objects.filter(
+            models.Q(mentor=request.user, schedule__date__lt=today) |
+            models.Q(mentor=request.user, status__in=['completed', 'cancelled'])  # Use string literals
+        ).distinct().order_by('-schedule')
+        logger.info(f"Found {past_sessions.count()} past sessions")
     
-    past_sessions = Session.objects.filter(
-        models.Q(mentor=request.user, schedule__date__lt=today) |
-        models.Q(mentor=request.user, status__in=[Session.COMPLETED, Session.CANCELLED])
-    ).distinct().order_by('-schedule')
-    
-    # Add booking count and go-live status to each session
-    for session_list in [today_sessions, upcoming_sessions, past_sessions]:
-        for session in session_list:
-            session.confirmed_bookings_count = Booking.objects.filter(
-                session=session, 
-                status=Booking.CONFIRMED
-            ).count()
-            
-            # Check if can go live (within 15 min of start time)
-            time_until_session = session.schedule - now
-            session.can_go_live = (
-                session.status == Session.SCHEDULED and 
-                time_until_session <= timezone.timedelta(minutes=15) and
-                time_until_session > timezone.timedelta(minutes=-session.duration)
-            )
-            
-            # Compute exact time difference for countdown displays
-            if session.status == Session.SCHEDULED:
-                session.time_until_start = max(time_until_session, timezone.timedelta(0))
+        # Add booking count and go-live status to each session
+        for session_list in [today_sessions, upcoming_sessions, past_sessions]:
+            for session in session_list:
+                # Get confirmed bookings count
+                session.confirmed_bookings_count = Booking.objects.filter(
+                    session=session, 
+                    status='confirmed'  # Use string literal
+                ).count()
                 
-                # Format the remaining time as hours:minutes:seconds
-                total_seconds = int(session.time_until_start.total_seconds())
-                hours, remainder = divmod(total_seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-            elif session.status == Session.LIVE:
-                session.time_since_start = now - session.schedule
-                session.time_remaining = max(timezone.timedelta(minutes=session.duration) - session.time_since_start, 
-                                          timezone.timedelta(0))
+                # Check if can go live (within 15 min of start time)
+                time_until_session = session.schedule - now
+                session.can_go_live = (
+                    session.status == 'scheduled' and 
+                    time_until_session <= timezone.timedelta(minutes=15) and
+                    time_until_session > timezone.timedelta(minutes=-session.duration)
+                )
                 
-                # Format the remaining time as hours:minutes:seconds
-                total_seconds = int(session.time_remaining.total_seconds())
-                hours, remainder = divmod(total_seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                # Check if session is currently live
+                session.is_live = (session.status == 'live')
                 
-            # Check if session can be edited (more than 5 minutes before start)
-            session.can_edit = (
-                session.status == Session.SCHEDULED and 
-                (session.schedule - now) > timezone.timedelta(minutes=5)
-            )
+                # Compute exact time difference for countdown displays
+                if session.status == 'scheduled':
+                    session.time_until_start = max(time_until_session, timezone.timedelta(0))
+                    
+                    # Format the remaining time as hours:minutes:seconds
+                    total_seconds = int(session.time_until_start.total_seconds())
+                    hours, remainder = divmod(total_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                elif session.status == 'live':
+                    session.time_since_start = now - session.schedule
+                    session.time_remaining = max(timezone.timedelta(minutes=session.duration) - session.time_since_start, 
+                                              timezone.timedelta(0))
+                    
+                    # Format the remaining time as hours:minutes:seconds
+                    total_seconds = int(session.time_remaining.total_seconds())
+                    hours, remainder = divmod(total_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    session.countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                
+                # Check if session can be edited (more than 5 minutes before start)
+                session.can_edit = (
+                    session.status == 'scheduled' and 
+                    (session.schedule - now) > timezone.timedelta(minutes=5)
+                )
+                
+                # Ensure session has all needed fields for the template
+                if not hasattr(session, 'countdown_str'):
+                    session.countdown_str = "00:00:00"
+                    
+                # Session URL for Go Live and Join buttons
+                if session.room_code:
+                    session.room_url = f"/sessions/room/{session.room_code}/"
+                
+        # Debug data
+        if current_tab == 'today':
+            for i, session in enumerate(today_sessions):
+                logger.info(f"Today session {i+1}: ID={session.id}, Title={session.title}, Status={session.status}, Can Go Live={session.can_go_live}")
+                
+    except Exception as e:
+        logger.error(f"Error loading sessions: {str(e)}", exc_info=True)
+        messages.error(request, f"Error loading sessions. Please try again later.")
+        today_sessions = []
+        upcoming_sessions = []
+        past_sessions = []
     
     context = {
         'active_tab': 'sessions',
-        'sub_tab': request.GET.get('tab', 'today'),
+        'sub_tab': current_tab,
         'today_sessions': today_sessions,
         'upcoming_sessions': upcoming_sessions,
         'past_sessions': past_sessions,
         'current_time': now.strftime('%Y-%m-%dT%H:%M:%S'),
         'today_date': today.strftime('%Y-%m-%d'),
+        'has_any_sessions': bool(today_sessions or upcoming_sessions or past_sessions),
     }
     
     return render(request, 'mentors_dash/sessions.html', context)
