@@ -707,11 +707,14 @@ def accept_counter_offer(request, request_id):
             status=Session.SCHEDULED
         )
         
+        # Check if the session is free (either from is_free flag or price is 0)
+        is_free_session = session_request.is_free or session_request.counter_offer == 0
+        
         # Create a booking for the learner
         booking = Booking.objects.create(
             session=session,
             learner=request.user,
-            status=Booking.CONFIRMED if session.is_free() else Booking.PENDING
+            status=Booking.CONFIRMED if is_free_session else Booking.PENDING
         )
         
         # Update the request status
@@ -725,7 +728,8 @@ def accept_counter_offer(request, request_id):
             link=reverse('users:mentor_dashboard')
         )
         
-        if session.is_free():
+        # Check if the session is free (either from is_free flag or price is 0)
+        if is_free_session:
             messages.success(request, 'You have successfully booked this free session.')
             return redirect('users:learner_dashboard')
         else:
