@@ -273,6 +273,38 @@ class ApiClient {
     async cancelSession(sessionId, reason) {
         return this.post(`/sessions/api/sessions/${sessionId}/cancel/`, { reason });
     }
+    
+    /**
+     * Create a new session
+     * @param {FormData} formData - Session form data including files
+     * @returns {Promise} Promise with creation result
+     */
+    async createSession(formData) {
+        try {
+            const response = await fetch('/sessions/api/create/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: formData
+            });
+            
+            const data = await this.handleResponse(response);
+            
+            if (data.success) {
+                showToast('success', 'Session Created', 'Your session has been published successfully.');
+                setTimeout(() => {
+                    window.location.href = '/users/dashboard/mentor/sessions/';
+                }, 1000);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Session creation error:', error);
+            showToast('error', 'Error', 'There was an error creating your session. Please try again.');
+            throw error;
+        }
+    }
 }
 
 // Create a global instance of the API client
