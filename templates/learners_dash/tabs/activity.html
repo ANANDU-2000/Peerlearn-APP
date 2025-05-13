@@ -202,8 +202,8 @@
                                     <div class="flex items-start space-x-3 mb-3 sm:mb-0">
                                         <!-- Request Icon -->
                                         <div class="flex-shrink-0">
-                                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                <i data-feather="message-circle" class="w-5 h-5 text-indigo-600"></i>
+                                            <div class="w-10 h-10 rounded-full {% if request.status == 'counter_offer' and request.is_free or request.counter_offer == 0 %}bg-green-100{% else %}bg-indigo-100{% endif %} flex items-center justify-center">
+                                                <i data-feather="{% if request.status == 'counter_offer' and request.is_free or request.counter_offer == 0 %}gift{% else %}message-circle{% endif %}" class="w-5 h-5 {% if request.status == 'counter_offer' and request.is_free or request.counter_offer == 0 %}text-green-600{% else %}text-indigo-600{% endif %}"></i>
                                             </div>
                                         </div>
                                         
@@ -318,6 +318,12 @@
                                                                 Counter Offer from {{ request.mentor.get_full_name }}
                                                             {% endif %}
                                                         </h5>
+                                                        {% if request.is_free or request.counter_offer == 0 %}
+                                                        <div class="mt-1 mb-2 text-sm text-green-700 font-medium flex items-center">
+                                                            <i data-feather="info" class="w-4 h-4 mr-1"></i>
+                                                            This session is being offered at no cost!
+                                                        </div>
+                                                        {% endif %}
                                                         {% if request.mentor_notes %}
                                                             <p class="{% if request.is_free or request.counter_offer == 0 %}text-green-800{% else %}text-blue-800{% endif %} mb-2">{{ request.mentor_notes }}</p>
                                                         {% endif %}
