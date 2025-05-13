@@ -159,6 +159,10 @@ class MentorDetailView(DetailView):
             status__in=['scheduled', 'live']
         ).order_by('schedule')
         
+        # Add domains for the session request form
+        from apps.learning_sessions.models import Domain
+        context['domains'] = Domain.objects.all()
+        
         return context
 
 @login_required

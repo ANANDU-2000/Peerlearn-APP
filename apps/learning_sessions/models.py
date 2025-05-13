@@ -9,6 +9,42 @@ from django.utils import timezone
 
 from apps.users.models import CustomUser
 
+class Domain(models.Model):
+    """
+    Model for domains/categories of sessions.
+    """
+    name = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text=_('Name of the domain/category.')
+    )
+    
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text=_('Description of this domain/category.')
+    )
+    
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text=_('Icon name for this domain (e.g., "code" for programming).')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Date and time when this domain was created.')
+    )
+    
+    class Meta:
+        verbose_name = _('Domain')
+        verbose_name_plural = _('Domains')
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
 class Session(models.Model):
     """
     Model for a session created by a mentor.
@@ -173,8 +209,11 @@ class SessionRequest(models.Model):
         help_text=_('Title or subject of the requested session.')
     )
     
-    domain = models.CharField(
-        max_length=255,
+    domain = models.ForeignKey(
+        Domain,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='session_requests',
         help_text=_('Domain or category of the requested session.')
     )
     
