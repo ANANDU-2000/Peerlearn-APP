@@ -121,10 +121,8 @@ def create_session_api(request):
         # Create notification for admin
         Notification.objects.create(
             user=request.user,
-            title="New Session Created",
             message=f"You have created a new session: {session.title}",
-            notification_type="session_created",
-            reference_id=session.id
+            link=reverse('users:mentor_session_detail', args=[session.id])
         )
         
         # Send real-time update via WebSocket
@@ -294,19 +292,15 @@ def cancel_session_api(request, session_id):
                 # Create notification for learner
                 Notification.objects.create(
                     user=booking.learner,
-                    title="Session Cancelled",
                     message=f"The session '{session.title}' has been cancelled by the mentor. Reason: {cancellation_reason}",
-                    notification_type="session_cancelled",
-                    reference_id=session.id
+                    link=reverse('users:learner_dashboard')
                 )
             
             # Create notification for mentor
             Notification.objects.create(
                 user=request.user,
-                title="Session Cancelled",
                 message=f"You have cancelled the session: {session.title}",
-                notification_type="session_cancelled",
-                reference_id=session.id
+                link=reverse('users:mentor_sessions')
             )
             
             # Send real-time updates via WebSocket

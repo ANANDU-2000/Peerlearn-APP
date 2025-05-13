@@ -98,20 +98,19 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                 
                 # Send another confirmation after joining group
                 await self.send(text_data=json.dumps({
-                    'type': 'group_joined',
+                    'type': 'joined_group',
                     'group': self.dashboard_group_name,
                     'timestamp': timezone.now().isoformat()
                 }))
             except Exception as e:
-                error_msg = f"Error adding to group: {str(e)}"
-                print(error_msg)
+                print(f"Error joining group: {str(e)}")
                 await self.send(text_data=json.dumps({
-                    'error': error_msg,
+                    'error': f'Failed to join group: {str(e)}',
                     'type': 'connection_error'
                 }))
-                await self.close(code=4005)
+                await self.close(code=4002)
                 return
-                
+            
             # Send initial dashboard data
             try:
                 await self.send_dashboard_data()
@@ -154,35 +153,22 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                 1001: "Going away (page navigation)",
                 1006: "Abnormal closure (connection lost)",
                 1011: "Internal server error",
-                4000: "General application error",
+                4000: "Generic error",
                 4001: "Not authenticated",
-                4002: "No channel layer",
-                4003: "Authentication mismatch",
-                4004: "URL path not found",
-                4005: "Group join error"
+                4002: "Channel layer error",
+                4003: "User ID mismatch",
+                4004: "No user ID in URL"
             }
-            reason = code_descriptions.get(code, f"Unknown reason (code {code})")
-            print(f"Close reason: {reason}")
-                
-            # Only attempt to leave the group if we successfully joined it
-            if hasattr(self, 'dashboard_group_name') and hasattr(self, 'channel_layer') and self.channel_layer is not None:
-                try:
-                    # Attempt to get a fresh channel layer if needed
-                    if self.channel_layer is None:
-                        from channels.layers import get_channel_layer
-                        self.channel_layer = get_channel_layer()
-                    
-                    # Leave room group
-                    await self.channel_layer.group_discard(
-                        self.dashboard_group_name,
-                        self.channel_name
-                    )
-                    print(f"User {user_id} removed from dashboard group: {self.dashboard_group_name}")
-                except Exception as group_error:
-                    print(f"Error leaving dashboard group: {str(group_error)}")
-            else:
-                print(f"Disconnected without valid group membership, code: {code}")
-                
+            close_reason = code_descriptions.get(code, "Unknown reason")
+            print(f"Close reason: {close_reason}")
+            
+            # Leave dashboard group
+            if hasattr(self, 'dashboard_group_name') and hasattr(self, 'channel_layer'):
+                await self.channel_layer.group_discard(
+                    self.dashboard_group_name,
+                    self.channel_name
+                )
+                print(f"User {user_id} removed from dashboard group: {self.dashboard_group_name}")
         except Exception as e:
             print(f"Error in dashboard consumer disconnect: {str(e)}")
     
@@ -220,30 +206,13 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                 notification_id = data.get('notification_id')
                 if notification_id:
                     try:
-                        print(f"Marking notification {notification_id} as read for user {self.user.id}")
-                        # Use await with database_sync_to_async functions 
                         result = await database_sync_to_async(self.mark_notification_read)(notification_id)
-                        
-                        # Send the result to the client
                         await self.send(text_data=json.dumps({
                             'type': 'notification_read',
-                            'notification_id': result.get('notification_id'),
-                            'success': result.get('success'),
-                            'error': result.get('error', None),
+                            'notification_id': notification_id,
+                            'success': result,
                             'timestamp': timezone.now().isoformat()
                         }))
-                        
-                        # Notify clients if successful
-                        if result.get('success') and hasattr(self, 'channel_layer') and self.channel_layer:
-                            await self.channel_layer.group_send(
-                                self.dashboard_group_name,
-                                {
-                                    "type": "notification_update",
-                                    "action": "mark_read",
-                                    "notification_id": notification_id,
-                                    "timestamp": timezone.now().isoformat()
-                                }
-                            )
                     except Exception as notify_error:
                         error_msg = f"Error marking notification read: {str(notify_error)}"
                         print(error_msg)
@@ -273,34 +242,18 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                         'count': result.get('count', 0),
                         'timestamp': timezone.now().isoformat()
                     }))
-                    
-                    # Notify clients if successful
-                    if result.get('success') and hasattr(self, 'channel_layer') and self.channel_layer:
-                        await self.channel_layer.group_send(
-                            self.dashboard_group_name,
-                            {
-                                "type": "notification_update",
-                                "action": "mark_all_read",
-                                "timestamp": timezone.now().isoformat()
-                            }
-                        )
                 except Exception as notify_error:
                     error_msg = f"Error marking all notifications read: {str(notify_error)}"
                     print(error_msg)
                     await self.send(text_data=json.dumps({
                         'type': 'error',
-                        'message': 'Failed to mark notifications as read',
+                        'message': 'Failed to mark all notifications as read',
                         'details': str(notify_error)
                     }))
-            
-            elif action == 'ping':
-                # Simple ping/pong for connection testing
-                await self.send(text_data=json.dumps({
-                    'type': 'pong',
-                    'timestamp': timezone.now().isoformat(),
-                    'session_id': data.get('session_id', None)
-                }))
-                print(f"Responded to ping from user {self.user.id}")
+                    
+            elif action == 'get_data':
+                # Legacy action name for get_dashboard_data
+                await self.send_dashboard_data()
                 
             else:
                 print(f"Unknown WebSocket action received: {action}")
@@ -386,7 +339,8 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             data = await self.get_mentor_dashboard_data(user)
         else:
             data = await self.get_learner_dashboard_data(user)
-        
+            
+        # Send data to client
         await self.send(text_data=json.dumps({
             'type': 'dashboard_data',
             'data': data,
@@ -443,13 +397,14 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             user=user,
             read=False
         ).order_by('-created_at')[:10]:
+            # Create title from the message for UI display
+            short_message = notification.message[:30] + ("..." if len(notification.message) > 30 else "")
             notifications.append({
                 'id': notification.id,
-                'title': notification.title,
+                'title': short_message,  # Use short message as title
                 'message': notification.message,
                 'created_at': notification.created_at.isoformat(),
-                'notification_type': notification.notification_type,
-                'reference_id': notification.reference_id,
+                'link': notification.link,
                 'read': notification.read
             })
         
@@ -512,9 +467,7 @@ class DashboardConsumer(AsyncWebsocketConsumer):
                 'duration': req.duration,
                 'budget': float(req.budget),
                 'status': req.status,
-                'created_at': req.created_at.isoformat(),
-                'counter_offer': float(req.counter_offer) if req.counter_offer else None,
-                'counter_time': req.counter_time.isoformat() if req.counter_time else None
+                'created_at': req.created_at.isoformat()
             })
         
         # Get unread notifications
@@ -523,13 +476,14 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             user=user,
             read=False
         ).order_by('-created_at')[:10]:
+            # Create title from message for UI display
+            short_message = notification.message[:30] + ("..." if len(notification.message) > 30 else "")
             notifications.append({
                 'id': notification.id,
-                'title': notification.title,
+                'title': short_message,  # Use short message as title
                 'message': notification.message,
                 'created_at': notification.created_at.isoformat(),
-                'notification_type': notification.notification_type,
-                'reference_id': notification.reference_id,
+                'link': notification.link,
                 'read': notification.read
             })
         
@@ -539,58 +493,50 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             'notifications': notifications,
             'stats': {
                 'total_bookings': Booking.objects.filter(learner=user).count(),
-                'active_bookings': Booking.objects.filter(
+                'confirmed_bookings': Booking.objects.filter(learner=user, status='confirmed').count(),
+                'upcoming_bookings': Booking.objects.filter(
                     learner=user, 
                     status='confirmed',
                     session__schedule__gte=timezone.now()
                 ).count(),
-                'session_requests': SessionRequest.objects.filter(learner=user).count(),
-                'pending_requests': SessionRequest.objects.filter(
-                    learner=user, 
-                    status__in=['pending', 'countered']
-                ).count()
+                'total_requests': SessionRequest.objects.filter(learner=user).count()
             }
         }
     
-    @database_sync_to_async
     def mark_notification_read(self, notification_id):
         """
         Mark a notification as read.
         """
         try:
-            notification = Notification.objects.get(
-                id=notification_id,
-                user=self.scope['user']
-            )
+            # Find notification and ensure it belongs to the current user
+            notification = Notification.objects.get(id=notification_id, user=self.user)
             notification.read = True
             notification.save()
-            
-            # Return data for later sending - don't call send() directly in a database_sync_to_async method
-            return {
-                'success': True,
-                'notification_id': notification_id
-            }
+            print(f"Marked notification {notification_id} as read for user {self.user.id}")
+            return True
         except Notification.DoesNotExist:
-            # Return error information
-            return {
-                'success': False,
-                'notification_id': notification_id,
-                'error': 'Notification not found'
-            }
+            print(f"Notification {notification_id} not found for user {self.user.id}")
+            return False
+        except Exception as e:
+            print(f"Error marking notification {notification_id} as read: {str(e)}")
+            return False
     
-    @database_sync_to_async
     def mark_all_notifications_read(self):
         """
-        Mark all notifications as read for the user.
+        Mark all notifications for the current user as read.
         """
-        # Mark all notifications as read
-        updated_count = Notification.objects.filter(
-            user=self.scope['user'],
-            read=False
-        ).update(read=True)
-        
-        # Return data for later sending - don't call send() directly in a database_sync_to_async method
-        return {
-            'success': True,
-            'count': updated_count
-        }
+        try:
+            # Update all unread notifications for this user
+            count = Notification.objects.filter(user=self.user, read=False).update(read=True)
+            print(f"Marked {count} notifications as read for user {self.user.id}")
+            return {
+                'success': True,
+                'count': count
+            }
+        except Exception as e:
+            print(f"Error marking all notifications as read: {str(e)}")
+            return {
+                'success': False,
+                'count': 0,
+                'error': str(e)
+            }
