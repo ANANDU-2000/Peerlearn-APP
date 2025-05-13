@@ -172,7 +172,7 @@ def request_session(request, mentor_id):
             )
             
             messages.success(request, 'Session request sent successfully!')
-            return redirect('learner_activity')
+            return redirect('users:learner_activity')
     else:
         form = SessionRequestForm()
     

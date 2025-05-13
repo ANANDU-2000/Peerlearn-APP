@@ -166,7 +166,7 @@ def rate_mentor(request, pk):
     
     if not request.user.is_learner:
         messages.error(request, 'Only learners can rate mentors.')
-        return redirect('mentor_detail', pk=pk)
+        return redirect('users:mentor_detail', pk=pk)
     
     if request.method == 'POST':
         form = RatingForm(request.POST)
@@ -183,10 +183,10 @@ def rate_mentor(request, pk):
                 messages.success(request, 'Rating submitted successfully!')
             else:
                 messages.success(request, 'Rating updated successfully!')
-            return redirect('mentor_detail', pk=pk)
+            return redirect('users:mentor_detail', pk=pk)
     
     messages.error(request, 'There was an error with your submission.')
-    return redirect('mentor_detail', pk=pk)
+    return redirect('users:mentor_detail', pk=pk)
 
 @login_required
 def learner_dashboard(request):
