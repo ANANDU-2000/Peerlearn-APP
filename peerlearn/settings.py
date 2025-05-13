@@ -49,6 +49,8 @@ MIDDLEWARE = [
     # Custom middleware for role-based access control
     'apps.users.middleware.MentorRequiredMiddleware',
     'apps.users.middleware.LearnerRequiredMiddleware',
+    # Dashboard detection middleware
+    'apps.core.middleware.DashboardDetectionMiddleware',
 ]
 
 ROOT_URLCONF = 'peerlearn.urls'
