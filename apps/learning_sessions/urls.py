@@ -22,6 +22,9 @@ urlpatterns = [
     path('request/<int:mentor_id>/', views.request_session, name='request'),
     path('request/', views.request_session_api, name='request_api'),
     path('request/<int:request_id>/respond/', views.respond_to_request, name='respond_to_request'),
+    path('accept-request/<int:request_id>/', views.accept_session_request, name='accept_request'),
+    path('reject-request/<int:request_id>/', views.reject_session_request, name='reject_request'),
+    path('modify-request/<int:request_id>/', views.modify_session_request, name='modify_request'),
     
     # Bookings
     path('<int:session_id>/book/', views.book_session, name='book'),

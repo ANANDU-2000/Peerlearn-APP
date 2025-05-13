@@ -9,16 +9,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.db import transaction
 from django.conf import settings
+from decimal import Decimal
 
 from .models import Session, SessionRequest, Booking
 from .forms import SessionForm, SessionRequestForm, FeedbackForm
-from apps.users.models import CustomUser
+from apps.users.models import CustomUser, UserRating
 from apps.notifications.models import Notification
 from apps.payments.models import Payment
 
@@ -547,3 +548,129 @@ def submit_feedback(request, booking_id):
         'form': form,
         'booking': booking
     })
+
+
+@login_required
+def accept_session_request(request, request_id):
+    """View for mentors to accept a session request."""
+    session_request = get_object_or_404(
+        SessionRequest,
+        id=request_id,
+        mentor=request.user
+    )
+    
+    if request.method == 'POST':
+        with transaction.atomic():
+            # Update request status to accepted
+            session_request.status = SessionRequest.ACCEPTED
+            session_request.save()
+            
+            # Create a new session based on the request
+            session = Session.objects.create(
+                mentor=request.user,
+                title=session_request.title,
+                description=session_request.description,
+                topics=[session_request.domain.name], # Use domain name as topic
+                schedule=session_request.proposed_time,
+                duration=session_request.duration,
+                price=session_request.budget,
+                status=Session.SCHEDULED
+            )
+            
+            # Create a booking for the learner
+            booking = Booking.objects.create(
+                session=session,
+                learner=session_request.learner,
+                status=Booking.PENDING # Will be confirmed after payment
+            )
+            
+            # Notify the learner
+            Notification.objects.create(
+                user=session_request.learner,
+                message=f"Your session request '{session_request.title}' has been accepted! Please complete the payment to confirm.",
+                link=reverse('payments:create', kwargs={'booking_id': booking.id})
+            )
+        
+        messages.success(request, 'Request accepted and session created!')
+        return redirect('users:mentor_requests')
+    
+    # If not POST, redirect to the respond page
+    return redirect('sessions:respond_to_request', request_id=request_id)
+
+
+@login_required
+def reject_session_request(request, request_id):
+    """View for mentors to reject a session request."""
+    session_request = get_object_or_404(
+        SessionRequest,
+        id=request_id,
+        mentor=request.user
+    )
+    
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '')
+        
+        # Update request status to declined
+        session_request.status = SessionRequest.DECLINED
+        session_request.mentor_notes = reason
+        session_request.save()
+        
+        # Notify the learner
+        Notification.objects.create(
+            user=session_request.learner,
+            message=f"Your session request '{session_request.title}' has been declined.",
+            link=reverse('users:learner_activity')
+        )
+        
+        messages.success(request, 'Request declined successfully.')
+        return redirect('users:mentor_requests')
+    
+    # If not POST, redirect to the respond page
+    return redirect('sessions:respond_to_request', request_id=request_id)
+
+
+@login_required
+def modify_session_request(request, request_id):
+    """View for mentors to modify a session request with a counter offer."""
+    session_request = get_object_or_404(
+        SessionRequest,
+        id=request_id,
+        mentor=request.user
+    )
+    
+    if request.method == 'POST':
+        counter_offer = request.POST.get('counter_offer')
+        counter_date = request.POST.get('counter_date')
+        counter_time = request.POST.get('counter_time')
+        notes = request.POST.get('notes', '')
+        
+        if counter_offer and counter_date and counter_time:
+            try:
+                # Parse the counter date and time
+                counter_datetime = f"{counter_date} {counter_time}"
+                counter_datetime = timezone.datetime.strptime(counter_datetime, "%Y-%m-%d %H:%M")
+                counter_datetime = timezone.make_aware(counter_datetime)
+                
+                # Update the request
+                session_request.status = SessionRequest.COUNTERED
+                session_request.counter_offer = Decimal(counter_offer)
+                session_request.counter_time = counter_datetime
+                session_request.mentor_notes = notes
+                session_request.save()
+                
+                # Notify the learner
+                Notification.objects.create(
+                    user=session_request.learner,
+                    message=f"Your session request '{session_request.title}' has received a counter offer.",
+                    link=reverse('users:learner_activity')
+                )
+                
+                messages.success(request, 'Counter offer sent successfully.')
+                return redirect('users:mentor_requests')
+            except ValueError:
+                messages.error(request, 'Invalid date, time, or price format.')
+        else:
+            messages.error(request, 'Please provide all required information.')
+    
+    # If not POST or validation failed, redirect to the respond page
+    return redirect('sessions:respond_to_request', request_id=request_id)
