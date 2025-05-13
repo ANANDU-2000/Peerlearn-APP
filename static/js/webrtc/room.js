@@ -912,6 +912,45 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 }
             },
             
+            // Update the UI to reflect video status
+            updateVideoStatus() {
+                console.log("Updating video status UI, video enabled:", this.videoEnabled);
+                
+                // Update video controls UI based on current state
+                const videoControlButton = document.getElementById('video-control');
+                if (videoControlButton) {
+                    if (this.videoEnabled) {
+                        videoControlButton.classList.remove('active');
+                        videoControlButton.title = 'Turn off camera';
+                    } else {
+                        videoControlButton.classList.add('active');
+                        videoControlButton.title = 'Turn on camera';
+                    }
+                }
+                
+                // Update local video container UI
+                const localVideoContainer = document.querySelector('.local-video-container');
+                if (localVideoContainer) {
+                    if (this.videoEnabled) {
+                        localVideoContainer.classList.remove('video-disabled');
+                    } else {
+                        localVideoContainer.classList.add('video-disabled');
+                    }
+                }
+                
+                // Notify other participants about media status change
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log("Sending media status update to peers due to video change");
+                    this.websocket.send(JSON.stringify({
+                        type: 'media_status',
+                        user_id: userId,
+                        username: userName,
+                        audioEnabled: this.audioEnabled,
+                        videoEnabled: this.videoEnabled
+                    }));
+                }
+            },
+            
             // Toggle video
             toggleVideo() {
                 console.log("Toggle video called, current state:", this.videoEnabled);
