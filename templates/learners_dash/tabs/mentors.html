@@ -71,31 +71,39 @@
                             <!-- Rating -->
                             <div class="flex items-center mt-1">
                                 <div class="flex text-yellow-400">
-                                    {% with ''|center:mentor.rating_average|make_list as stars %}
+                                    {% with ''|center:mentor.avg_rating|default:0|floatformat:"0"|make_list as stars %}
                                     {% for _ in stars %}
                                         <i data-feather="star" class="w-4 h-4 fill-current"></i>
                                     {% endfor %}
                                     {% endwith %}
                                     
                                     {% with ''|center:5|make_list as empty_stars %}
-                                    {% for _ in empty_stars|slice:mentor.rating_average %}
+                                    {% for _ in empty_stars|slice:mentor.avg_rating|default:0|floatformat:"0" %}
                                         <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
                                     {% endfor %}
                                     {% endwith %}
                                 </div>
-                                <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count }})</span>
+                                <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count|default:"0" }})</span>
                             </div>
                             
                             <!-- Domain tags -->
                             <div class="mt-3 flex flex-wrap justify-center gap-1">
-                                {% for expertise in mentor.expertises.all|slice:":3" %}
+                                {% if mentor.expertise %}
+                                    {% with mentor.expertise as expertise_list %}
+                                        {% for expertise in expertise_list|slice:":3" %}
+                                            <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                                {{ expertise }}
+                                            </span>
+                                        {% endfor %}
+                                        {% if expertise_list|length > 3 %}
+                                            <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                                +{{ expertise_list|length|add:"-3" }}
+                                            </span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
                                     <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
-                                        {{ expertise.name }}
-                                    </span>
-                                {% endfor %}
-                                {% if mentor.expertises.count > 3 %}
-                                    <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
-                                        +{{ mentor.expertises.count|add:"-3" }}
+                                        General Mentoring
                                     </span>
                                 {% endif %}
                             </div>
