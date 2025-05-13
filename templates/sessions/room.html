@@ -1,0 +1,893 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.title }} | Live Session Room{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Make the video container fill the available space */
+    .video-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background-color: #1a1a1a;
+    }
+
+    /* Style video elements to fill their containers */
+    video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Media query for larger screens */
+    @media (min-width: 768px) {
+        .chat-container {
+            height: calc(100vh - 150px);
+        }
+    }
+
+    /* Custom scrollbar for chat */
+    .chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* User label and controls overlays */
+    .video-overlay {
+        position: absolute;
+        bottom: 10px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 1rem;
+        color: white;
+        z-index: 10;
+    }
+
+    .user-label {
+        background-color: rgba(0, 0, 0, 0.5);
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+    }
+
+    /* Controls styling */
+    .controls-container {
+        position: absolute;
+        bottom: 1rem;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        z-index: 20;
+    }
+
+    .control-button {
+        margin: 0 0.5rem;
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .control-button:hover {
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+
+    .control-button.active {
+        background-color: rgba(220, 38, 38, 0.8);
+    }
+
+    .control-button.active:hover {
+        background-color: rgba(220, 38, 38, 1);
+    }
+
+    .control-button svg {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    /* Participant tiles */
+    .participant-tile {
+        position: relative;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background-color: #1a1a1a;
+    }
+
+    .main-video {
+        height: calc(100vh - 150px);
+    }
+
+    .video-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #1a1a1a;
+        color: white;
+    }
+
+    .video-placeholder svg {
+        width: 3rem;
+        height: 3rem;
+        opacity: 0.5;
+    }
+
+    /* Timer styling */
+    .session-timer {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        z-index: 10;
+    }
+
+    /* Connection status indicator */
+    .connection-status {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        z-index: 10;
+    }
+
+    .status-dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+
+    .status-dot.connected {
+        background-color: #10b981;
+    }
+
+    .status-dot.connecting {
+        background-color: #f59e0b;
+        animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.disconnected {
+        background-color: #ef4444;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-gray-100 min-h-screen" x-data="webRTCRoom()">
+    <div class="container mx-auto px-4 py-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ session.title }}</h1>
+                <p class="text-gray-600 mt-1">
+                    <span x-show="sessionStatus === 'live'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span class="w-2 h-2 mr-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                        Live Now
+                    </span>
+                    <span x-show="sessionStatus !== 'live'" x-text="sessionStatus" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"></span>
+                </p>
+            </div>
+            <div>
+                <a href="{% if user_role == 'mentor' %}{% url 'users:mentor_dashboard' %}{% else %}{% url 'users:learner_dashboard' %}{% endif %}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Main content: video streams -->
+            <div class="lg:col-span-3">
+                <div class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-medium text-gray-900">Live Session</h2>
+                        <p class="mt-1 text-sm text-gray-500" x-text="participantsLabel"></p>
+                    </div>
+                    
+                    <div class="p-4">
+                        <!-- Main participant (larger view) -->
+                        <div class="main-video participant-tile mb-4">
+                            <template x-if="mainStream">
+                                <video x-ref="mainVideo" autoplay playsinline></video>
+                            </template>
+                            <template x-if="!mainStream">
+                                <div class="video-placeholder">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            </template>
+                            
+                            <!-- Session timer -->
+                            <div class="session-timer" x-text="sessionTimer"></div>
+                            
+                            <!-- Connection status -->
+                            <div class="connection-status">
+                                <span class="status-dot" :class="connectionStatusClass"></span>
+                                <span x-text="connectionStatus"></span>
+                            </div>
+                            
+                            <!-- Main video overlay with user name -->
+                            <div class="video-overlay">
+                                <div class="user-label" x-text="mainStreamUser"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Other participants (smaller views in a row) -->
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                            <template x-for="participant in otherParticipants" :key="participant.id">
+                                <div class="participant-tile h-40" @click="switchMainStream(participant.id)">
+                                    <video :id="'video-' + participant.id" autoplay playsinline></video>
+                                    <div class="video-overlay">
+                                        <div class="user-label" x-text="participant.name"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <!-- Controls -->
+                        <div class="controls-container">
+                            <div class="control-button" :class="{ 'active': !audioEnabled }" @click="toggleAudio">
+                                <svg x-show="audioEnabled" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                                <svg x-show="!audioEnabled" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                </svg>
+                            </div>
+                            
+                            <div class="control-button" :class="{ 'active': !videoEnabled }" @click="toggleVideo">
+                                <svg x-show="videoEnabled" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <svg x-show="!videoEnabled" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                </svg>
+                            </div>
+                            
+                            <div class="control-button" @click="shareScreen" x-show="!isScreenSharing">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            
+                            <div class="control-button active" @click="stopShareScreen" x-show="isScreenSharing">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                </svg>
+                            </div>
+                            
+                            {% if user_role == 'mentor' %}
+                            <div class="control-button" @click="endSession">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Session information for reference -->
+                <div class="bg-white shadow rounded-lg overflow-hidden mt-6">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-medium text-gray-900">Session Information</h2>
+                    </div>
+                    
+                    <div class="p-4">
+                        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Topic</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ session.title }}</dd>
+                            </div>
+                            
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Duration</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ session.duration }} minutes</dd>
+                            </div>
+                            
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">
+                                    {% if user_role == 'mentor' %}Learner{% else %}Mentor{% endif %}
+                                </dt>
+                                <dd class="mt-1 text-sm text-gray-900">
+                                    {% if user_role == 'mentor' %}
+                                        {% for booking in session.bookings.all %}
+                                            {% if booking.status == 'confirmed' %}
+                                                {{ booking.learner.get_full_name|default:booking.learner.username }}{% if not forloop.last %}, {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ session.mentor.get_full_name|default:session.mentor.username }}
+                                    {% endif %}
+                                </dd>
+                            </div>
+                            
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Scheduled Time</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ session.schedule|date:"F j, Y, g:i a" }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white shadow rounded-lg overflow-hidden h-full">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-medium text-gray-900">Live Chat</h2>
+                    </div>
+                    
+                    <div class="flex flex-col h-full">
+                        <div class="flex-1 overflow-y-auto p-4 chat-messages" x-ref="chatMessages">
+                            <template x-for="(message, index) in chatMessages" :key="index">
+                                <div class="mb-4">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 font-semibold text-sm">
+                                                <span x-text="message.sender.charAt(0).toUpperCase()"></span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900" x-text="message.sender"></p>
+                                            <div class="mt-1 text-sm text-gray-700 bg-gray-50 rounded-lg p-3" x-html="formatMessage(message.content)"></div>
+                                            <p class="mt-1 text-xs text-gray-500" x-text="formatTime(message.timestamp)"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="chatMessages.length === 0" class="flex flex-col items-center justify-center h-40 text-gray-500">
+                                <svg class="w-10 h-10 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <p>No messages yet</p>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t border-gray-200 p-4">
+                            <form @submit.prevent="sendChatMessage" class="flex">
+                                <input 
+                                    type="text" 
+                                    x-model="newMessage" 
+                                    placeholder="Type your message..." 
+                                    class="flex-1 shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                >
+                                <button 
+                                    type="submit" 
+                                    class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                    :disabled="!newMessage.trim()"
+                                >
+                                    Send
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // WebRTC room functionality with Alpine.js
+    function webRTCRoom() {
+        return {
+            // Connection state
+            websocket: null,
+            peerConnections: {},
+            localStream: null,
+            screenStream: null,
+            mainStream: null,
+            mainStreamUser: "{{ user_name }}",
+            otherParticipants: [],
+            chatMessages: [],
+            newMessage: "",
+            audioEnabled: true,
+            videoEnabled: true,
+            isScreenSharing: false,
+            sessionStatus: "{{ session.get_status_display|lower }}",
+            sessionStartTime: new Date("{{ session.schedule|date:'c' }}"),
+            sessionDuration: {{ session.duration }},
+            sessionTimer: "00:00:00",
+            connectionStatus: "Connecting...",
+            connectionStatusClass: "connecting",
+            
+            // Computed properties
+            get participantsLabel() {
+                const count = this.otherParticipants.length + 1; // +1 for self
+                return `${count} participant${count !== 1 ? 's' : ''} in session`;
+            },
+            
+            // Initialize
+            init() {
+                // Set up WebRTC
+                this.setupWebRTC();
+                
+                // Update session timer every second
+                this.updateSessionTimer();
+                setInterval(() => this.updateSessionTimer(), 1000);
+                
+                // Auto-scroll chat messages when new messages arrive
+                this.$watch('chatMessages', () => {
+                    setTimeout(() => {
+                        if (this.$refs.chatMessages) {
+                            this.$refs.chatMessages.scrollTop = this.$refs.chatMessages.scrollHeight;
+                        }
+                    }, 50);
+                });
+                
+                // Handle page unload (cleanup)
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            },
+            
+            // Set up WebRTC
+            async setupWebRTC() {
+                try {
+                    // Get user media
+                    this.localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: true,
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    
+                    // Set as main stream initially
+                    this.mainStream = this.localStream;
+                    if (this.$refs.mainVideo) {
+                        this.$refs.mainVideo.srcObject = this.localStream;
+                    }
+                    
+                    // Connect to WebSocket
+                    this.connectWebSocket();
+                    
+                } catch (error) {
+                    console.error("Error accessing media devices:", error);
+                    alert("Could not access camera or microphone. Please check permissions.");
+                    this.connectionStatus = "Media Error";
+                    this.connectionStatusClass = "disconnected";
+                }
+            },
+            
+            // Connect to WebSocket for signaling
+            connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/session/{{ room_name }}/`;
+                
+                this.websocket = new WebSocket(wsUrl);
+                
+                this.websocket.onopen = () => {
+                    console.log("WebSocket connected");
+                    this.connectionStatus = "Connected";
+                    this.connectionStatusClass = "connected";
+                    
+                    // Send join message
+                    this.websocket.send(JSON.stringify({
+                        type: 'join',
+                        user_id: {{ user_id }},
+                        username: "{{ user_name }}"
+                    }));
+                };
+                
+                this.websocket.onmessage = (event) => {
+                    this.handleSignalingMessage(JSON.parse(event.data));
+                };
+                
+                this.websocket.onclose = () => {
+                    console.log("WebSocket disconnected");
+                    this.connectionStatus = "Disconnected";
+                    this.connectionStatusClass = "disconnected";
+                    
+                    // Try to reconnect after a delay
+                    setTimeout(() => {
+                        if (this.connectionStatus === "Disconnected") {
+                            this.connectionStatus = "Reconnecting...";
+                            this.connectionStatusClass = "connecting";
+                            this.connectWebSocket();
+                        }
+                    }, 5000);
+                };
+                
+                this.websocket.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    this.connectionStatus = "Connection Error";
+                    this.connectionStatusClass = "disconnected";
+                };
+            },
+            
+            // Handle incoming signaling messages
+            async handleSignalingMessage(message) {
+                try {
+                    switch(message.type) {
+                        case 'user_join':
+                            // New user joined, create offer
+                            if (message.user_id !== {{ user_id }}) {
+                                console.log("User joined:", message.username);
+                                await this.createPeerConnection(message.user_id, message.username);
+                                const offer = await this.peerConnections[message.user_id].createOffer();
+                                await this.peerConnections[message.user_id].setLocalDescription(offer);
+                                
+                                this.websocket.send(JSON.stringify({
+                                    type: 'offer',
+                                    target: message.user_id,
+                                    sdp: this.peerConnections[message.user_id].localDescription
+                                }));
+                            }
+                            break;
+                            
+                        case 'user_leave':
+                            // User left, clean up connection
+                            if (this.peerConnections[message.user_id]) {
+                                this.peerConnections[message.user_id].close();
+                                delete this.peerConnections[message.user_id];
+                                
+                                // Remove from participants list
+                                this.otherParticipants = this.otherParticipants.filter(p => p.id !== message.user_id);
+                            }
+                            break;
+                            
+                        case 'offer':
+                            // Received an offer, create answer
+                            if (message.target === {{ user_id }}) {
+                                if (!this.peerConnections[message.user_id]) {
+                                    await this.createPeerConnection(message.user_id, message.username);
+                                }
+                                
+                                await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
+                                const answer = await this.peerConnections[message.user_id].createAnswer();
+                                await this.peerConnections[message.user_id].setLocalDescription(answer);
+                                
+                                this.websocket.send(JSON.stringify({
+                                    type: 'answer',
+                                    target: message.user_id,
+                                    sdp: this.peerConnections[message.user_id].localDescription
+                                }));
+                            }
+                            break;
+                            
+                        case 'answer':
+                            // Received an answer to our offer
+                            if (message.target === {{ user_id }} && this.peerConnections[message.user_id]) {
+                                await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
+                            }
+                            break;
+                            
+                        case 'ice_candidate':
+                            // Received ICE candidate
+                            if (message.target === {{ user_id }} && this.peerConnections[message.user_id]) {
+                                await this.peerConnections[message.user_id].addIceCandidate(new RTCIceCandidate(message.candidate));
+                            }
+                            break;
+                            
+                        case 'chat_message':
+                            // Received chat message
+                            this.chatMessages.push({
+                                sender: message.username,
+                                content: message.content,
+                                timestamp: new Date()
+                            });
+                            break;
+                            
+                        case 'session_ended':
+                            // Session was ended by the mentor
+                            if (message.user_id !== {{ user_id }}) {
+                                alert("The session has been ended by the mentor.");
+                                window.location.href = "{% if user_role == 'mentor' %}{% url 'users:mentor_dashboard' %}{% else %}{% url 'users:learner_dashboard' %}{% endif %}";
+                            }
+                            break;
+                    }
+                } catch (error) {
+                    console.error("Error handling signaling message:", error);
+                }
+            },
+            
+            // Create a peer connection for a user
+            async createPeerConnection(userId, username) {
+                try {
+                    // ICE servers configuration
+                    const configuration = {
+                        iceServers: [
+                            { urls: "{{ STUN_SERVER }}" }
+                            {% if TURN_SERVER %}
+                            ,{ 
+                                urls: "{{ TURN_SERVER }}", 
+                                username: "{{ TURN_USERNAME }}", 
+                                credential: "{{ TURN_CREDENTIAL }}" 
+                            }
+                            {% endif %}
+                        ]
+                    };
+                    
+                    const pc = new RTCPeerConnection(configuration);
+                    
+                    // Add local tracks to the connection
+                    this.localStream.getTracks().forEach(track => {
+                        pc.addTrack(track, this.localStream);
+                    });
+                    
+                    // Handle ICE candidates
+                    pc.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'ice_candidate',
+                                target: userId,
+                                candidate: event.candidate
+                            }));
+                        }
+                    };
+                    
+                    // Handle connection state changes
+                    pc.onconnectionstatechange = () => {
+                        console.log(`Connection state with ${username}: ${pc.connectionState}`);
+                    };
+                    
+                    // Handle receiving remote tracks
+                    pc.ontrack = (event) => {
+                        console.log(`Received track from ${username}`);
+                        
+                        // Create participant entry if it doesn't exist
+                        const existingParticipant = this.otherParticipants.find(p => p.id === userId);
+                        if (!existingParticipant) {
+                            this.otherParticipants.push({
+                                id: userId,
+                                name: username,
+                                stream: event.streams[0]
+                            });
+                        } else {
+                            // Update existing participant's stream
+                            existingParticipant.stream = event.streams[0];
+                        }
+                        
+                        // Update video element
+                        setTimeout(() => {
+                            const videoElement = document.getElementById(`video-${userId}`);
+                            if (videoElement) {
+                                videoElement.srcObject = event.streams[0];
+                            }
+                        }, 100);
+                    };
+                    
+                    this.peerConnections[userId] = pc;
+                    return pc;
+                    
+                } catch (error) {
+                    console.error(`Error creating peer connection for ${username}:`, error);
+                    throw error;
+                }
+            },
+            
+            // Toggle audio
+            toggleAudio() {
+                this.audioEnabled = !this.audioEnabled;
+                this.localStream.getAudioTracks().forEach(track => {
+                    track.enabled = this.audioEnabled;
+                });
+            },
+            
+            // Toggle video
+            toggleVideo() {
+                this.videoEnabled = !this.videoEnabled;
+                this.localStream.getVideoTracks().forEach(track => {
+                    track.enabled = this.videoEnabled;
+                });
+            },
+            
+            // Share screen
+            async shareScreen() {
+                try {
+                    this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    
+                    // Replace video track in all peer connections
+                    const videoTrack = this.screenStream.getVideoTracks()[0];
+                    
+                    Object.values(this.peerConnections).forEach(pc => {
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(videoTrack);
+                        }
+                    });
+                    
+                    // Set as main stream
+                    this.mainStream = this.screenStream;
+                    if (this.$refs.mainVideo) {
+                        this.$refs.mainVideo.srcObject = this.screenStream;
+                    }
+                    
+                    this.isScreenSharing = true;
+                    
+                    // Handle when user stops screen sharing
+                    videoTrack.onended = () => {
+                        this.stopShareScreen();
+                    };
+                    
+                } catch (error) {
+                    console.error("Error sharing screen:", error);
+                    alert("Could not share screen. Please try again.");
+                }
+            },
+            
+            // Stop screen sharing
+            stopShareScreen() {
+                if (this.screenStream) {
+                    this.screenStream.getTracks().forEach(track => track.stop());
+                    
+                    // Replace with camera video track in all peer connections
+                    const videoTrack = this.localStream.getVideoTracks()[0];
+                    
+                    Object.values(this.peerConnections).forEach(pc => {
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(videoTrack);
+                        }
+                    });
+                    
+                    // Reset main stream to local stream
+                    this.mainStream = this.localStream;
+                    if (this.$refs.mainVideo) {
+                        this.$refs.mainVideo.srcObject = this.localStream;
+                    }
+                    
+                    this.isScreenSharing = false;
+                }
+            },
+            
+            // Switch main video display
+            switchMainStream(participantId) {
+                const participant = this.otherParticipants.find(p => p.id === participantId);
+                if (participant && participant.stream) {
+                    this.mainStream = participant.stream;
+                    this.mainStreamUser = participant.name;
+                    
+                    if (this.$refs.mainVideo) {
+                        this.$refs.mainVideo.srcObject = participant.stream;
+                    }
+                }
+            },
+            
+            // End session (mentor only)
+            endSession() {
+                if (confirm('Are you sure you want to end this session for all participants?')) {
+                    // Send end session message
+                    this.websocket.send(JSON.stringify({
+                        type: 'session_ended',
+                        user_id: {{ user_id }},
+                        username: "{{ user_name }}"
+                    }));
+                    
+                    // Redirect to dashboard
+                    window.location.href = "{% url 'users:mentor_dashboard' %}";
+                }
+            },
+            
+            // Send chat message
+            sendChatMessage() {
+                if (this.newMessage.trim()) {
+                    // Send via WebSocket
+                    this.websocket.send(JSON.stringify({
+                        type: 'chat_message',
+                        content: this.newMessage,
+                        user_id: {{ user_id }},
+                        username: "{{ user_name }}"
+                    }));
+                    
+                    // Add to local chat
+                    this.chatMessages.push({
+                        sender: "{{ user_name }} (You)",
+                        content: this.newMessage,
+                        timestamp: new Date()
+                    });
+                    
+                    // Clear input
+                    this.newMessage = "";
+                }
+            },
+            
+            // Format chat message (detect links)
+            formatMessage(message) {
+                // Convert URLs to clickable links
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                return message.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-primary-600 hover:underline">${url}</a>`);
+            },
+            
+            // Format timestamp for chat
+            formatTime(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            },
+            
+            // Update session timer
+            updateSessionTimer() {
+                const now = new Date();
+                const elapsed = Math.floor((now - this.sessionStartTime) / 1000);
+                const remaining = (this.sessionDuration * 60) - elapsed;
+                
+                if (remaining <= 0) {
+                    // Session time is up
+                    this.sessionTimer = "Session time is up";
+                    return;
+                }
+                
+                // Format remaining time as HH:MM:SS
+                const hours = Math.floor(remaining / 3600);
+                const minutes = Math.floor((remaining % 3600) / 60);
+                const seconds = remaining % 60;
+                
+                this.sessionTimer = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            },
+            
+            // Cleanup on component unmount
+            cleanup() {
+                // Close all peer connections
+                Object.values(this.peerConnections).forEach(pc => pc.close());
+                
+                // Stop all media tracks
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (this.screenStream) {
+                    this.screenStream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Close WebSocket
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.close();
+                }
+            }
+        };
+    }
+</script>
+{% endblock %}
