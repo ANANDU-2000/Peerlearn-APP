@@ -1,0 +1,148 @@
+<!-- Mentors Tab Content -->
+<div class="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
+    <div class="px-4 py-5 sm:px-6">
+        <h2 class="text-lg font-medium text-gray-900">Find Mentors</h2>
+        <p class="mt-1 text-sm text-gray-500">Connect with expert mentors in your areas of interest.</p>
+    </div>
+    <div class="p-4 border-b">
+        <!-- Search and Filter Controls -->
+        <form class="space-y-4 md:space-y-0 md:flex md:items-end md:space-x-4" method="GET" action="{% url 'mentor_list' %}">
+            <div class="flex-1">
+                <label for="query" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <div class="relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-feather="search" class="h-4 w-4 text-gray-400"></i>
+                    </div>
+                    <input type="text" name="query" id="query" class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md" placeholder="Name, expertise, or keywords">
+                </div>
+            </div>
+            
+            <div class="w-full md:w-48">
+                <label for="expertise" class="block text-sm font-medium text-gray-700 mb-1">Expertise</label>
+                <select id="expertise" name="expertise" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                    <option value="">All Expertise</option>
+                    {% for domain in domains %}
+                        <option value="{{ domain.id }}">{{ domain.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="w-full md:w-48">
+                <label for="rating" class="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+                <select id="rating" name="rating" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                    <option value="">All Ratings</option>
+                    <option value="5">5 stars</option>
+                    <option value="4">4+ stars</option>
+                    <option value="3">3+ stars</option>
+                </select>
+            </div>
+            
+            <div class="w-full md:w-auto">
+                <button type="submit" class="w-full md:w-auto inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i data-feather="filter" class="h-4 w-4 mr-2"></i>
+                    Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="mentors-grid">
+            {% if top_mentors %}
+                {% for mentor in top_mentors %}
+                <div class="mentor-card bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-200">
+                    <div class="p-5">
+                        <div class="flex flex-col items-center text-center">
+                            <!-- Mentor avatar -->
+                            <div class="mb-4">
+                                {% if mentor.profile_picture %}
+                                    <img src="{{ mentor.profile_picture.url }}" alt="{{ mentor.get_full_name }}" class="w-24 h-24 rounded-full object-cover">
+                                {% else %}
+                                    <div class="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-700 text-xl font-semibold">
+                                            {{ mentor.first_name|first }}{{ mentor.last_name|first }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Mentor info -->
+                            <h3 class="text-lg font-medium text-gray-900">{{ mentor.get_full_name }}</h3>
+                            
+                            <!-- Rating -->
+                            <div class="flex items-center mt-1">
+                                <div class="flex text-yellow-400">
+                                    {% with ''|center:mentor.rating_average|make_list as stars %}
+                                    {% for _ in stars %}
+                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    {% endfor %}
+                                    {% endwith %}
+                                    
+                                    {% with ''|center:5|make_list as empty_stars %}
+                                    {% for _ in empty_stars|slice:mentor.rating_average %}
+                                        <i data-feather="star" class="w-4 h-4 text-gray-300"></i>
+                                    {% endfor %}
+                                    {% endwith %}
+                                </div>
+                                <span class="ml-1 text-sm text-gray-600">({{ mentor.rating_count }})</span>
+                            </div>
+                            
+                            <!-- Domain tags -->
+                            <div class="mt-3 flex flex-wrap justify-center gap-1">
+                                {% for expertise in mentor.expertises.all|slice:":3" %}
+                                    <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                        {{ expertise.name }}
+                                    </span>
+                                {% endfor %}
+                                {% if mentor.expertises.count > 3 %}
+                                    <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                                        +{{ mentor.expertises.count|add:"-3" }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Bio excerpt -->
+                            <p class="mt-3 text-sm text-gray-600 line-clamp-2">{{ mentor.bio|truncatechars:100 }}</p>
+                            
+                            <!-- Action buttons -->
+                            <div class="mt-4 flex space-x-2 w-full">
+                                <a href="{% url 'mentor_detail' mentor.id %}" class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                    <i data-feather="user" class="w-4 h-4 mr-1"></i>
+                                    Profile
+                                </a>
+                                <button 
+                                    class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                    data-mentor-id="{{ mentor.id }}"
+                                    onclick="showSessionRequestDialog({{ mentor.id }})"
+                                >
+                                    <i data-feather="message-square" class="w-4 h-4 mr-1"></i>
+                                    Request
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-span-full text-center py-20">
+                    <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <i data-feather="users" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No mentors found</h3>
+                    <p class="text-gray-600 max-w-lg mx-auto">
+                        We couldn't find any mentors that match your criteria. Try adjusting your filters or check back later as new mentors join our platform.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Load More / Pagination -->
+        <div class="mt-6 text-center">
+            <a href="{% url 'mentor_list' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                See All Mentors
+                <i data-feather="arrow-right" class="ml-2 h-4 w-4"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Session Request Dialog Modal is already included in home.html -->

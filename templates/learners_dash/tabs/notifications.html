@@ -1,0 +1,139 @@
+<!-- Notifications Tab Content -->
+<div class="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
+    <div class="px-4 py-5 sm:px-6">
+        <h2 class="text-lg font-medium text-gray-900">Notifications</h2>
+        <p class="mt-1 text-sm text-gray-500">Stay updated with your learning journey.</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div class="space-y-4" id="notifications-list">
+            {% if notifications %}
+                {% for notification in notifications %}
+                <div class="notification-item p-4 bg-white rounded-lg shadow-sm border-l-4 {% if notification.read %}border-gray-300{% else %}border-primary-500 bg-blue-50{% endif %} mb-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mt-0.5">
+                            {% if notification.notification_type == 'booking_confirmed' %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-green-100">
+                                    <i data-feather="check" class="h-5 w-5 text-green-600"></i>
+                                </span>
+                            {% elif notification.notification_type == 'session_reminder' %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100">
+                                    <i data-feather="clock" class="h-5 w-5 text-blue-600"></i>
+                                </span>
+                            {% elif notification.notification_type == 'session_started' %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-purple-100">
+                                    <i data-feather="video" class="h-5 w-5 text-purple-600"></i>
+                                </span>
+                            {% elif notification.notification_type == 'payment_received' %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-green-100">
+                                    <i data-feather="dollar-sign" class="h-5 w-5 text-green-600"></i>
+                                </span>
+                            {% elif notification.notification_type == 'request_response' %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100">
+                                    <i data-feather="message-circle" class="h-5 w-5 text-indigo-600"></i>
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-100">
+                                    <i data-feather="bell" class="h-5 w-5 text-gray-600"></i>
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="ml-3 flex-1">
+                            <div class="flex justify-between items-start">
+                                <p class="text-sm font-medium text-gray-900">{{ notification.title }}</p>
+                                <p class="text-xs text-gray-500">{{ notification.created_at|timesince }} ago</p>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-600">{{ notification.message }}</p>
+                            
+                            {% if notification.action_url %}
+                            <div class="mt-2">
+                                <a href="{{ notification.action_url }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                    {{ notification.action_text|default:"View Details" }}
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if not notification.read %}
+                        <div class="ml-2 flex-shrink-0">
+                            <button 
+                                class="text-gray-400 hover:text-gray-500 focus:outline-none" 
+                                data-notification-id="{{ notification.id }}"
+                                onclick="markAsRead(this)"
+                            >
+                                <i data-feather="check-circle" class="h-5 w-5"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-16">
+                    <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <i data-feather="bell" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No notifications yet</h3>
+                    <p class="text-gray-600 max-w-md mx-auto">
+                        When you book sessions or receive messages, your notifications will appear here.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function markAsRead(button) {
+    const notificationId = button.getAttribute('data-notification-id');
+    
+    fetch('/notifications/mark-read/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            notification_id: notificationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update UI
+            const notificationItem = button.closest('.notification-item');
+            notificationItem.classList.remove('bg-blue-50');
+            notificationItem.classList.remove('border-primary-500');
+            notificationItem.classList.add('border-gray-300');
+            button.parentNode.remove();
+            
+            // Update notification counter
+            const counter = document.querySelector('.notification-counter');
+            if (counter) {
+                const count = parseInt(counter.textContent);
+                if (count > 1) {
+                    counter.textContent = count - 1;
+                } else {
+                    counter.remove();
+                }
+            }
+        }
+    })
+    .catch(error => console.error('Error marking notification as read:', error));
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>

@@ -188,7 +188,43 @@ def rate_mentor(request, pk):
     messages.error(request, 'There was an error with your submission.')
     return redirect('users:mentor_detail', pk=pk)
 
-@login_required
+def get_top_mentors(user, limit=6):
+    """Get top rated mentors for recommendation."""
+    from apps.users.models import CustomUser
+    from django.db.models import Avg, Count, Q
+    
+    # Get all mentors with high ratings (4+ stars)
+    top_rated = CustomUser.objects.filter(
+        is_mentor=True,
+        is_active=True,
+        ratings__rating__gte=4  # Only consider high ratings
+    ).annotate(
+        avg_rating=Avg('ratings__rating'),
+        rating_count=Count('ratings')
+    ).filter(
+        rating_count__gte=3  # At least 3 ratings
+    ).order_by('-avg_rating')[:limit]
+    
+    # If we don't have enough top rated mentors, fill with recently active mentors
+    if top_rated.count() < limit:
+        additional_needed = limit - top_rated.count()
+        
+        # Get mentors who aren't already in top_rated
+        existing_ids = [mentor.id for mentor in top_rated]
+        active_mentors = CustomUser.objects.filter(
+            is_mentor=True, 
+            is_active=True
+        ).exclude(
+            id__in=existing_ids
+        ).annotate(
+            session_count=Count('session')
+        ).order_by('-session_count')[:additional_needed]
+        
+        # Combine both querysets
+        top_rated = list(top_rated) + list(active_mentors)
+    
+    return top_rated
+
 def learner_dashboard(request):
     """View for learner dashboard with tab navigation support."""
     if not request.user.is_learner:
@@ -317,13 +353,26 @@ def learner_dashboard(request):
     # Sort activities by timestamp
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     
+    # Get unread notifications count
+    from apps.notifications.models import Notification
+    unread_notifications_count = Notification.objects.filter(
+        recipient=request.user,
+        read=False
+    ).count()
+    
+    # Get top mentors for recommendations
+    top_mentors = get_top_mentors(request.user, 6)
+    
     context = {
         'recommended_sessions': recommended_sessions,
         'trending_sessions': trending_sessions,
         'activities': activities,
         'session_requests': session_requests,
         'bookings': bookings,
-        'active_tab': 'dashboard'
+        'top_mentors': top_mentors,
+        'active_tab': active_tab, 
+        'unread_notifications_count': unread_notifications_count,
+        'now': now  # Pass current time for countdown timers
     }
     
     return render(request, 'learners_dash/dashboard.html', context)
