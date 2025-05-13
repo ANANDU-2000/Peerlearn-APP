@@ -6,7 +6,7 @@
     </div>
     <div class="p-4 border-b">
         <!-- Search and Filter Controls -->
-        <form class="space-y-4 md:space-y-0 md:flex md:items-end md:space-x-4" method="GET" action="{% url 'mentor_list' %}">
+        <form class="space-y-4 md:space-y-0 md:flex md:items-end md:space-x-4" method="GET" action="{% url 'users:mentor_list' %}">
             <div class="flex-1">
                 <label for="query" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                 <div class="relative rounded-md shadow-sm">
@@ -105,7 +105,7 @@
                             
                             <!-- Action buttons -->
                             <div class="mt-4 flex space-x-2 w-full">
-                                <a href="{% url 'mentor_detail' mentor.id %}" class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <a href="{% url 'users:mentor_detail' mentor.id %}" class="flex-1 inline-flex justify-center items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                     <i data-feather="user" class="w-4 h-4 mr-1"></i>
                                     Profile
                                 </a>
@@ -137,7 +137,7 @@
         
         <!-- Load More / Pagination -->
         <div class="mt-6 text-center">
-            <a href="{% url 'mentor_list' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <a href="{% url 'users:mentor_list' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                 See All Mentors
                 <i data-feather="arrow-right" class="ml-2 h-4 w-4"></i>
             </a>
