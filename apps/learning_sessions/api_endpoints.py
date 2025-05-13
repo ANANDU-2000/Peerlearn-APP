@@ -296,21 +296,16 @@ def go_live_api(request, session_id):
                 'error': f'Cannot start a session that is {session.get_status_display()}'
             }, status=400)
         
-        # Check if there are any confirmed bookings
+        # Get confirmed bookings (if any, we'll notify them, but allow mentors to join even without bookings)
         confirmed_bookings = Booking.objects.filter(session=session, status='confirmed')
-        if not confirmed_bookings.exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'Cannot start a session with no confirmed bookings'
-            }, status=400)
+        # Log booking info
+        logger.info(f"Session {session_id} has {confirmed_bookings.count()} confirmed bookings")
         
-        # Check if it's close enough to the scheduled time (within 15 minutes)
+        # Check session time (mentors can join anytime before session to prepare)
         time_until_session = session.schedule - timezone.now()
-        if time_until_session.total_seconds() > 15 * 60 and not request.GET.get('force', False):
-            return JsonResponse({
-                'success': False,
-                'error': 'Cannot start a session more than 15 minutes before the scheduled time'
-            }, status=400)
+        
+        # Only log the time info for debugging purposes
+        logger.info(f"Time until session {session_id}: {time_until_session.total_seconds()} seconds")
         
         # Start a transaction to ensure all operations are atomic
         with transaction.atomic():

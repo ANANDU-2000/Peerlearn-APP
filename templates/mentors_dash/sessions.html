@@ -58,7 +58,7 @@
             </div>
 
             <!-- Tab Content -->
-            <div class="mt-6" x-data="sessionManager()" x-init="initializeWebSocket()">
+            <div class="mt-6" x-data="sessionManager()">
                 {% if not has_any_sessions %}
                     <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 bg-white shadow rounded-md">
                         <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,126 +80,251 @@
                     {% if sub_tab == 'today' %}
                         <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                             {% for session in today_sessions %}
-                            <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
-                                x-data="{
-                                    showOptionsMenu: false,
-                                    canGoLive: {% if session.can_go_live %}true{% else %}false{% endif %},
-                                    isBusy: false,
-                                    isLive: {% if session.is_live %}true{% else %}false{% endif %},
-                                }">
-                                
-                                <!-- Session header with title and status -->
-                                <div class="px-4 pt-5 pb-2 sm:px-6">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex-1">
-                                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ session.title }}</h3>
-                                            
-                                            <!-- Status badges -->
-                                            <div class="mt-1 flex items-center space-x-2">
-                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                    {% if session.status == 'scheduled' %}bg-gray-100 text-gray-800
-                                                    {% elif session.status == 'live' %}bg-red-100 text-red-800
-                                                    {% elif session.status == 'completed' %}bg-blue-100 text-blue-800
-                                                    {% elif session.status == 'cancelled' %}bg-yellow-100 text-yellow-800{% endif %}">
-                                                    {% if session.status == 'live' %}LIVE NOW{% else %}{{ session.status|title }}{% endif %}
-                                                </span>
+                                <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                    x-data="{ 
+                                        showOptionsMenu: false, 
+                                        isBusy: false,
+                                        sessionId: {{ session.id }}
+                                    }">
+                                    
+                                    <!-- Session header with title and status -->
+                                    <div class="px-4 pt-5 pb-2 sm:px-6">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <h3 class="text-lg font-semibold text-gray-900 truncate">{{ session.title }}</h3>
                                                 
-                                                <!-- Participants badge -->
-                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Booked
-                                                </span>
+                                                <!-- Status badges -->
+                                                <div class="mt-1 flex items-center space-x-2">
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        {% if session.status == 'scheduled' %}bg-gray-100 text-gray-800
+                                                        {% elif session.status == 'live' %}bg-red-100 text-red-800
+                                                        {% elif session.status == 'completed' %}bg-blue-100 text-blue-800
+                                                        {% elif session.status == 'cancelled' %}bg-yellow-100 text-yellow-800{% endif %}">
+                                                        {% if session.status == 'live' %}LIVE NOW{% else %}{{ session.status|title }}{% endif %}
+                                                    </span>
+                                                    
+                                                    <!-- Participants badge -->
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Booked
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Dropdown menu for options -->
+                                            <div class="relative">
+                                                <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
+                                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                    </svg>
+                                                </button>
+                                                
+                                                <!-- Dropdown menu -->
+                                                <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
+                                                    <div class="py-1">
+                                                        {% if session.status == 'scheduled' %}
+                                                            <a href="{% url 'users:mentor_session_edit' session_id=session.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                                Edit Session
+                                                            </a>
+                                                            
+                                                            <a href="#" @click.prevent="cancelSession(sessionId)" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                                Cancel Session
+                                                            </a>
+                                                        {% endif %}
+                                                        
+                                                        {% if session.status == 'completed' %}
+                                                            <a href="/sessions/{{ session.id }}/analytics/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                                </svg>
+                                                                View Analytics
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        
-                                        <!-- Dropdown menu for options -->
-                                        <div class="relative">
-                                            <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
-                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                    </div>
+                                    
+                                    <!-- Session details -->
+                                    <div class="px-4 py-4 sm:px-6">
+                                        <div class="space-y-3">
+                                            <!-- Date and time -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
                                                 </svg>
-                                            </button>
+                                                <span>{{ session.schedule|date:"D, M j, Y" }} at {{ session.schedule|date:"g:i A" }}</span>
+                                            </div>
                                             
-                                            <!-- Dropdown menu -->
-                                            <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
-                                                <div class="py-1">
-                                                    {% if session.status == 'scheduled' %}
+                                            <!-- Duration -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span>{{ session.duration }} minutes</span>
+                                            </div>
+                                            
+                                            <!-- Countdown timer (when scheduled) -->
+                                            {% if session.status == 'scheduled' %}
+                                            <div class="flex items-center text-sm font-medium">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span class="countdown-display text-primary-600" x-text="'Starts in ' + formatCountdown('{{ session.countdown_str }}')">Starts in {{ session.countdown_str }}</span>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <!-- Session is live indicator -->
+                                            {% if session.is_live %}
+                                            <div class="flex items-center text-sm font-medium">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                <span class="text-red-600 animate-pulse">LIVE NOW - Join the session!</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action buttons -->
+                                    <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+                                        <!-- Go Live button (always available for scheduled sessions) -->
+                                        {% if session.status == 'scheduled' %}
+                                            <button @click="goLive(sessionId)" :disabled="isBusy"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                                                <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                                </svg>
+                                                <svg x-show="isBusy" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                {% if session.can_go_live %}Go Live{% else %}Prepare Room{% endif %}
+                                            </button>
+                                        {% endif %}
+                                        
+                                        <!-- Enter Room button (if already live) -->
+                                        {% if session.is_live %}
+                                            <a href="/sessions/{{ session.room_code }}/join/"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                                                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                                                </svg>
+                                                Join Room
+                                            </a>
+                                        {% endif %}
+                                        
+                                        <!-- Edit button (only for scheduled sessions) -->
+                                        {% if session.status == 'scheduled' %}
+                                            <a href="{% url 'users:mentor_session_edit' session_id=session.id %}"
+                                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                                </svg>
+                                                Edit
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Display Upcoming Sessions -->
+                    {% if sub_tab == 'upcoming' %}
+                        <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                            {% for session in upcoming_sessions %}
+                                <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                    x-data="{ 
+                                        showOptionsMenu: false, 
+                                        isBusy: false,
+                                        sessionId: {{ session.id }}
+                                    }">
+                                    
+                                    <!-- Session header with title and status -->
+                                    <div class="px-4 pt-5 pb-2 sm:px-6">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <h3 class="text-lg font-semibold text-gray-900 truncate">{{ session.title }}</h3>
+                                                
+                                                <!-- Status badges -->
+                                                <div class="mt-1 flex items-center space-x-2">
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        {% if session.status == 'scheduled' %}bg-gray-100 text-gray-800
+                                                        {% elif session.status == 'live' %}bg-red-100 text-red-800
+                                                        {% elif session.status == 'completed' %}bg-blue-100 text-blue-800
+                                                        {% elif session.status == 'cancelled' %}bg-yellow-100 text-yellow-800{% endif %}">
+                                                        {{ session.status|title }}
+                                                    </span>
+                                                    
+                                                    <!-- Participants badge -->
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Booked
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Dropdown menu for options -->
+                                            <div class="relative">
+                                                <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
+                                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                    </svg>
+                                                </button>
+                                                
+                                                <!-- Dropdown menu -->
+                                                <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
+                                                    <div class="py-1">
                                                         <a href="{% url 'users:mentor_session_edit' session_id=session.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                             <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                             </svg>
                                                             Edit Session
                                                         </a>
-                                                    {% endif %}
-                                                    
-                                                    {% if session.status == 'scheduled' %}
-                                                        <a href="#" @click.prevent="cancelSession({{ session.id }})" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                                        
+                                                        <a href="#" @click.prevent="cancelSession(sessionId)" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                                                             <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                             </svg>
                                                             Cancel Session
                                                         </a>
-                                                    {% endif %}
-                                                    
-                                                    {% if session.status == 'completed' %}
-                                                        <a href="/sessions/{{ session.id }}/analytics/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                            </svg>
-                                                            View Analytics
-                                                        </a>
-                                                    {% endif %}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <!-- Session details -->
-                                <div class="px-4 py-4 sm:px-6">
-                                    <div class="space-y-3">
-                                        <!-- Date and time -->
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span>{{ session.schedule|date:"D, M j, Y" }} at {{ session.schedule|date:"g:i A" }}</span>
+                                    
+                                    <!-- Session details -->
+                                    <div class="px-4 py-4 sm:px-6">
+                                        <div class="space-y-3">
+                                            <!-- Date and time -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span>{{ session.schedule|date:"D, M j, Y" }} at {{ session.schedule|date:"g:i A" }}</span>
+                                            </div>
+                                            
+                                            <!-- Duration -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span>{{ session.duration }} minutes</span>
+                                            </div>
                                         </div>
-                                        
-                                        <!-- Duration -->
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span>{{ session.duration }} minutes</span>
-                                        </div>
-                                        
-                                        <!-- Countdown timer (when scheduled) -->
-                                        {% if session.status == 'scheduled' %}
-                                        <div class="flex items-center text-sm font-medium">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span class="countdown-display text-primary-600">Starts in {{ session.countdown_str }}</span>
-                                        </div>
-                                        {% endif %}
-                                        
-                                        <!-- Session is live indicator -->
-                                        {% if session.is_live %}
-                                        <div class="flex items-center text-sm font-medium">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            <span class="text-red-600 animate-pulse">LIVE NOW - Join the session!</span>
-                                        </div>
-                                        {% endif %}
                                     </div>
-                                </div>
-                                
-                                <!-- Action buttons -->
-                                <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
-                                    <!-- Go Live button (only show if scheduled) - Allow mentor to join anytime-->
-                                    {% if session.status == 'scheduled' %}
-                                        <button @click="goLive({{ session.id }})" :disabled="isBusy"
+                                    
+                                    <!-- Action buttons -->
+                                    <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+                                        <!-- Allow mentors to prepare the room anytime for upcoming sessions -->
+                                        <button @click="goLive(sessionId)" :disabled="isBusy"
                                             class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
                                             <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
@@ -208,23 +333,10 @@
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            Go Live
+                                            Prepare Room
                                         </button>
-                                    {% endif %}
-                                    
-                                    <!-- Enter Room button (if already live) -->
-                                    {% if session.is_live %}
-                                        <a href="/sessions/{{ session.room_code }}/join/"
-                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
-                                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                                            </svg>
-                                            Join Room
-                                        </a>
-                                    {% endif %}
-                                    
-                                    <!-- Edit button (only for scheduled sessions that are editable) -->
-                                    {% if session.status == 'scheduled' %}
+                                        
+                                        <!-- Edit button -->
                                         <a href="{% url 'users:mentor_session_edit' session_id=session.id %}"
                                             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
                                             <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -232,560 +344,158 @@
                                             </svg>
                                             Edit
                                         </a>
-                                    {% endif %}
+                                    </div>
                                 </div>
-                            </div>
                             {% endfor %}
                         </div>
                     {% endif %}
-                            <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
-                                x-data="{
-                                    showOptionsMenu: false,
-                                    canGoLive: false,
-                                    isBusy: false,
-                                    checkGoLive() {
-                                        const now = new Date();
-                                        const sessionTime = new Date(session.schedule);
-                                        const timeUntil = sessionTime - now;
-                                        // Update canGoLive if within 15 minutes or past start time
-                                        if (timeUntil <= 15 * 60 * 1000 || timeUntil <= 0) {
-                                            this.canGoLive = true;
-                                        }
-                                        return this.canGoLive && session.status === 'scheduled' && session.confirmed_bookings_count > 0;
-                                    }
-                                }">
-                                
-                                <!-- Session header with title and status -->
-                                <div class="px-4 pt-5 pb-2 sm:px-6">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex-1">
-                                            <h3 class="text-lg font-semibold text-gray-900 truncate" x-text="session.title"></h3>
-                                            
-                                            <!-- Status badges -->
-                                            <div class="mt-1 flex items-center space-x-2">
-                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                                    :class="{
-                                                        'bg-gray-100 text-gray-800': session.status === 'scheduled',
-                                                        'bg-red-100 text-red-800': session.status === 'live',
-                                                        'bg-blue-100 text-blue-800': session.status === 'completed',
-                                                        'bg-yellow-100 text-yellow-800': session.status === 'cancelled'
-                                                    }"
-                                                    x-text="session.status === 'live' ? 'LIVE NOW' : session.status.charAt(0).toUpperCase() + session.status.slice(1)">
-                                                </span>
+
+                    <!-- Display Past Sessions -->
+                    {% if sub_tab == 'past' %}
+                        <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                            {% for session in past_sessions %}
+                                <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                    x-data="{ 
+                                        showOptionsMenu: false,
+                                        sessionId: {{ session.id }}
+                                    }">
+                                    
+                                    <!-- Session header with title and status -->
+                                    <div class="px-4 pt-5 pb-2 sm:px-6">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <h3 class="text-lg font-semibold text-gray-900 truncate">{{ session.title }}</h3>
                                                 
-                                                <!-- Participants badge -->
-                                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    <span x-text="session.confirmed_bookings_count || 0"></span>/<span x-text="session.max_participants"></span> Booked
-                                                </span>
+                                                <!-- Status badges -->
+                                                <div class="mt-1 flex items-center space-x-2">
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        {% if session.status == 'completed' %}bg-blue-100 text-blue-800
+                                                        {% elif session.status == 'cancelled' %}bg-yellow-100 text-yellow-800{% endif %}">
+                                                        {{ session.status|title }}
+                                                    </span>
+                                                    
+                                                    <!-- Participants badge -->
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Attended
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        
-                                        <!-- Dropdown menu for options -->
-                                        <div class="relative">
-                                            <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
-                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                                                </svg>
-                                            </button>
                                             
-                                            <!-- Dropdown menu -->
-                                            <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
-                                                <div class="py-1">
-                                                    <template x-if="session.status === 'scheduled' && isEditable(session)">
-                                                        <a :href="'/users/dashboard/mentor/sessions/' + session.id + '/edit/'" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                            </svg>
-                                                            Edit Session
-                                                        </a>
-                                                    </template>
-                                                    <template x-if="session.status === 'scheduled' && !isEditable(session)">
-                                                        <button disabled class="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                            </svg>
-                                                            Cannot Edit (Too Close to Start)
-                                                        </button>
-                                                    </template>
-                                                    
-                                                    <template x-if="session.status === 'scheduled'">
-                                                        <a href="#" @click.prevent="cancelSession(session)" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
-                                                            <svg class="inline-block mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                            Cancel Session
-                                                        </a>
-                                                    </template>
-                                                    
-                                                    <template x-if="session.status === 'completed'">
-                                                        <a :href="'/sessions/' + session.id + '/analytics/'" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                            <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                            </svg>
-                                                            View Analytics
-                                                        </a>
-                                                    </template>
+                                            <!-- Dropdown menu for options -->
+                                            <div class="relative">
+                                                <button @click="showOptionsMenu = !showOptionsMenu" type="button" class="inline-flex items-center p-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-expanded="true" aria-haspopup="true">
+                                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                    </svg>
+                                                </button>
+                                                
+                                                <!-- Dropdown menu -->
+                                                <div x-show="showOptionsMenu" @click.away="showOptionsMenu = false" class="z-10 origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100" role="menu" aria-orientation="vertical">
+                                                    <div class="py-1">
+                                                        {% if session.status == 'completed' %}
+                                                            <a href="/sessions/{{ session.id }}/analytics/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                                </svg>
+                                                                View Analytics
+                                                            </a>
+                                                            <a href="#" @click.prevent="cloneSession(sessionId)" class="block px-4 py-2 text-sm text-green-600 hover:bg-gray-100">
+                                                                <svg class="inline-block mr-2 h-4 w-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                                                                </svg>
+                                                                Clone Session
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <!-- Session details -->
-                                <div class="px-4 py-4 sm:px-6">
-                                    <div class="space-y-3">
-                                        <!-- Date and time -->
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span x-text="formatDateTime(session.schedule)"></span>
-                                        </div>
-                                        
-                                        <!-- Duration -->
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span x-text="session.duration + ' minutes'"></span>
-                                        </div>
-                                        
-                                        <!-- Price -->
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span x-text="session.price > 0 ? '₹' + session.price : 'Free'"></span>
-                                        </div>
-                                        
-                                        <!-- Countdown timer -->
-                                        <div class="flex items-center text-sm font-medium">
-                                            <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                            </svg>
-                                            <span class="session-countdown" x-text="formatCountdown(session)" :class="{'text-red-600 font-semibold': isLive(session) || isStartingSoon(session)}"></span>
+                                    
+                                    <!-- Session details -->
+                                    <div class="px-4 py-4 sm:px-6">
+                                        <div class="space-y-3">
+                                            <!-- Date and time -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span>{{ session.schedule|date:"D, M j, Y" }} at {{ session.schedule|date:"g:i A" }}</span>
+                                            </div>
+                                            
+                                            <!-- Duration -->
+                                            <div class="flex items-center text-sm text-gray-600">
+                                                <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span>{{ session.duration }} minutes</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <!-- Action buttons -->
-                                <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
-                                    <!-- Go Live button (only show if scheduled & booked & within 15min) -->
-                                    <template x-if="checkGoLive()">
-                                        <button @click="goLive(session)" :disabled="isBusy"
-                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
-                                            <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                                            </svg>
-                                            <svg x-show="isBusy" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Go Live
-                                        </button>
-                                    </template>
                                     
-                                    <!-- Enter Room button (only if live or has bookings) -->
-                                    <template x-if="session.status === 'live' || (session.confirmed_bookings_count > 0 && isStartingSoon(session))">
-                                        <a :href="'/sessions/' + session.room_code + '/join/'"
-                                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
-                                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                                            </svg>
-                                            Join Room
-                                        </a>
-                                    </template>
-                                    
-                                    <!-- Edit button (only for scheduled sessions that are editable) -->
-                                    <template x-if="session.status === 'scheduled' && isEditable(session)">
-                                        <a :href="'/users/dashboard/mentor/sessions/' + session.id + '/edit/'"
-                                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
-                                            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                            </svg>
-                                            Edit
-                                        </a>
-                                    </template>
+                                    <!-- Action buttons -->
+                                    <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+                                        {% if session.status == 'completed' %}
+                                            <!-- View analytics button -->
+                                            <a href="/sessions/{{ session.id }}/analytics/"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                                <svg class="-ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                                                </svg>
+                                                View Analytics
+                                            </a>
+                                            
+                                            <!-- Clone session button -->
+                                            <button @click="cloneSession(sessionId)" 
+                                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                                                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                                                    <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                                                </svg>
+                                                Clone Session
+                                            </button>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
-                    </template>
-                
-                    <!-- Empty state when no sessions found -->
-                    <template x-if="sessions.length === 0">
-                        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 bg-white shadow rounded-md">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <h3 class="mt-2 text-lg font-medium text-gray-900">No sessions found</h3>
-                            <p class="mt-1 text-sm text-gray-500" x-text="getEmptyStateMessage()"></p>
-                            <div class="mt-6">
-                                <a href="{% url 'users:mentor_create_advanced_session' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
-                                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Create a new session
-                                </a>
-                            </div>
+                            {% endfor %}
                         </div>
-                    </template>
-                </div>
+                    {% endif %}
+                {% endif %}
             </div>
-            <!-- End of Sessions content -->
-        </div>
-
-        <!-- Mobile Fixed Action Button -->
-        <div class="fixed bottom-20 right-6 sm:hidden">
-            <a href="{% url 'users:mentor_create_advanced_session' %}" class="shadow-xl flex items-center justify-center h-14 w-14 rounded-full bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out transform hover:scale-105">
-                <svg class="text-white h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-            </a>
         </div>
     </main>
 </div>
-
-<!-- Notification toasts container -->
-<div class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2" id="toast-container"></div>
-
-<!-- Connection status indicator -->
-<div class="fixed bottom-4 left-4 z-50 transition-opacity" 
-     x-data="{ show: false, message: '', type: 'info' }"
-     x-show="show"
-     @connection-status.window="
-        show = true;
-        message = $event.detail.message;
-        type = $event.detail.type;
-        if ($event.detail.type === 'success') {
-            setTimeout(() => show = false, 3000);
-        }
-     ">
-    <div class="px-4 py-2 rounded-lg shadow-md text-sm font-medium flex items-center space-x-2" 
-         :class="{
-            'bg-green-100 text-green-800': type === 'success',
-            'bg-yellow-100 text-yellow-800': type === 'warning',
-            'bg-red-100 text-red-800': type === 'error'
-         }">
-        <svg x-show="type === 'success'" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-        </svg>
-        <svg x-show="type === 'warning' || type === 'error'" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-        <span x-text="message"></span>
-        <button @click="show = false" class="ml-2 text-gray-500 hover:text-gray-700 focus:outline-none">
-            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-        </button>
-    </div>
-</div>
 {% endblock %}
 
-{% block page_scripts %}
+{% block scripts %}
 <script>
     function sessionManager() {
         return {
-            sessions: [],
-            isLoading: true,
-            wsSocket: null,
-            reconnectAttempt: 0,
-            reconnectMaxAttempts: 5,
-            currentTab: "{{ sub_tab }}",
+            isBusy: false,
+            csrfToken: document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             
             /**
-             * Initialize WebSocket connection
+             * Format a countdown string for display
              */
-            initializeWebSocket() {
-                this.loadInitialSessions();
-                
-                // Setup WebSocket connection for real-time updates
-                const userId = "{{ request.user.id }}";
-                const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-                const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${userId}/`;
-                
-                this.connectWebSocket(wsUrl);
-                
-                // Setup timers for session countdowns
-                setInterval(() => this.updateAllCountdowns(), 1000);
+            formatCountdown(countdownStr) {
+                // Just return the original countdown string for now
+                // This could be enhanced with countdown logic if needed
+                return countdownStr;
             },
             
             /**
-             * Load initial sessions data via AJAX
+             * Go Live - Put a session in live mode and redirect to room
              */
-            loadInitialSessions() {
-                this.isLoading = true;
-                
-                fetch(`/sessions/api/status/?tab=${this.currentTab}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        this.sessions = data.sessions;
-                        this.isLoading = false;
-                        console.log("Updated sessions display with data:", data);
-                    })
-                    .catch(error => {
-                        console.error("Error fetching session data:", error);
-                        this.isLoading = false;
-                        this.showToast("Failed to load sessions. Please refresh the page.", "error");
-                    });
-            },
-            
-            /**
-             * Connect to WebSocket for real-time updates
-             */
-            connectWebSocket(url) {
-                this.wsSocket = new WebSocket(url);
-                
-                this.wsSocket.onopen = (event) => {
-                    this.reconnectAttempt = 0;
-                    this.showConnectionStatus("Connected to session updates", "success");
-                    console.log("Dashboard WebSocket connected");
-                    
-                    // Setup keep-alive ping
-                    this.startKeepAlivePing();
-                };
-                
-                this.wsSocket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    console.log("Dashboard message received:", data.type);
-                    
-                    switch (data.type) {
-                        case "connection_established":
-                            console.log("Dashboard WebSocket: connection_established");
-                            // Request initial data
-                            this.sendMessage({ type: "get_data" });
-                            break;
-                            
-                        case "dashboard_data":
-                            console.log("Received dashboard data:", data.type, data);
-                            // Handle different types of data updates
-                            this.handleDashboardData(data);
-                            break;
-                            
-                        case "session_update":
-                            this.handleSessionUpdate(data.session);
-                            break;
-                            
-                        case "new_booking":
-                            this.handleNewBooking(data.session_id, data.count);
-                            break;
-                            
-                        case "session_live":
-                            this.handleSessionLive(data.session_id);
-                            break;
-                            
-                        case "learner_join":
-                            this.showToast(`${data.learner_name} joined the session`, "info");
-                            break;
-                            
-                        case "learner_leave":
-                            this.showToast(`${data.learner_name} left the session`, "info");
-                            break;
-                    }
-                };
-                
-                this.wsSocket.onclose = (event) => {
-                    console.log("WebSocket disconnected. Reconnecting in 1 seconds...");
-                    
-                    // Stop keep-alive ping
-                    if (this.keepAlivePingInterval) {
-                        clearInterval(this.keepAlivePingInterval);
-                    }
-                    
-                    if (this.reconnectAttempt < this.reconnectMaxAttempts) {
-                        this.reconnectAttempt++;
-                        const backoffTime = Math.min(1000 * Math.pow(1.5, this.reconnectAttempt), 30000);
-                        this.showConnectionStatus(`Connection lost. Reconnecting (${this.reconnectAttempt}/${this.reconnectMaxAttempts})...`, "warning");
-                        
-                        setTimeout(() => {
-                            this.connectWebSocket(url);
-                        }, backoffTime);
-                    } else {
-                        this.showConnectionStatus("Connection lost. Please refresh the page.", "error");
-                    }
-                };
-                
-                this.wsSocket.onerror = (error) => {
-                    console.error("WebSocket error:", error);
-                };
-            },
-            
-            /**
-             * Send message to WebSocket
-             */
-            sendMessage(message) {
-                if (this.wsSocket && this.wsSocket.readyState === WebSocket.OPEN) {
-                    this.wsSocket.send(JSON.stringify(message));
-                }
-            },
-            
-            /**
-             * Handle dashboard data updates
-             */
-            handleDashboardData(data) {
-                if (data.data && data.data.sessions) {
-                    this.sessions = data.data.sessions;
-                }
-                
-                if (data.data && data.data.session_requests) {
-                    // Handle session requests if needed
-                }
-                
-                this.isLoading = false;
-            },
-            
-            /**
-             * Handle session update event
-             */
-            handleSessionUpdate(updatedSession) {
-                const index = this.sessions.findIndex(s => s.id === updatedSession.id);
-                if (index !== -1) {
-                    this.sessions[index] = updatedSession;
-                    this.showToast(`Session "${updatedSession.title}" has been updated`, "info");
-                }
-            },
-            
-            /**
-             * Handle new booking event
-             */
-            handleNewBooking(sessionId, count) {
-                const index = this.sessions.findIndex(s => s.id === sessionId);
-                if (index !== -1) {
-                    this.sessions[index].confirmed_bookings_count = count;
-                    this.showToast(`New booking for "${this.sessions[index].title}"`, "success");
-                }
-            },
-            
-            /**
-             * Handle session going live event
-             */
-            handleSessionLive(sessionId) {
-                const index = this.sessions.findIndex(s => s.id === sessionId);
-                if (index !== -1) {
-                    this.sessions[index].status = "live";
-                    this.showToast(`Session "${this.sessions[index].title}" is now LIVE`, "success");
-                }
-            },
-            
-            /**
-             * Update countdown timers for all sessions
-             */
-            updateAllCountdowns() {
-                // No need to do anything here - countdown display is handled by the formatCountdown method
-                // which is called in the template
-            },
-            
-            /**
-             * Format the countdown display for a session
-             */
-            formatCountdown(session) {
-                const now = new Date();
-                const sessionTime = new Date(session.schedule);
-                
-                // For past sessions
-                if (session.status === 'completed' || session.status === 'cancelled') {
-                    return session.status.charAt(0).toUpperCase() + session.status.slice(1);
-                }
-                
-                // For live sessions
-                if (session.status === 'live') {
-                    return 'LIVE NOW';
-                }
-                
-                // For sessions that haven't started yet
-                const timeUntil = sessionTime - now;
-                
-                if (timeUntil <= 0) {
-                    // Should be live but status not updated yet
-                    return 'Starting...';
-                }
-                
-                // Format the countdown
-                const hours = Math.floor(timeUntil / 3600000);
-                const minutes = Math.floor((timeUntil % 3600000) / 60000);
-                const seconds = Math.floor((timeUntil % 60000) / 1000);
-                
-                if (hours > 24) {
-                    const days = Math.floor(hours / 24);
-                    return `${days} day${days !== 1 ? 's' : ''} ${hours % 24} hr${hours % 24 !== 1 ? 's' : ''}`;
-                }
-                
-                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            },
-            
-            /**
-             * Format date and time for display
-             */
-            formatDateTime(dateTimeStr) {
-                const options = { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                };
-                return new Date(dateTimeStr).toLocaleDateString(undefined, options);
-            },
-            
-            /**
-             * Check if session is editable (not too close to start time)
-             */
-            isEditable(session) {
-                const now = new Date();
-                const sessionTime = new Date(session.schedule);
-                const timeUntil = sessionTime - now;
-                
-                // Not editable if less than 5 minutes until start
-                return timeUntil > (5 * 60 * 1000);
-            },
-            
-            /**
-             * Check if session is starting soon (within 15 minutes)
-             */
-            isStartingSoon(session) {
-                const now = new Date();
-                const sessionTime = new Date(session.schedule);
-                const timeUntil = sessionTime - now;
-                
-                return timeUntil <= (15 * 60 * 1000) && timeUntil > 0;
-            },
-            
-            /**
-             * Check if session is live now
-             */
-            isLive(session) {
-                return session.status === 'live';
-            },
-            
-            /**
-             * Get empty state message based on current tab
-             */
-            getEmptyStateMessage() {
-                switch (this.currentTab) {
-                    case 'today':
-                        return "You don't have any sessions scheduled for today.";
-                    case 'upcoming':
-                        return "You don't have any upcoming sessions. Create a new session to get started.";
-                    case 'past':
-                        return "You haven't conducted any sessions yet.";
-                    default:
-                        return "No sessions found.";
-                }
-            },
-            
-            /**
-             * Go live with a session
-             */
-            goLive(session) {
+            goLive(sessionId) {
+                if (this.isBusy) return;
                 this.isBusy = true;
                 
                 // Make API call to set session as live
-                fetch(`/sessions/api/sessions/${session.id}/go_live/`, {
+                fetch(`/sessions/api/sessions/${sessionId}/go_live/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': this.getCsrfToken()
+                        'X-CSRFToken': this.csrfToken
                     }
                 })
                 .then(response => {
@@ -795,16 +505,11 @@
                     return response.json();
                 })
                 .then(data => {
-                    // Update session status locally
-                    const index = this.sessions.findIndex(s => s.id === session.id);
-                    if (index !== -1) {
-                        this.sessions[index].status = 'live';
-                    }
-                    
-                    this.showToast('Session is now live! ✓', 'success');
+                    // Show success notification
+                    this.showToast(data.message || 'Session is now live! ✓', 'success');
                     
                     // Redirect to session room
-                    window.location.href = `/sessions/${session.room_code}/join/`;
+                    window.location.href = data.room_url || `/sessions/${data.room_code}/join/`;
                 })
                 .catch(error => {
                     console.error('Error going live:', error);
@@ -816,188 +521,78 @@
             /**
              * Cancel a session
              */
-            cancelSession(session) {
-                if (confirm(`Are you sure you want to cancel the session "${session.title}"? This action cannot be undone.`)) {
-                    fetch(`/sessions/api/sessions/${session.id}/cancel/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': this.getCsrfToken()
-                        }
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Failed to cancel session');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        // Update session status locally
-                        const index = this.sessions.findIndex(s => s.id === session.id);
-                        if (index !== -1) {
-                            this.sessions[index].status = 'cancelled';
-                        }
-                        
-                        this.showToast(`Session "${session.title}" has been cancelled`, 'success');
-                    })
-                    .catch(error => {
-                        console.error('Error cancelling session:', error);
-                        this.showToast('Failed to cancel session. Please try again.', 'error');
-                    });
+            cancelSession(sessionId) {
+                if (!confirm('Are you sure you want to cancel this session? This cannot be undone.')) {
+                    return;
                 }
+                
+                fetch(`/sessions/api/sessions/${sessionId}/cancel/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to cancel session');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    this.showToast(data.message || 'Session cancelled successfully.', 'success');
+                    // Reload page to reflect changes
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error cancelling session:', error);
+                    this.showToast('Failed to cancel session. Please try again.', 'error');
+                });
+            },
+            
+            /**
+             * Clone an existing session
+             */
+            cloneSession(sessionId) {
+                if (this.isBusy) return;
+                this.isBusy = true;
+                
+                fetch(`/sessions/api/sessions/${sessionId}/clone/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to clone session');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    this.showToast(data.message || 'Session cloned successfully.', 'success');
+                    // Redirect to edit the cloned session
+                    window.location.href = data.edit_url || `/users/dashboard/mentor/sessions/${data.session_id}/edit/`;
+                })
+                .catch(error => {
+                    console.error('Error cloning session:', error);
+                    this.showToast('Failed to clone session. Please try again.', 'error');
+                    this.isBusy = false;
+                });
             },
             
             /**
              * Show a toast notification
              */
             showToast(message, type = 'info') {
-                const toastContainer = document.getElementById('toast-container');
-                const toast = document.createElement('div');
-                
-                toast.className = 'animate-fade-in-up px-4 py-3 rounded-lg shadow-md text-sm font-medium flex items-center space-x-2 max-w-xs';
-                
-                // Set colors based on type
-                switch (type) {
-                    case 'success':
-                        toast.classList.add('bg-green-100', 'text-green-800');
-                        break;
-                    case 'error':
-                        toast.classList.add('bg-red-100', 'text-red-800');
-                        break;
-                    case 'warning':
-                        toast.classList.add('bg-yellow-100', 'text-yellow-800');
-                        break;
-                    default: // info
-                        toast.classList.add('bg-blue-100', 'text-blue-800');
+                if (window.showToast) {
+                    window.showToast(message, type);
+                } else {
+                    alert(message);
                 }
-                
-                // Add icon based on type
-                let icon = '';
-                switch (type) {
-                    case 'success':
-                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>`;
-                        break;
-                    case 'error':
-                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>`;
-                        break;
-                    case 'warning':
-                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>`;
-                        break;
-                    default: // info
-                        icon = `<svg class="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>`;
-                }
-                
-                toast.innerHTML = `
-                    ${icon}
-                    <span>${message}</span>
-                    <button class="ml-auto text-gray-600 hover:text-gray-800 focus:outline-none">
-                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                `;
-                
-                // Add close button handler
-                toast.querySelector('button').addEventListener('click', () => {
-                    toast.remove();
-                });
-                
-                // Add to container
-                toastContainer.appendChild(toast);
-                
-                // Auto remove after 5 seconds
-                setTimeout(() => {
-                    toast.classList.add('animate-fade-out');
-                    setTimeout(() => {
-                        toastContainer.contains(toast) && toastContainer.removeChild(toast);
-                    }, 300);
-                }, 5000);
-            },
-            
-            /**
-             * Show connection status message
-             */
-            showConnectionStatus(message, type) {
-                window.dispatchEvent(new CustomEvent('connection-status', {
-                    detail: { message, type }
-                }));
-            },
-            
-            /**
-             * Start keep-alive ping to prevent connection timeout
-             */
-            startKeepAlivePing() {
-                this.keepAlivePingInterval = setInterval(() => {
-                    if (this.wsSocket && this.wsSocket.readyState === WebSocket.OPEN) {
-                        this.sendMessage({ type: "ping" });
-                    }
-                }, 30000); // Every 30 seconds
-            },
-            
-            /**
-             * Get CSRF token from cookies
-             */
-            getCsrfToken() {
-                const cookieValue = document.cookie
-                    .split('; ')
-                    .find(row => row.startsWith('csrftoken='))
-                    ?.split('=')[1];
-                
-                return cookieValue || '';
             }
         };
     }
-
-    // Add animation classes for toasts
-    document.addEventListener('DOMContentLoaded', function() {
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeInUp {
-                from {
-                    opacity: 0;
-                    transform: translate3d(0, 20px, 0);
-                }
-                to {
-                    opacity: 1;
-                    transform: translate3d(0, 0, 0);
-                }
-            }
-            
-            @keyframes fadeOut {
-                from {
-                    opacity: 1;
-                }
-                to {
-                    opacity: 0;
-                }
-            }
-            
-            .animate-fade-in-up {
-                animation: fadeInUp 0.3s ease-out;
-            }
-            
-            .animate-fade-out {
-                animation: fadeOut 0.3s ease-out;
-            }
-            
-            [x-cloak] { 
-                display: none !important; 
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Initialize Feather icons
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    });
 </script>
 {% endblock %}
