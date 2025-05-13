@@ -4,7 +4,10 @@
  */
 
 // Toast container element - will be created if it doesn't exist
-let toastContainer = null;
+// Use window object to avoid duplicate declaration
+if (typeof window.peerLearnToastContainer === 'undefined') {
+    window.peerLearnToastContainer = null;
+}
 
 // Toast colors based on type
 const TOAST_COLORS = {
@@ -50,11 +53,11 @@ const DEFAULT_DURATION = 5000;
  */
 function initToastContainer() {
     // Create container if it doesn't exist
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col space-y-4';
-        document.body.appendChild(toastContainer);
+    if (!window.peerLearnToastContainer) {
+        window.peerLearnToastContainer = document.createElement('div');
+        window.peerLearnToastContainer.id = 'toast-container';
+        window.peerLearnToastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col space-y-4';
+        document.body.appendChild(window.peerLearnToastContainer);
     }
 }
 
@@ -90,7 +93,7 @@ function showToast(message, type = 'info', duration = DEFAULT_DURATION) {
     `;
     
     // Add to container
-    toastContainer.appendChild(toast);
+    window.peerLearnToastContainer.appendChild(toast);
     
     // Setup close button
     const closeButton = toast.querySelector('button');
@@ -163,8 +166,8 @@ function playNotificationSound() {
  * Clear all toasts
  */
 function clearAllToasts() {
-    if (toastContainer) {
-        const toasts = toastContainer.querySelectorAll('div[role="alert"]');
+    if (window.peerLearnToastContainer) {
+        const toasts = window.peerLearnToastContainer.querySelectorAll('div[role="alert"]');
         toasts.forEach(toast => {
             removeToast(toast);
         });
