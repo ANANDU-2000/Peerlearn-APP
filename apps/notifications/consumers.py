@@ -24,10 +24,11 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
-        # Create a user-specific notification group
-        self.notification_group_name = f'notifications:{user.id}'
+        # Create a user-specific notification group with proper valid group name formatting
+        # Using 'notif_' prefix with user ID to keep it simple and valid
+        self.notification_group_name = f'notif_{user.id}'
         
-        # Join room group
+        # Join room group with validated group name
         await self.channel_layer.group_add(
             self.notification_group_name,
             self.channel_name
@@ -42,11 +43,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         """
         Called when the WebSocket closes.
         """
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.notification_group_name,
-            self.channel_name
-        )
+        if hasattr(self, 'notification_group_name'):
+            # Leave room group
+            await self.channel_layer.group_discard(
+                self.notification_group_name,
+                self.channel_name
+            )
+            logging.info(f"User removed from notification group: {self.notification_group_name}")
     
     async def receive(self, text_data):
         """
