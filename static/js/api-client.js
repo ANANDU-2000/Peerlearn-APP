@@ -292,7 +292,9 @@ class ApiClient {
             const data = await this.handleResponse(response);
             
             if (data.success) {
-                showToast('success', 'Session Created', 'Your session has been published successfully.');
+                if (window.showToast) {
+                    window.showToast('Session Created: Your session has been published successfully.', 'success');
+                }
                 setTimeout(() => {
                     window.location.href = '/users/dashboard/mentor/sessions/';
                 }, 1000);
@@ -301,7 +303,9 @@ class ApiClient {
             return data;
         } catch (error) {
             console.error('Session creation error:', error);
-            showToast('error', 'Error', 'There was an error creating your session. Please try again.');
+            if (window.showToast) {
+                window.showToast('Error: There was an error creating your session. Please try again.', 'error');
+            }
             throw error;
         }
     }

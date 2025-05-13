@@ -11,14 +11,12 @@ const maxReconnectAttempts = 5;
 
 /**
  * Initialize dashboard WebSocket connection
+ * @param {string} userId - User ID for WebSocket connection
  */
-function initDashboardWebSocket() {
-    // Check if user ID is defined
-    if (typeof USER_ID === 'undefined') {
-        console.error('USER_ID not defined, dashboard WebSocket cannot initialize');
-        return;
-    }
-
+function initDashboardWebSocket(userId) {
+    // Store user ID in a global variable
+    window.USER_ID = userId;
+    
     // Connect to WebSocket
     connectDashboardWebSocket();
     
@@ -40,7 +38,7 @@ function connectDashboardWebSocket() {
     
     // Create WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${USER_ID}/`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/dashboard/${window.USER_ID}/`;
     
     try {
         // Create WebSocket connection
