@@ -16,6 +16,9 @@ urlpatterns = [
     path('payments/', include('apps.payments.urls')),
     path('dashboard/admin/', include('apps.admin_panel.urls')),
     
+    # Notifications API
+    path('users/api/notifications/', include('apps.notifications.urls')),
+    
     # API redirects (to support existing client-side code)
     path('api/sessions/status/', RedirectView.as_view(url='/sessions/api/status/', permanent=False)),
     path('api/bookings/<int:booking_id>/', RedirectView.as_view(url='/sessions/api/bookings/%(booking_id)s/', permanent=False)),
