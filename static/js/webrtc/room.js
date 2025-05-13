@@ -651,91 +651,221 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // Toggle audio mute
             toggleAudio() {
+                console.log("Toggle audio called, current state:", this.audioEnabled);
+                
+                // Toggle audio state
+                this.audioEnabled = !this.audioEnabled;
+                console.log("New audio state:", this.audioEnabled);
+                
                 if (this.localStream) {
                     const audioTracks = this.localStream.getAudioTracks();
+                    console.log(`Local stream has ${audioTracks.length} audio tracks`);
+                    
                     if (audioTracks.length > 0) {
-                        this.audioEnabled = !this.audioEnabled;
+                        // Update track enabled state
                         audioTracks.forEach(track => {
+                            console.log(`Setting audio track "${track.label}" enabled:`, this.audioEnabled);
                             track.enabled = this.audioEnabled;
                         });
                         
-                        // Notify other participants about media status change
-                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                            this.websocket.send(JSON.stringify({
-                                type: 'media_status',
-                                user_id: userId,
-                                username: userName,
-                                audioEnabled: this.audioEnabled,
-                                videoEnabled: this.videoEnabled
-                            }));
+                        // Play a notification sound when unmuting
+                        if (this.audioEnabled) {
+                            this.playNotificationSound();
+                        }
+                        
+                        // Show UI feedback
+                        const audioToggleBtn = document.getElementById('toggle-audio-btn');
+                        if (audioToggleBtn) {
+                            const iconElement = audioToggleBtn.querySelector('svg');
+                            if (iconElement) {
+                                // Update icon classes based on audio state
+                                if (this.audioEnabled) {
+                                    iconElement.classList.remove('text-red-500');
+                                    iconElement.classList.add('text-green-500');
+                                } else {
+                                    iconElement.classList.remove('text-green-500');
+                                    iconElement.classList.add('text-red-500');
+                                }
+                            }
+                        }
+                    } else {
+                        console.warn("No audio tracks available to toggle");
+                        // Try to request microphone if we're turning on but have no tracks
+                        if (this.audioEnabled) {
+                            console.log("Attempting to request microphone access");
+                            navigator.mediaDevices.getUserMedia({ audio: true })
+                                .then(audioStream => {
+                                    const audioTrack = audioStream.getAudioTracks()[0];
+                                    if (audioTrack) {
+                                        console.log("New audio track acquired:", audioTrack.label);
+                                        
+                                        // Add to existing stream or create new stream
+                                        if (this.localStream) {
+                                            const videoTrack = this.localStream.getVideoTracks()[0];
+                                            
+                                            // Create a new stream with both tracks
+                                            const newStream = new MediaStream();
+                                            newStream.addTrack(audioTrack);
+                                            if (videoTrack) newStream.addTrack(videoTrack);
+                                            
+                                            // Replace the local stream
+                                            this.localStream = newStream;
+                                            
+                                            // Update video elements
+                                            const localVideo = document.getElementById('local-video');
+                                            if (localVideo) {
+                                                localVideo.srcObject = this.localStream;
+                                            }
+                                            
+                                            // Update peer connections
+                                            this.updatePeerConnections();
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Failed to get audio stream after toggle:", error);
+                                    this.audioEnabled = false; // Revert state on failure
+                                    showToast('error', 'Microphone Error', 'Could not access your microphone. Please check your device settings.');
+                                });
                         }
                     }
+                } else {
+                    console.warn("No local stream available for audio toggle");
+                }
+                
+                // Notify other participants about media status change
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log("Sending media status update to peers");
+                    this.websocket.send(JSON.stringify({
+                        type: 'media_status',
+                        user_id: userId,
+                        username: userName,
+                        audioEnabled: this.audioEnabled,
+                        videoEnabled: this.videoEnabled
+                    }));
                 }
             },
             
             // Toggle video
             toggleVideo() {
+                console.log("Toggle video called, current state:", this.videoEnabled);
+                
+                // Toggle video state
+                this.videoEnabled = !this.videoEnabled;
+                console.log("New video state:", this.videoEnabled);
+                
                 if (this.localStream) {
                     const videoTracks = this.localStream.getVideoTracks();
+                    console.log(`Local stream has ${videoTracks.length} video tracks`);
+                    
                     if (videoTracks.length > 0) {
-                        this.videoEnabled = !this.videoEnabled;
-                        console.log("Toggling video to:", this.videoEnabled);
-                        
+                        // Update track enabled state
                         videoTracks.forEach(track => {
-                            console.log(`Setting video track ${track.label} enabled:`, this.videoEnabled);
+                            console.log(`Setting video track "${track.label}" enabled:`, this.videoEnabled);
                             track.enabled = this.videoEnabled;
                         });
-                        
-                        // Show placeholder if video is disabled
-                        const localVideo = document.getElementById('local-video');
-                        const localVideoContainer = localVideo?.parentElement;
-                        
-                        if (localVideoContainer) {
-                            // Find or create video placeholder
-                            let placeholder = localVideoContainer.querySelector('.video-placeholder');
-                            
-                            if (!this.videoEnabled) {
-                                // If video is disabled and no placeholder exists, create one
-                                if (!placeholder) {
-                                    console.log("Creating video placeholder");
-                                    placeholder = document.createElement('div');
-                                    placeholder.classList.add('video-placeholder');
-                                    
-                                    const icon = document.createElement('div');
-                                    icon.innerHTML = `
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                                        </svg>
-                                        <span>Camera Off</span>
-                                    `;
-                                    placeholder.appendChild(icon);
-                                    localVideoContainer.appendChild(placeholder);
-                                }
-                                placeholder.style.display = 'flex';
-                            } else if (placeholder) {
-                                // If video is enabled, hide the placeholder
-                                console.log("Hiding video placeholder");
-                                placeholder.style.display = 'none';
-                            }
-                        }
-                        
-                        // Notify other participants about media status change
-                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                            console.log("Sending media status update to peers");
-                            this.websocket.send(JSON.stringify({
-                                type: 'media_status',
-                                user_id: userId,
-                                username: userName,
-                                audioEnabled: this.audioEnabled,
-                                videoEnabled: this.videoEnabled
-                            }));
-                        }
+                    } else if (!this.videoEnabled) {
+                        console.log("No video tracks available but trying to disable video - need to show placeholder");
+                        // Continue to show placeholder even without tracks
                     } else {
-                        console.warn("No video tracks found in local stream");
+                        console.log("No video tracks available and trying to enable video");
+                        // Might need to request camera again if user toggled on after denying
+                        if (this.videoEnabled) {
+                            console.log("Attempting to request camera access again");
+                            navigator.mediaDevices.getUserMedia({ video: true })
+                                .then(videoStream => {
+                                    const videoTrack = videoStream.getVideoTracks()[0];
+                                    if (videoTrack) {
+                                        console.log("New video track acquired:", videoTrack.label);
+                                        
+                                        // Replace audio track with the new one
+                                        const audioTrack = this.localStream.getAudioTracks()[0];
+                                        
+                                        // Create a new stream with both tracks
+                                        const newStream = new MediaStream();
+                                        if (audioTrack) newStream.addTrack(audioTrack);
+                                        newStream.addTrack(videoTrack);
+                                        
+                                        // Replace the local stream
+                                        this.localStream = newStream;
+                                        
+                                        // Update video elements
+                                        const localVideo = document.getElementById('local-video');
+                                        if (localVideo) {
+                                            localVideo.srcObject = this.localStream;
+                                        }
+                                        
+                                        // Update peer connections
+                                        this.updatePeerConnections();
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Failed to get video stream after toggle:", error);
+                                    this.videoEnabled = false; // Revert state on failure
+                                    showToast('error', 'Camera Error', 'Could not access your camera. Please check your device settings.');
+                                });
+                        }
+                    }
+                    
+                    // Show/hide placeholder based on video state
+                    const localVideo = document.getElementById('local-video');
+                    const localVideoContainer = localVideo?.parentElement;
+                    
+                    if (localVideoContainer) {
+                        // Find or create video placeholder
+                        let placeholder = localVideoContainer.querySelector('.video-placeholder');
+                        
+                        if (!this.videoEnabled) {
+                            // If video is disabled and no placeholder exists, create one
+                            if (!placeholder) {
+                                console.log("Creating video placeholder");
+                                placeholder = document.createElement('div');
+                                placeholder.classList.add('video-placeholder', 'absolute', 'inset-0', 'flex', 'flex-col', 'items-center', 'justify-center', 'bg-gray-800', 'bg-opacity-80', 'text-white', 'z-10');
+                                
+                                const icon = document.createElement('div');
+                                icon.classList.add('flex', 'flex-col', 'items-center', 'justify-center');
+                                icon.innerHTML = `
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                    </svg>
+                                    <span>Camera Off</span>
+                                `;
+                                placeholder.appendChild(icon);
+                                localVideoContainer.appendChild(placeholder);
+                            }
+                            placeholder.style.display = 'flex';
+                        } else if (placeholder) {
+                            // If video is enabled, hide the placeholder
+                            console.log("Hiding video placeholder");
+                            placeholder.style.display = 'none';
+                        }
                     }
                 } else {
-                    console.warn("Cannot toggle video: No local stream available");
+                    console.warn("No local stream available for video toggle");
+                    // Attempt to get user media if stream is missing
+                    if (this.videoEnabled) {
+                        this.requestUserMedia()
+                            .then(success => {
+                                console.log("Media requested successfully:", success);
+                            })
+                            .catch(error => {
+                                console.error("Failed to get media after toggle:", error);
+                                this.videoEnabled = false; // Revert state on failure
+                            });
+                    }
+                }
+                
+                // Notify other participants about media status change
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log("Sending media status update to peers");
+                    this.websocket.send(JSON.stringify({
+                        type: 'media_status',
+                        user_id: userId,
+                        username: userName,
+                        audioEnabled: this.audioEnabled,
+                        videoEnabled: this.videoEnabled
+                    }));
                 }
             },
             
