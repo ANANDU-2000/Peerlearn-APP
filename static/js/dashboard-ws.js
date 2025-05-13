@@ -267,7 +267,7 @@ function sendDashboardMessage(message) {
  */
 function handleSessionUpdate(data) {
     const session = data.session;
-    console.log('Session update:', session);
+    console.log('Session update received:', data.action, session);
     
     // Show toast notification
     let toastMessage = '';
@@ -298,14 +298,23 @@ function handleSessionUpdate(data) {
     }
     
     if (toastMessage && window.showToast) {
-        window.showToast(toastMessage, toastType);
+        window.showToast(toastType, 'Session Update', toastMessage);
     }
     
-    // If in sessions page, update UI
+    // Update UI
     updateSessionsUI(session, data.action);
     
     // Update earnings if mentor dashboard
-    updateEarningsUI(data.earnings);
+    if (data.earnings) {
+        updateEarningsUI(data.earnings);
+    }
+    
+    // Refresh sessions list if we're on a dashboard page
+    const onDashboard = document.querySelector('.dashboard-container') !== null;
+    if (onDashboard) {
+        console.log('On dashboard, refreshing sessions list after update');
+        refreshSessionsList();
+    }
 }
 
 /**
@@ -505,18 +514,48 @@ function updateSessionsUI(session, action) {
  * Refresh sessions list by reloading the page or making an API call
  */
 function refreshSessionsList() {
+    console.log('Refreshing sessions list...');
+    
+    // Detect if we're on the mentor or learner dashboard
+    const onMentorDashboard = window.location.pathname.includes('/dashboard/mentor/');
+    const onLearnerDashboard = window.location.pathname.includes('/dashboard/learner/');
+    
     // Option 1: Use API to get updated list
     if (window.apiClient) {
-        window.apiClient.getSessionStatus()
+        console.log('Using API client to refresh sessions');
+        // Use the appropriate API endpoint based on the dashboard
+        const apiPromise = onLearnerDashboard ? 
+            window.apiClient.getLearnerSessions() : 
+            window.apiClient.getSessionStatus();
+            
+        apiPromise
             .then(data => {
-                updateSessionsListUI(data.sessions);
+                console.log('Received updated sessions data:', data);
+                if (data && data.sessions) {
+                    updateSessionsListUI(data.sessions);
+                }
             })
             .catch(error => {
                 console.error('Error refreshing sessions list:', error);
+                // Show a notification about the error
+                if (window.showToast) {
+                    window.showToast('error', 'Update Failed', 'Could not refresh session data. Please try again.');
+                }
             });
     } else {
+        console.log('API client not available, refreshing page...');
         // Option 2: Fallback to page reload but preserve the current tab
-        const sessionsContainer = document.querySelector('.sessions-container');
+        let sessionsContainer;
+        
+        if (onMentorDashboard) {
+            sessionsContainer = document.querySelector('.sessions-container');
+        } else if (onLearnerDashboard) {
+            sessionsContainer = document.querySelector('.dashboard-sessions-list');
+        } else {
+            console.log('Not on a recognized dashboard page');
+            return;
+        }
+        
         if (sessionsContainer && !document.querySelector('.sessions-refresh-in-progress')) {
             // Determine current tab
             const currentMainTab = document.querySelector('.main-tab.active')?.dataset?.tab || 'sessions';
@@ -533,8 +572,18 @@ function refreshSessionsList() {
             
             // Reload content after a short delay
             setTimeout(() => {
-                // Redirect to the same page with tab parameters
-                window.location.href = `/users/dashboard/mentor/sessions/?tab=${currentMainTab}&sub_tab=${currentSubTab}`;
+                // Build the appropriate URL based on the dashboard
+                let redirectUrl;
+                if (onMentorDashboard) {
+                    redirectUrl = `/users/dashboard/mentor/sessions/?tab=${currentMainTab}&sub_tab=${currentSubTab}`;
+                } else if (onLearnerDashboard) {
+                    redirectUrl = `/users/dashboard/learner/?tab=${currentMainTab}`;
+                } else {
+                    redirectUrl = window.location.href; // Just reload current page
+                }
+                
+                console.log('Redirecting to refresh sessions:', redirectUrl);
+                window.location.href = redirectUrl;
             }, 1000);
         }
     }
