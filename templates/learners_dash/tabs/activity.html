@@ -464,9 +464,9 @@
                                             </span>
                                         {% endif %}
                                         
-                                        {% if booking.status == 'confirmed' and booking.session.status == 'scheduled' %}
+                                        {% if booking.status == 'confirmed' %}
                                             {% if booking.session.can_go_live and booking.session.mentor.id == user.id %}
-                                                <!-- If user is also the mentor (for cases where a mentor books their own session) -->
+                                                <!-- Only show Go Live button if this user is the mentor of the session (rare edge case) -->
                                                 <a href="/sessions/{{ booking.session.id }}/go-live/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                                     <i data-feather="video" class="w-4 h-4 mr-1"></i> Go Live
                                                 </a>
