@@ -5,15 +5,94 @@ import json
 import logging
 import asyncio
 from asgiref.sync import sync_to_async
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
 from channels.exceptions import StopConsumer
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from .models import Session, Booking
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+class SessionsConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Consumer for general sessions list subscriptions.
+    This handles real-time updates for the sessions list page.
+    """
+    
+    async def connect(self):
+        """
+        Called when the websocket is handshaking.
+        """
+        # Log connection attempt with client info
+        client_info = f"{self.scope['client'][0]}:{self.scope['client'][1]}"
+        logger.info(f"WebSocket connection attempt to sessions list from {client_info}")
+        
+        # Add to the sessions group
+        self.group_name = "sessions_list"
+        
+        # Accept the connection
+        await self.accept()
+        logger.info(f"WebSocket connection accepted for sessions list")
+        
+        # Set up channel layer if available
+        if hasattr(self, 'channel_layer'):
+            # Join the sessions group
+            await self.channel_layer.group_add(
+                self.group_name,
+                self.channel_name
+            )
+        
+        # Send welcome message
+        await self.send_json({
+            'type': 'welcome',
+            'message': 'Connected to sessions WebSocket'
+        })
+    
+    async def disconnect(self, code):
+        """
+        Called when the WebSocket closes.
+        """
+        logger.info(f"WebSocket disconnection from sessions list with code {code}")
+        
+        # Leave the sessions group if channel layer is available
+        if hasattr(self, 'channel_layer'):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+    
+    async def receive_json(self, content, **kwargs):
+        """
+        Called when we receive a text frame from the client.
+        """
+        # Log the received message type
+        message_type = content.get('type', 'unknown')
+        logger.info(f"Received {message_type} message for sessions list")
+        
+        if message_type == 'get_sessions':
+            # Handle request for sessions list
+            await self.send_sessions_list()
+    
+    async def send_sessions_list(self):
+        """
+        Send the current list of available sessions.
+        """
+        # Implement retrieving and sending sessions list
+        await self.send_json({
+            'type': 'sessions_list',
+            'message': 'Sessions list would be sent here',
+            'sessions': [] # Empty list for now, would be filled with actual sessions
+        })
+    
+    async def session_update(self, event):
+        """
+        Called when a session is updated.
+        """
+        # Forward the update to the client
+        await self.send_json(event)
 
 class SessionConsumer(AsyncWebsocketConsumer):
     """
