@@ -545,6 +545,13 @@ def learner_activity_partial(request):
             time_diff = (booking.session.schedule - now).total_seconds() / 60
             # Session is joinable 15 minutes before start time and until 3 hours 45 minutes after start
             is_joinable = time_diff >= -15 and time_diff <= 225
+            # Session is today if scheduled for today
+            is_today = booking.session.schedule.date() == now.date()
+            # Can go live if it's today but not yet joinable
+            can_go_live = is_today and (not is_joinable) and time_diff > -15
+        else:
+            is_today = False
+            can_go_live = False
         
         activity = {
             'type': 'booking',
@@ -559,6 +566,8 @@ def learner_activity_partial(request):
             'has_feedback': booking.feedback_submitted,
             'room_code': booking.session.room_code,
             'joinable': is_joinable,
+            'is_today': is_today,
+            'can_go_live': can_go_live,
             'id': booking.id,
             'booking_id': booking.id,
             'schedule': booking.session.schedule,

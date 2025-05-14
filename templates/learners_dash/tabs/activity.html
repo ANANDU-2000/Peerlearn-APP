@@ -80,8 +80,14 @@
                                     <!-- Action Buttons -->
                                     <div class="flex space-x-2">
                                         {% if activity.joinable %}
-                                            <a href="/sessions/{{ activity.room_code }}/join/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                                <i data-feather="video" class="w-4 h-4 mr-1"></i> Join▶
+                                            <a href="/sessions/{{ activity.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                <i data-feather="video" class="w-4 h-4 mr-1"></i> Join Room
+                                            </a>
+                                        {% endif %}
+                                        
+                                        {% if activity.can_go_live %}
+                                            <a href="/sessions/{{ activity.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                                <i data-feather="zap" class="w-4 h-4 mr-1"></i> Go Live
                                             </a>
                                         {% endif %}
                                         
