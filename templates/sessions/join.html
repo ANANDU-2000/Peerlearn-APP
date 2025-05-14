@@ -75,6 +75,42 @@
                     Enter Video Room
                 </a>
                 
+                <!-- Show a timer countdown if directed from Go Live to auto-join -->
+                <script>
+                    // Check if this is a redirect from Go Live action
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const direct = urlParams.get('direct');
+                    const autoJoin = urlParams.get('auto_join');
+                    
+                    if (direct === 'true' && autoJoin === 'true') {
+                        // Auto-click the enter room button after a short delay
+                        setTimeout(() => {
+                            const enterButton = document.getElementById('enter-room-button');
+                            if (enterButton) {
+                                // Add a quick pulse animation
+                                enterButton.classList.add('animate-pulse');
+                                
+                                // Show a simple countdown
+                                let counter = 3;
+                                const countdownEl = document.createElement('div');
+                                countdownEl.className = 'text-center text-lg font-bold mt-2';
+                                countdownEl.textContent = `Joining automatically in ${counter} seconds...`;
+                                enterButton.parentNode.insertBefore(countdownEl, enterButton.nextSibling);
+                                
+                                const countdown = setInterval(() => {
+                                    counter--;
+                                    countdownEl.textContent = `Joining automatically in ${counter} seconds...`;
+                                    
+                                    if (counter <= 0) {
+                                        clearInterval(countdown);
+                                        enterButton.click();
+                                    }
+                                }, 1000);
+                            }
+                        }, 1000);
+                    }
+                </script>
+                
                 <a href="javascript:history.back()" 
                    class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     Go Back
