@@ -238,35 +238,93 @@ document.addEventListener('alpine:init', () => {
         },
         
         /**
-         * Initialize the local media stream (camera & microphone)
+         * Initialize the local media stream (camera & microphone) with enhanced error handling and fallbacks
          */
         async initializeLocalStream() {
+            const setupLocalVideo = (stream) => {
+                // Helper function to configure local video element
+                const configureLocalVideo = (attempts = 0) => {
+                    const localVideo = document.getElementById('local-video');
+                    if (!localVideo) {
+                        console.error('Local video element not found');
+                        if (attempts < 3) {
+                            setTimeout(() => configureLocalVideo(attempts + 1), 500);
+                        }
+                        return;
+                    }
+                    
+                    try {
+                        // Set the stream as source for video element
+                        localVideo.srcObject = stream;
+                        
+                        // Configure attributes for performance and mobile
+                        localVideo.setAttribute('autoplay', 'true');
+                        localVideo.setAttribute('playsinline', 'true');
+                        localVideo.setAttribute('muted', 'true');
+                        
+                        // Make sure the local video is actually muted (important for browsers)
+                        localVideo.muted = true;
+                        
+                        // Set up loaded metadata event for playback
+                        localVideo.onloadedmetadata = () => {
+                            console.log('Local video metadata loaded');
+                            
+                            // Try to play the video
+                            localVideo.play()
+                                .then(() => {
+                                    console.log('Local video playing successfully');
+                                })
+                                .catch(error => {
+                                    console.error('Error playing local video:', error);
+                                    if (error.name === 'NotAllowedError') {
+                                        // Add click handler to allow play on interaction
+                                        localVideo.onclick = () => {
+                                            localVideo.play().catch(e => console.error('Play on click failed:', e));
+                                        };
+                                    }
+                                });
+                        };
+                        
+                        // Set up error handler
+                        localVideo.onerror = (event) => {
+                            console.error('Local video element error:', event);
+                        };
+                        
+                        console.log('Local video stream attached successfully');
+                    } catch (err) {
+                        console.error('Error attaching local stream to video element:', err);
+                        if (attempts < 3) {
+                            setTimeout(() => configureLocalVideo(attempts + 1), 500);
+                        }
+                    }
+                };
+                
+                // Start the local video configuration
+                configureLocalVideo();
+            };
+            
+            // Main media access logic
             try {
-                // Request access to camera and microphone
+                console.log('Requesting camera and microphone access...');
+                
+                // Request with ideal constraints first
                 this.localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
                 });
                 
-                // Display the local stream in the video element
-                const localVideo = document.getElementById('local-video');
-                if (localVideo) {
-                    localVideo.srcObject = this.localStream;
-                    localVideo.onloadedmetadata = () => {
-                        localVideo.play().catch(error => {
-                            console.error('Error playing local video:', error);
-                        });
-                    };
-                    
-                    // Set video element attributes for better performance
-                    localVideo.setAttribute('autoplay', 'true');
-                    localVideo.setAttribute('playsinline', 'true');
-                    localVideo.setAttribute('muted', 'true');
-                    
-                    // Log successful stream attachment
-                    console.log('Local video stream attached successfully');
-                }
+                // Set up local video with the stream
+                setupLocalVideo(this.localStream);
                 
+                // Update state
                 this.isLocalStreamReady = true;
                 this.videoEnabled = true;
                 this.audioEnabled = true;
@@ -274,20 +332,28 @@ document.addEventListener('alpine:init', () => {
                 // Initialize peer connection once we have the local stream
                 this.initializePeerConnection();
                 
-                console.log('Local stream initialized successfully');
-            } catch (error) {
-                console.error('Error accessing media devices:', error);
+                console.log('Local stream initialized successfully with video and audio');
                 
-                // Try fallback to audio only
-                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    this.showError('Camera or microphone permission denied. Please enable permissions and refresh.');
+            } catch (initialError) {
+                console.error('Error with preferred media constraints:', initialError);
+                
+                // Determine fallback strategy based on error
+                if (initialError.name === 'NotAllowedError' || initialError.name === 'PermissionDeniedError') {
+                    this.showError('Camera or microphone permission denied. Please check browser permissions and refresh.');
                     
+                    // Try with audio only
                     try {
-                        // Try with audio only
+                        console.log('Attempting audio-only fallback...');
                         this.localStream = await navigator.mediaDevices.getUserMedia({
                             video: false,
-                            audio: true
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true
+                            }
                         });
+                        
+                        // Set up audio-only interface
+                        setupLocalVideo(this.localStream);
                         
                         this.videoEnabled = false;
                         this.audioEnabled = true;
@@ -297,12 +363,50 @@ document.addEventListener('alpine:init', () => {
                         this.initializePeerConnection();
                         
                         console.log('Fallback to audio-only successful');
+                        this.showSuccessMessage('Connected with audio only. Video is disabled.');
+                        
                     } catch (audioError) {
                         console.error('Error accessing audio devices:', audioError);
-                        this.showError('Unable to access microphone. Please check permissions.');
+                        this.showError('Cannot access microphone. Please check browser permissions and refresh.');
+                    }
+                    
+                } else if (initialError.name === 'NotFoundError' || initialError.name === 'DevicesNotFoundError') {
+                    // No devices available - try with no media but still connect
+                    this.showError('No camera or microphone found. You can still receive the session but cannot send audio/video.');
+                    
+                    this.videoEnabled = false;
+                    this.audioEnabled = false;
+                    this.isLocalStreamReady = false;
+                    
+                    // Still initialize peer connection for receiving
+                    this.initializePeerConnection();
+                    
+                } else if (initialError.name === 'OverconstrainedError') {
+                    // Try again with minimal constraints
+                    try {
+                        console.log('Retrying with minimal constraints...');
+                        this.localStream = await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                            audio: true
+                        });
+                        
+                        setupLocalVideo(this.localStream);
+                        
+                        this.isLocalStreamReady = true;
+                        this.videoEnabled = true;
+                        this.audioEnabled = true;
+                        
+                        this.initializePeerConnection();
+                        
+                        console.log('Fallback to minimal constraints successful');
+                        
+                    } catch (fallbackError) {
+                        console.error('Error with fallback constraints:', fallbackError);
+                        this.showError('Camera or microphone issue. Please check your devices and refresh.');
                     }
                 } else {
-                    this.showError('Error accessing camera or microphone. Please check your devices.');
+                    // Generic error handling for other cases
+                    this.showError('Error accessing media devices. Please check if another app is using your camera/microphone.');
                 }
             }
         },
@@ -468,72 +572,155 @@ document.addEventListener('alpine:init', () => {
                         }
                     };
                     
-                    // Display the remote stream with enhanced error handling
-                    const mainVideo = document.getElementById('main-video');
-                    if (mainVideo) {
-                        // Store current time position if replacing an existing stream
-                        const currentTime = mainVideo.currentTime;
+                    // Display the remote stream with enhanced error handling and retry logic
+                    const displayRemoteStreamWithRetry = (attemptCount = 0) => {
+                        console.log(`Attempting to display remote stream (attempt ${attemptCount + 1})`);
                         
-                        // Set the new stream
-                        mainVideo.srcObject = this.remoteStream;
+                        const mainVideo = document.getElementById('main-video');
+                        if (!mainVideo) {
+                            console.error('Main video element not found');
+                            // Try again after a delay if this is not the last attempt
+                            if (attemptCount < 3) {
+                                setTimeout(() => displayRemoteStreamWithRetry(attemptCount + 1), 1000);
+                            } else {
+                                this.showError('Error displaying remote video. Please refresh the page.');
+                            }
+                            return;
+                        }
                         
-                        // Enhanced event listeners
-                        mainVideo.onloadedmetadata = () => {
-                            console.log('Remote video metadata loaded');
+                        try {
+                            // Store current time position if replacing an existing stream
+                            const currentTime = mainVideo.currentTime;
                             
-                            // Try to restore playback position
-                            if (currentTime > 0) {
-                                mainVideo.currentTime = currentTime;
+                            // Verify the stream is valid
+                            if (!this.remoteStream) {
+                                console.error('Remote stream is null or undefined');
+                                if (attemptCount < 3) {
+                                    setTimeout(() => displayRemoteStreamWithRetry(attemptCount + 1), 1000);
+                                } else {
+                                    this.showError('Remote video stream not available. Please try again.');
+                                }
+                                return;
                             }
                             
-                            // Ensure video starts playing
-                            const playPromise = mainVideo.play();
-                            if (playPromise !== undefined) {
-                                playPromise
-                                    .then(() => {
-                                        console.log('Remote video playback started successfully');
-                                    })
-                                    .catch(error => {
-                                        console.error('Error playing remote video:', error);
-                                        // If autoplay was prevented, show a play button
-                                        if (error.name === 'NotAllowedError') {
-                                            this.showError('Autoplay was blocked. Please click the video to start playback.');
-                                        }
-                                    });
-                            }
-                        };
-                        
-                        // Additional event listeners for reliable video display
-                        mainVideo.oncanplay = () => {
-                            console.log('Remote video can start playing');
-                        };
-                        
-                        mainVideo.onerror = (error) => {
-                            console.error('Video element error:', error);
-                        };
-                        
-                        // Set video element attributes for better performance
-                        mainVideo.setAttribute('autoplay', 'true');
-                        mainVideo.setAttribute('playsinline', 'true');
-                        
-                        // Log successful remote stream attachment
-                        console.log('Remote video stream attached successfully');
-                        
-                        // Update UI to show remote video is ready with a slight delay
-                        // to ensure UI update happens after the stream is properly attached
-                        setTimeout(() => {
-                            this.remoteVideoEnabled = true;
-                            this.isRemoteStreamReady = true;
+                            console.log('Remote stream info:', {
+                                active: this.remoteStream.active,
+                                id: this.remoteStream.id,
+                                tracks: this.remoteStream.getTracks().map(t => ({
+                                    kind: t.kind,
+                                    enabled: t.enabled,
+                                    readyState: t.readyState
+                                }))
+                            });
                             
-                            // Update UI elements that depend on stream status
-                            const videoPlaceholder = document.querySelector('.video-placeholder');
-                            if (videoPlaceholder) {
-                                videoPlaceholder.style.display = this.remoteVideoEnabled ? 'none' : 'flex';
+                            // Set the new stream
+                            mainVideo.srcObject = this.remoteStream;
+                            
+                            // Enhanced event listeners
+                            mainVideo.onloadedmetadata = () => {
+                                console.log('Remote video metadata loaded');
+                                
+                                // Try to restore playback position
+                                if (currentTime > 0) {
+                                    mainVideo.currentTime = currentTime;
+                                }
+                                
+                                // Ensure video starts playing with retry logic
+                                const tryPlay = (playAttempt = 0) => {
+                                    console.log(`Trying to play remote video (attempt ${playAttempt + 1})`);
+                                    const playPromise = mainVideo.play();
+                                    
+                                    if (playPromise !== undefined) {
+                                        playPromise
+                                            .then(() => {
+                                                console.log('Remote video playback started successfully');
+                                                this.showSuccessMessage('Remote video connected!');
+                                                
+                                                // Update state and UI when playback succeeds
+                                                this.remoteVideoEnabled = true;
+                                                this.isRemoteStreamReady = true;
+                                                
+                                                // Update placeholder visibility
+                                                this.updateVideoPlaceholder();
+                                            })
+                                            .catch(error => {
+                                                console.error('Error playing remote video:', error);
+                                                
+                                                // If autoplay was prevented, try again or show guidance
+                                                if (playAttempt < 2) {
+                                                    console.log('Retrying play after autoplay failure...');
+                                                    setTimeout(() => tryPlay(playAttempt + 1), 1000);
+                                                } else {
+                                                    if (error.name === 'NotAllowedError') {
+                                                        this.showError('Autoplay was blocked. Please click the video to start playback.');
+                                                        
+                                                        // Add a click handler to the video to allow manual play
+                                                        mainVideo.onclick = () => {
+                                                            mainVideo.play()
+                                                                .then(() => {
+                                                                    console.log('Video played after user interaction');
+                                                                    this.remoteVideoEnabled = true;
+                                                                    this.updateVideoPlaceholder();
+                                                                })
+                                                                .catch(e => console.error('Play after click failed:', e));
+                                                        };
+                                                    } else {
+                                                        this.showError('Error playing remote video. Please refresh the page.');
+                                                    }
+                                                }
+                                            });
+                                    }
+                                };
+                                
+                                // Start the play attempt chain
+                                tryPlay();
+                            };
+                            
+                            // Additional event listeners for reliable video display
+                            mainVideo.oncanplay = () => {
+                                console.log('Remote video can start playing');
+                            };
+                            
+                            mainVideo.onerror = (error) => {
+                                console.error('Video element error:', error);
+                                
+                                // Try again if there was an error
+                                if (attemptCount < 3) {
+                                    setTimeout(() => displayRemoteStreamWithRetry(attemptCount + 1), 1000);
+                                } else {
+                                    this.showError('Video playback error. Please refresh the page.');
+                                }
+                            };
+                            
+                            // Set video element attributes for better performance
+                            mainVideo.setAttribute('autoplay', 'true');
+                            mainVideo.setAttribute('playsinline', 'true');
+                            
+                            // Log successful remote stream attachment
+                            console.log('Remote video stream attached successfully');
+                            
+                        } catch (error) {
+                            console.error('Error setting up remote video:', error);
+                            
+                            // Try again if there was an exception
+                            if (attemptCount < 3) {
+                                setTimeout(() => displayRemoteStreamWithRetry(attemptCount + 1), 1000);
+                            } else {
+                                this.showError('Failed to display remote video. Please refresh the page.');
                             }
-                        }, 500);
-                    } else {
-                        console.error('Main video element not found');
-                    }
+                        }
+                    };
+                    
+                    // Helper method to update video placeholder visibility
+                    this.updateVideoPlaceholder = () => {
+                        const videoPlaceholder = document.querySelector('.video-placeholder');
+                        if (videoPlaceholder) {
+                            videoPlaceholder.style.display = this.remoteVideoEnabled ? 'none' : 'flex';
+                        }
+                    };
+                    
+                    // Start the display attempt
+                    displayRemoteStreamWithRetry();
                     
                     // Update state variables
                     this.isRemoteStreamReady = true;
@@ -1199,48 +1386,127 @@ document.addEventListener('alpine:init', () => {
         },
         
         /**
-         * Show an error message to the user
+         * Show an error message to the user with enhanced visibility
          */
         showError(message) {
             console.error('Error:', message);
             
-            // Look for error message container
-            const errorContainer = document.getElementById('error-message');
-            if (errorContainer) {
-                errorContainer.textContent = message;
-                errorContainer.classList.remove('hidden');
-                
-                // Add error styling
-                errorContainer.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
-                errorContainer.classList.remove('bg-green-100', 'text-green-800', 'border-green-300');
-                
-                // Hide after 10 seconds
+            // Play error sound if available
+            try {
+                const errorSound = document.getElementById('error-sound');
+                if (errorSound) {
+                    errorSound.play().catch(e => console.log('Could not play error sound:', e));
+                }
+            } catch (e) {
+                console.log('Error playing sound:', e);
+            }
+            
+            // Create error container if it doesn't exist
+            let errorContainer = document.getElementById('error-message');
+            
+            if (!errorContainer) {
+                // Create a floating notification element if none exists
+                errorContainer = document.createElement('div');
+                errorContainer.id = 'error-message';
+                errorContainer.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg border-2 max-w-md w-5/6 flex items-center transition-opacity duration-300';
+                document.body.appendChild(errorContainer);
+            }
+            
+            // Make sure the container is visible
+            errorContainer.classList.remove('hidden', 'opacity-0');
+            
+            // Add error icon and format message
+            errorContainer.innerHTML = `
+                <div class="flex w-full items-center">
+                    <div class="text-red-500 mr-3 flex-shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-grow">${message}</div>
+                    <button class="ml-auto flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none" onclick="this.parentElement.parentElement.classList.add('hidden');">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            // Add error styling
+            errorContainer.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
+            errorContainer.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'bg-blue-100', 'text-blue-800', 'border-blue-300');
+            
+            // Clear any existing timeout
+            if (this.messageTimeout) {
+                clearTimeout(this.messageTimeout);
+            }
+            
+            // Hide after 10 seconds
+            this.messageTimeout = setTimeout(() => {
+                errorContainer.classList.add('opacity-0');
                 setTimeout(() => {
                     errorContainer.classList.add('hidden');
-                }, 10000);
-            } else {
-                // Fallback to alert if no error container
-                alert('Error: ' + message);
-            }
+                }, 300);
+            }, 10000);
         },
         
         /**
-         * Show a success message to the user
+         * Show a success message to the user with enhanced visibility
          */
         showSuccessMessage(message) {
             console.log('Success:', message);
             
-            // Look for message container
-            const messageContainer = document.getElementById('error-message');
-            if (messageContainer) {
-                messageContainer.textContent = message;
-                messageContainer.classList.remove('hidden');
-                
-                // Add success styling
-                messageContainer.classList.add('bg-green-100', 'text-green-800', 'border-green-300');
-                messageContainer.classList.remove('bg-red-100', 'text-red-800', 'border-red-300');
-                
-                // Hide after 5 seconds
+            // Play success sound if available
+            try {
+                const successSound = document.getElementById('success-sound');
+                if (successSound) {
+                    successSound.play().catch(e => console.log('Could not play success sound:', e));
+                }
+            } catch (e) {
+                console.log('Error playing sound:', e);
+            }
+            
+            // Create message container if it doesn't exist
+            let messageContainer = document.getElementById('error-message');
+            
+            if (!messageContainer) {
+                // Create a floating notification element if none exists
+                messageContainer = document.createElement('div');
+                messageContainer.id = 'error-message';
+                messageContainer.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg border-2 max-w-md w-5/6 flex items-center transition-opacity duration-300';
+                document.body.appendChild(messageContainer);
+            }
+            
+            // Make sure the container is visible
+            messageContainer.classList.remove('hidden', 'opacity-0');
+            
+            // Add success icon and format message
+            messageContainer.innerHTML = `
+                <div class="flex w-full items-center">
+                    <div class="text-green-500 mr-3 flex-shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-grow">${message}</div>
+                    <button class="ml-auto flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none" onclick="this.parentElement.parentElement.classList.add('hidden');">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            // Add success styling
+            messageContainer.classList.add('bg-green-100', 'text-green-800', 'border-green-300');
+            messageContainer.classList.remove('bg-red-100', 'text-red-800', 'border-red-300', 'bg-blue-100', 'text-blue-800', 'border-blue-300');
+            
+            // Clear any existing timeout
+            if (this.messageTimeout) {
+                clearTimeout(this.messageTimeout);
+            }
+            
+            // Hide after 5 seconds
                 setTimeout(() => {
                     messageContainer.classList.add('hidden');
                 }, 5000);
