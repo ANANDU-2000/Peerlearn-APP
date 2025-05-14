@@ -1129,60 +1129,93 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             console.log(`Remote track ${i} kind: ${track.kind}, enabled: ${track.enabled}, readyState: ${track.readyState}`);
                         });
                         
-                        // Find or create video element for this user
-                        let videoElement = document.getElementById(`video-${userId}`);
+                        // Set the remote user's stream directly to the main video element for better connection
+                        // This ensures the remote video appears more reliably
+                        const mainVideo = document.getElementById('main-video');
                         
-                        if (!videoElement) {
-                            console.log(`Creating new video element for user ${username} (ID: ${userId})`);
+                        if (mainVideo) {
+                            console.log(`Setting remote stream from ${username} directly to main video element`);
                             
-                            videoElement = document.createElement('video');
-                            videoElement.id = `video-${userId}`;
-                            videoElement.autoplay = true;
-                            videoElement.playsInline = true;
-                            videoElement.muted = false;
-                            videoElement.classList.add('remote-video');
+                            // Set srcObject directly to ensure it appears
+                            mainVideo.srcObject = remoteStream;
                             
-                            // Add video element to DOM
-                            const participantsContainer = document.getElementById('participants-videos');
-                            if (!participantsContainer) {
-                                console.error('Participants container not found');
-                                showToast('error', 'UI Error', 'Could not find video container element.');
-                                return;
+                            // Force playback attempts in case of autoplay issues
+                            this.tryPlayVideo(mainVideo, `remote video from ${username}`).then(() => {
+                                console.log(`Successfully playing remote video from ${username}`);
+                                
+                                // Update UI to show connection is established
+                                this.remoteVideoEnabled = true;
+                                this.remoteUserRole = this.getParticipantRole(userId);
+                                this.remoteUserName = username;
+                                
+                                // Set a flag to track that remote video is connected
+                                window.remoteVideoConnected = true;
+                                
+                                // Show successful connection toast
+                                showToast('success', 'Connected', `You are now connected with ${username}`, 3000);
+                            }).catch(err => {
+                                console.error(`Error playing remote video: ${err}`);
+                                showToast('warning', 'Video Issue', 'Remote video may be paused due to autoplay restrictions. Click the screen to enable.', 5000);
+                            });
+                        } else {
+                            console.error('Main video element not found');
+                            showToast('error', 'UI Error', 'Could not find main video element.');
+                            return;
+                        }
+                        
+                        // Also create a smaller thumbnail for the participants container
+                        const participantsContainer = document.getElementById('participants-videos');
+                        if (participantsContainer) {
+                            let videoElement = document.getElementById(`video-${userId}`);
+                            
+                            // Create video element if it doesn't exist
+                            if (!videoElement) {
+                                videoElement = document.createElement('video');
+                                videoElement.id = `video-${userId}`;
+                                videoElement.autoplay = true;
+                                videoElement.playsInline = true;
+                                videoElement.muted = false;
+                                videoElement.classList.add('remote-video');
+                                
+                                const videoContainer = document.createElement('div');
+                                videoContainer.classList.add('participant-tile');
+                                videoContainer.id = `video-container-${userId}`;
+                                
+                                const usernameLabel = document.createElement('div');
+                                usernameLabel.classList.add('username-label');
+                                usernameLabel.textContent = username;
+                                
+                                // Add role badge 
+                                const roleBadge = document.createElement('div');
+                                roleBadge.classList.add('role-badge');
+                                roleBadge.textContent = this.getParticipantRole(userId);
+                                roleBadge.className = this.getParticipantRole(userId) === 'mentor' ? 
+                                    'absolute top-2 right-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full' :
+                                    'absolute top-2 right-2 px-2 py-1 bg-purple-600 text-white text-xs rounded-full';
+                                
+                                videoContainer.appendChild(videoElement);
+                                videoContainer.appendChild(usernameLabel);
+                                videoContainer.appendChild(roleBadge);
+                                participantsContainer.appendChild(videoContainer);
+                                
+                                // Set srcObject for this video element too
+                                videoElement.srcObject = remoteStream;
+                                this.tryPlayVideo(videoElement, `thumbnail video from ${username}`);
                             }
-                            
-                            const videoContainer = document.createElement('div');
-                            videoContainer.classList.add('participant-tile');
-                            videoContainer.id = `video-container-${userId}`;
-                            
-                            const usernameLabel = document.createElement('div');
-                            usernameLabel.classList.add('username-label');
-                            usernameLabel.textContent = username;
-                            
-                            // Add role badge 
-                            const roleBadge = document.createElement('div');
-                            roleBadge.classList.add('role-badge');
-                            roleBadge.textContent = this.getParticipantRole(userId);
-                            roleBadge.className = this.getParticipantRole(userId) === 'mentor' ? 
-                                'absolute top-2 right-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full' :
-                                'absolute top-2 right-2 px-2 py-1 bg-purple-600 text-white text-xs rounded-full';
-                            
-                            videoContainer.appendChild(videoElement);
-                            videoContainer.appendChild(usernameLabel);
-                            videoContainer.appendChild(roleBadge);
-                            participantsContainer.appendChild(videoContainer);
-                            
-                            // Add this user to participants list if not already there
-                            if (!this.otherParticipants.find(p => p.id === userId)) {
-                                this.otherParticipants.push({
-                                    id: userId,
-                                    username: username,
-                                    role: this.getParticipantRole(userId),
-                                    audioEnabled: true,
-                                    videoEnabled: true
+                        }
+                        
+                        // Add this user to participants list if not already there
+                        if (!this.otherParticipants.find(p => p.id === userId)) {
+                            this.otherParticipants.push({
+                                id: userId,
+                                username: username,
+                                role: this.getParticipantRole(userId),
+                                audioEnabled: true,
+                                videoEnabled: true
                                 });
-                            }
-                            
-                            console.log(`Added ${username} to participants list:`, this.otherParticipants);
+                        }
+                        
+                        console.log(`Added ${username} to participants list:`, this.otherParticipants);
                         } else {
                             console.log(`Using existing video element for user ${username} (ID: ${userId})`);
                         }
@@ -1789,11 +1822,10 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             switchMainVideo(userId, username) {
                 console.log(`Switching main video to ${username}`);
                 
-                // Find the participant's video element
-                const videoElement = document.getElementById(`video-${userId}`);
-                
-                if (!videoElement || !videoElement.srcObject) {
-                    console.error("Can't switch main video: participant video not found or has no stream");
+                // Find the remote stream for this user
+                const peerConnection = this.peerConnections[userId];
+                if (!peerConnection) {
+                    console.error(`No peer connection found for user ${username} (ID: ${userId})`);
                     return;
                 }
                 
@@ -1804,11 +1836,33 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     return;
                 }
                 
-                // Clone the stream to avoid issues
-                const mainStream = new MediaStream();
-                videoElement.srcObject.getTracks().forEach(track => {
-                    mainStream.addTrack(track);
-                });
+                // Find the participant's video element as fallback
+                const videoElement = document.getElementById(`video-${userId}`);
+                
+                // Use the remote stream directly from peer connection or the video element
+                let remoteStream;
+                
+                // Check if we can get receivers from the peer connection (most reliable)
+                const receivers = peerConnection.getReceivers();
+                if (receivers && receivers.length > 0) {
+                    console.log(`Found ${receivers.length} receivers for ${username}`);
+                    
+                    // Create a new MediaStream with all tracks
+                    remoteStream = new MediaStream();
+                    receivers.forEach(receiver => {
+                        if (receiver.track) {
+                            remoteStream.addTrack(receiver.track);
+                        }
+                    });
+                } 
+                // Fallback to video element's srcObject if available
+                else if (videoElement && videoElement.srcObject) {
+                    console.log(`Using existing video element stream for ${username}`);
+                    remoteStream = videoElement.srcObject;
+                } else {
+                    console.error("Can't switch main video: no stream available");
+                    return;
+                }
                 
                 // Save previous srcObject to stop its tracks later
                 const previousSrcObject = mainVideo.srcObject;
