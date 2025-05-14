@@ -499,11 +499,12 @@
                 }
                 
                 // Make API call to set session as live
-                fetch(`/sessions/api/sessions/${sessionId}/go_live/`, {
+                fetch(`/sessions/${sessionId}/go-live/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': this.csrfToken
+                        'X-CSRFToken': this.csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
                         force: true // Force go live even if time or booking conditions aren't met
@@ -541,10 +542,11 @@
                         console.log("Toast notification function not available");
                     }
                     
-                    // Redirect to session room
+                    // Redirect to session room with direct=true parameter
                     setTimeout(() => {
-                        console.log("Redirecting to:", `/sessions/${roomCode}/join/`);
-                        window.location.href = `/sessions/${roomCode}/join/`;
+                        const redirectUrl = data.redirect_url || `/sessions/${roomCode}/join/?direct=true`;
+                        console.log("Redirecting to:", redirectUrl);
+                        window.location.href = redirectUrl;
                     }, 1000); // Slightly longer delay to allow reading the success message
                 })
                 .catch(error => {

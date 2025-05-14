@@ -536,17 +536,22 @@ def session_room(request, room_code):
                 link=f"/sessions/{session.room_code}/join/"
             )
     
+    # Check if this is a direct access request
+    is_direct = request.GET.get('direct') == 'true'
+    
     # Prepare WebRTC context
     context = {
         'session': session,
         'user_role': user_role,
-        'STUN_SERVER': settings.STUN_SERVER,
-        'TURN_SERVER': settings.TURN_SERVER,
-        'TURN_USERNAME': settings.TURN_USERNAME,
-        'TURN_CREDENTIAL': settings.TURN_CREDENTIAL,
-        'room_name': str(session.room_code),
+        'STUN_SERVER': getattr(settings, 'STUN_SERVER', 'stun:stun.l.google.com:19302'),
+        'TURN_SERVER': getattr(settings, 'TURN_SERVER', ''),
+        'TURN_USERNAME': getattr(settings, 'TURN_USERNAME', ''),
+        'TURN_CREDENTIAL': getattr(settings, 'TURN_CREDENTIAL', ''),
+        'room_code': str(session.room_code),
+        'room_name': str(session.room_code),  # For backward compatibility
         'user_name': request.user.get_full_name() or request.user.username,
         'user_id': request.user.id,
+        'is_direct': is_direct,
     }
     
     return render(request, 'sessions/room.html', context)
