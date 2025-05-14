@@ -15,6 +15,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             screenStream: null,
             mainStream: null,
             mainStreamUser: userName,
+            mainStreamUserId: null,
+            remoteUserRole: 'learner',  // Role of remote user (mentor/learner)
             otherParticipants: [], // Array of connected participants
             participantMediaStatus: {}, // Keep track of participants' media status
             chatMessages: [],
@@ -705,9 +707,27 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     this.peerConnections[userId].ontrack = (event) => {
                         console.log(`Received remote track from ${username}:`, event.streams[0]);
                         
+                        // Check if we have a valid stream
+                        if (!event.streams || !event.streams[0]) {
+                            console.error(`No stream object in track event from ${username}`);
+                            showToast('error', 'Connection Issue', `Problem receiving video from ${username}. Try refreshing.`);
+                            return;
+                        }
+                        
+                        const remoteStream = event.streams[0];
+                        
+                        // Log tracks received
+                        console.log(`Remote stream from ${username} has ${remoteStream.getTracks().length} tracks`);
+                        remoteStream.getTracks().forEach((track, i) => {
+                            console.log(`Remote track ${i} kind: ${track.kind}, enabled: ${track.enabled}, readyState: ${track.readyState}`);
+                        });
+                        
                         // Find or create video element for this user
                         let videoElement = document.getElementById(`video-${userId}`);
+                        
                         if (!videoElement) {
+                            console.log(`Creating new video element for user ${username} (ID: ${userId})`);
+                            
                             videoElement = document.createElement('video');
                             videoElement.id = `video-${userId}`;
                             videoElement.autoplay = true;
@@ -717,23 +737,92 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             
                             // Add video element to DOM
                             const participantsContainer = document.getElementById('participants-videos');
-                            if (participantsContainer) {
-                                const videoContainer = document.createElement('div');
-                                videoContainer.classList.add('participant-tile');
-                                videoContainer.id = `video-container-${userId}`;
-                                
-                                const usernameLabel = document.createElement('div');
-                                usernameLabel.classList.add('username-label');
-                                usernameLabel.textContent = username;
-                                
-                                videoContainer.appendChild(videoElement);
-                                videoContainer.appendChild(usernameLabel);
-                                participantsContainer.appendChild(videoContainer);
+                            if (!participantsContainer) {
+                                console.error('Participants container not found');
+                                showToast('error', 'UI Error', 'Could not find video container element.');
+                                return;
                             }
+                            
+                            const videoContainer = document.createElement('div');
+                            videoContainer.classList.add('participant-tile');
+                            videoContainer.id = `video-container-${userId}`;
+                            
+                            const usernameLabel = document.createElement('div');
+                            usernameLabel.classList.add('username-label');
+                            usernameLabel.textContent = username;
+                            
+                            // Add role badge 
+                            const roleBadge = document.createElement('div');
+                            roleBadge.classList.add('role-badge');
+                            roleBadge.textContent = this.getParticipantRole(userId);
+                            roleBadge.className = this.getParticipantRole(userId) === 'mentor' ? 
+                                'absolute top-2 right-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full' :
+                                'absolute top-2 right-2 px-2 py-1 bg-purple-600 text-white text-xs rounded-full';
+                            
+                            videoContainer.appendChild(videoElement);
+                            videoContainer.appendChild(usernameLabel);
+                            videoContainer.appendChild(roleBadge);
+                            participantsContainer.appendChild(videoContainer);
+                            
+                            // Add this user to participants list if not already there
+                            if (!this.otherParticipants.find(p => p.id === userId)) {
+                                this.otherParticipants.push({
+                                    id: userId,
+                                    username: username,
+                                    role: this.getParticipantRole(userId),
+                                    audioEnabled: true,
+                                    videoEnabled: true
+                                });
+                            }
+                            
+                            console.log(`Added ${username} to participants list:`, this.otherParticipants);
+                        } else {
+                            console.log(`Using existing video element for user ${username} (ID: ${userId})`);
                         }
                         
                         // Set remote stream
-                        videoElement.srcObject = event.streams[0];
+                        try {
+                            // Clear any existing srcObject first
+                            if (videoElement.srcObject) {
+                                try {
+                                    videoElement.srcObject.getTracks().forEach(track => track.stop());
+                                } catch (e) {
+                                    console.warn("Error stopping existing remote tracks", e);
+                                }
+                                videoElement.srcObject = null;
+                            }
+                            
+                            // Set new srcObject
+                            videoElement.srcObject = remoteStream;
+                            
+                            // Play video with error handling
+                            videoElement.play().catch(e => {
+                                console.error(`Error playing remote video for ${username}:`, e);
+                                showToast('warning', 'Remote Video Issue', `Click the screen to see ${username}'s video`);
+                                
+                                // Add click handler to allow user interaction
+                                document.addEventListener('click', () => {
+                                    videoElement.play().catch(err => {
+                                        console.error(`Still failed to play remote video for ${username} after click:`, err);
+                                    });
+                                }, {once: true});
+                            });
+                            
+                            // Update the main video if this is the first remote stream 
+                            // or if we don't have a main stream yet
+                            if (this.mainStreamUserId !== userId && (!this.mainStream || this.mainStreamUser === userName)) {
+                                this.switchMainVideo(userId, username);
+                            }
+                            
+                            // Mark remote participant's video status
+                            this.updateParticipantMediaStatus(userId, 'video', true);
+                            
+                            // Display success message
+                            showToast('success', 'User Connected', `${username} has joined the session.`);
+                        } catch (err) {
+                            console.error(`Error setting remote stream for ${username}:`, err);
+                            showToast('error', 'Connection Issue', `Problem displaying ${username}'s video: ${err.message}`);
+                        }
                     };
                     
                 } catch (error) {
@@ -854,38 +943,140 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             
                             // Set up local video element if we have video
                             if (hasVideoTracks) {
+                                console.log("Setting up local video with video tracks");
                                 const localVideoElement = document.getElementById('local-video');
-                                if (localVideoElement) {
-                                    localVideoElement.srcObject = stream;
-                                    // Set main stream to the local stream initially
-                                    this.mainStream = stream;
+                                
+                                if (!localVideoElement) {
+                                    console.error("Local video element not found in DOM");
+                                    showToast('error', 'Video Element Missing', 'Could not find video element on page. Please refresh the page.');
+                                } else {
+                                    console.log("Setting srcObject on local video element");
                                     
-                                    // Auto-play the video when metadata is loaded
-                                    localVideoElement.onloadedmetadata = () => {
-                                        // Force autoplay even if browser has restrictions
-                                        localVideoElement.muted = true; // Mute to help with autoplay
-                                        const playPromise = localVideoElement.play();
-                                        
-                                        if (playPromise !== undefined) {
-                                            playPromise.then(() => {
-                                                console.log("Local video playback started successfully");
-                                                // Set main video source too
-                                                const mainVideoElement = document.getElementById('main-video');
-                                                if (mainVideoElement && !mainVideoElement.srcObject) {
-                                                    mainVideoElement.srcObject = stream;
-                                                    mainVideoElement.play().catch(e => console.error("Error playing main video:", e));
-                                                }
-                                            }).catch(e => {
-                                                console.error("Error auto-playing local video:", e);
-                                                // Try again with user interaction
-                                                showToast('warning', 'Video Playback Issue', 'Click anywhere on the screen to enable your camera view.');
-                                                document.addEventListener('click', () => {
-                                                    localVideoElement.play().catch(e => console.error("Error playing video after click:", e));
-                                                }, {once: true});
-                                            });
+                                    try {
+                                        // Clear any existing srcObject first
+                                        if (localVideoElement.srcObject) {
+                                            try {
+                                                localVideoElement.srcObject.getTracks().forEach(track => track.stop());
+                                            } catch (e) {
+                                                console.warn("Error stopping existing tracks", e);
+                                            }
+                                            localVideoElement.srcObject = null;
                                         }
-                                    };
+                                        
+                                        // Set new srcObject
+                                        localVideoElement.srcObject = stream;
+                                        
+                                        // Set main stream to the local stream initially (for display in the main video area)
+                                        this.mainStream = stream;
+                                        
+                                        // Explicitly log video tracks
+                                        const videoTracks = stream.getVideoTracks();
+                                        console.log(`Video tracks (${videoTracks.length}):`, videoTracks);
+                                        videoTracks.forEach((track, i) => {
+                                            console.log(`Track ${i} enabled:`, track.enabled, "readyState:", track.readyState);
+                                            
+                                            // Add track listener for when it ends
+                                            track.onended = () => {
+                                                console.warn(`Video track ${i} ended`);
+                                                showToast('warning', 'Camera Disconnected', 'Your camera has been disconnected. Please refresh the page to reconnect.');
+                                            };
+                                        });
+                                        
+                                        // Auto-play the video when metadata is loaded
+                                        localVideoElement.onloadedmetadata = () => {
+                                            console.log("Local video metadata loaded, attempting to play");
+                                            
+                                            // Force autoplay even if browser has restrictions
+                                            localVideoElement.muted = true; // Mute to help with autoplay
+                                            
+                                            // Try playing the video
+                                            const playPromise = localVideoElement.play();
+                                            
+                                            if (playPromise !== undefined) {
+                                                playPromise.then(() => {
+                                                    console.log("Local video playback started successfully");
+                                                    
+                                                    // Set main video source too
+                                                    const mainVideoElement = document.getElementById('main-video');
+                                                    if (mainVideoElement) {
+                                                        if (mainVideoElement.srcObject) {
+                                                            console.log("Main video already has srcObject, not replacing");
+                                                        } else {
+                                                            console.log("Setting main video srcObject");
+                                                            mainVideoElement.srcObject = stream;
+                                                            mainVideoElement.play().catch(e => {
+                                                                console.error("Error playing main video:", e);
+                                                                showToast('warning', 'Video Display Issue', 'Could not display video. Try clicking the video area.');
+                                                            });
+                                                        }
+                                                    } else {
+                                                        console.error("Main video element not found");
+                                                    }
+                                                    
+                                                    // Make videos visible
+                                                    document.querySelectorAll('.video-container').forEach(container => {
+                                                        container.style.visibility = 'visible';
+                                                    });
+                                                    
+                                                }).catch(e => {
+                                                    console.error("Error auto-playing local video:", e);
+                                                    
+                                                    // Try again with user interaction
+                                                    showToast('warning', 'Camera Permission Required', 'Click anywhere on the screen to enable your camera view.');
+                                                    
+                                                    // Create very visible click prompt
+                                                    const clickPrompt = document.createElement('div');
+                                                    clickPrompt.className = 'click-to-enable-video';
+                                                    clickPrompt.innerHTML = `
+                                                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50 cursor-pointer">
+                                                            <div class="text-white text-center p-4">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                                </svg>
+                                                                <h3 class="text-xl font-bold mb-2">Click to Enable Camera</h3>
+                                                                <p>Your browser requires an interaction before enabling video</p>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                    
+                                                    // Add click prompt to page and set up click handler
+                                                    document.body.appendChild(clickPrompt);
+                                                    
+                                                    document.addEventListener('click', () => {
+                                                        // Try playing the video again
+                                                        localVideoElement.play()
+                                                            .then(() => {
+                                                                console.log("Local video playback started after user interaction");
+                                                                clickPrompt.remove();
+                                                                
+                                                                // Also play main video
+                                                                const mainVideoElement = document.getElementById('main-video');
+                                                                if (mainVideoElement && !mainVideoElement.playing) {
+                                                                    mainVideoElement.play().catch(e => console.error("Error playing main video after click:", e));
+                                                                }
+                                                            })
+                                                            .catch(e => {
+                                                                console.error("Error playing video after click:", e);
+                                                                showToast('error', 'Video Playback Failed', 'Could not start your camera. Please check your browser permissions and try again.');
+                                                            });
+                                                    }, {once: true});
+                                                });
+                                            }
+                                        };
+                                        
+                                        // Add error handler for the video element
+                                        localVideoElement.onerror = (e) => {
+                                            console.error("Local video element error:", e);
+                                            showToast('error', 'Video Error', 'An error occurred with your camera feed. Please refresh the page.');
+                                        };
+                                    } catch (err) {
+                                        console.error("Error setting srcObject on video element:", err);
+                                        showToast('error', 'Video Setup Error', `Could not set up video: ${err.message}`);
+                                    }
                                 }
+                            } else {
+                                console.warn("No video tracks available, setting up audio-only mode");
+                                showToast('info', 'Audio Only Mode', 'Continuing with audio-only communication.');
                             }
                             
                             // Update UI video status
@@ -1219,6 +1410,80 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 
                 // Call our dedicated method to update audio UI and notify peers
                 this.updateAudioStatus();
+            },
+            
+            // Get participant role (mentor/learner) based on userId
+            getParticipantRole(userId) {
+                // Find role based on userId in the known participants
+                const existingParticipant = this.otherParticipants.find(p => p.id === userId);
+                if (existingParticipant && existingParticipant.role) {
+                    return existingParticipant.role;
+                }
+                
+                // Default to opposite of current user role if we can't determine
+                if (userRole === 'mentor') {
+                    return 'learner';
+                } else {
+                    return 'mentor';
+                }
+            },
+            
+            // Update participant media status (video/audio)
+            updateParticipantMediaStatus(userId, mediaType, enabled) {
+                const participantIndex = this.otherParticipants.findIndex(p => p.id === userId);
+                if (participantIndex !== -1) {
+                    if (mediaType === 'video') {
+                        this.otherParticipants[participantIndex].videoEnabled = enabled;
+                    } else if (mediaType === 'audio') {
+                        this.otherParticipants[participantIndex].audioEnabled = enabled;
+                    }
+                }
+            },
+            
+            // Switch the main video display to a different user
+            switchMainVideo(userId, username) {
+                console.log(`Switching main video to user ${username} (ID: ${userId})`);
+                
+                // Store the user ID of the main stream
+                this.mainStreamUserId = userId;
+                
+                const videoElement = document.getElementById(`video-${userId}`);
+                if (videoElement && videoElement.srcObject) {
+                    const mainVideo = document.getElementById('main-video');
+                    if (mainVideo) {
+                        // Update main video source
+                        this.mainStream = videoElement.srcObject;
+                        this.mainStreamUser = username;
+                        mainVideo.srcObject = videoElement.srcObject;
+                        
+                        // Set the remote user role for styling
+                        this.remoteUserRole = this.getParticipantRole(userId);
+                        
+                        // Add zoom effect class for mentor (only if it's not the local user)
+                        if (this.remoteUserRole === 'mentor' && userId !== USER_ID) {
+                            mainVideo.classList.add('mentor-video');
+                            mainVideo.classList.remove('learner-video');
+                        } else {
+                            mainVideo.classList.add('learner-video');
+                            mainVideo.classList.remove('mentor-video');
+                        }
+                        
+                        // Play with error handling
+                        mainVideo.play().catch(e => {
+                            console.error("Error playing main video after switch:", e);
+                            showToast('warning', 'Video Display Issue', 'Click to enable main video view');
+                            
+                            // Add click handler for user interaction
+                            document.addEventListener('click', () => {
+                                mainVideo.play().catch(e => console.error("Error playing main video after click:", e));
+                            }, {once: true});
+                        });
+                    } else {
+                        console.error("Main video element not found when switching");
+                    }
+                } else {
+                    console.error(`Video element for ${username} not found or has no stream`);
+                }
             },
             
             // Update the UI to reflect video status
