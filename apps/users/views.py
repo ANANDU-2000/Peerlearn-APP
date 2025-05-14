@@ -397,6 +397,14 @@ def learner_dashboard(request):
         read=False
     ).count()
     
+    # Get all active sessions for topic filtering
+    from apps.learning_sessions.models import Session
+    time_filter = now - timezone.timedelta(hours=1)
+    all_sessions = Session.objects.filter(
+        Q(status='scheduled') | Q(status='live'),
+        schedule__gte=time_filter
+    ).order_by('schedule')
+    
     # Get top mentors for recommendations
     top_mentors = get_top_mentors(request.user, 6)
     
@@ -417,8 +425,12 @@ def learner_dashboard(request):
     
     # Add has_feedback attribute to bookings
     for booking in bookings:
-        from apps.learning_sessions.models import Feedback
-        booking.has_feedback = Feedback.objects.filter(booking=booking).exists()
+        try:
+            from apps.learning_sessions.models import Feedback
+            booking.has_feedback = Feedback.objects.filter(booking=booking).exists()
+        except ImportError:
+            # If Feedback model doesn't exist yet, set has_feedback to False
+            booking.has_feedback = False
     
     context = {
         'recommended_sessions': recommended_sessions,
