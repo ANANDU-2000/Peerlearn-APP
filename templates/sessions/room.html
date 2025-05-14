@@ -448,7 +448,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-gray-50 min-h-screen py-6" x-data="webRTCRoom">
+<div class="bg-gray-50 min-h-screen py-6" x-data="webRTCRoom()">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {% if is_direct %}
         <!-- Enhanced connection notification for direct access -->
@@ -1012,7 +1012,14 @@
     const USER_ID = {{ user_id }};
     const USER_NAME = "{{ user_name }}";
     const USER_ROLE = "{{ user_role }}";
-    const STUN_SERVER = "stun:stun.l.google.com:19302";
+    // Multiple STUN servers for better connectivity
+    const STUN_SERVERS = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun3.l.google.com:19302",
+        "stun:stun4.l.google.com:19302"
+    ];
     const TURN_SERVER = "";
     const TURN_USERNAME = "";
     const TURN_CREDENTIAL = "";
@@ -1032,6 +1039,15 @@
             userName: USER_NAME,
             userRole: USER_ROLE
         });
+        
+        // Configure ICE servers with multiple STUN servers for better connectivity
+        const iceServers = {
+            iceServers: STUN_SERVERS.map(server => ({ urls: server }))
+        };
+        console.log("Using ICE servers:", iceServers);
+        
+        // Initialize the room
+        window.initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, iceServers);
         
         // Make sure all the video elements are ready
         try {
