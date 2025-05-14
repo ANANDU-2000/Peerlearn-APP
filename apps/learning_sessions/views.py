@@ -533,7 +533,7 @@ def session_room(request, room_code):
             Notification.objects.create(
                 user=booking.learner,
                 message=f"Session '{session.title}' is now live! Join now.",
-                link=session.get_room_url
+                link=f"/sessions/{session.room_code}/join/"
             )
     
     # Prepare WebRTC context
