@@ -56,27 +56,38 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // Lifecycle hooks
             init() {
-                console.log("Initializing WebRTC room with:", {
+                console.log("Initializing WebRTC room with Alpine.store:", {
                     roomCode: roomCode,
                     userId: userId,
                     userName: userName,
                     userRole: userRole
                 });
                 
-                // Make user info global
-                window.ROOM_CODE = roomCode;
-                window.USER_ID = userId;
-                window.USER_NAME = userName;
-                window.USER_ROLE = userRole;
+                // Store user info in the store instance
+                this.userId = userId;
+                this.userName = userName;
+                this.userRole = userRole;
+                this.isInitializing = false;
+                
+                // Ensure consistent connection status display
+                this.connectionStatus = 'Connecting';
+                this.connectionStatusClass = 'connecting';
                 
                 // Register cleanup on page unload
                 window.addEventListener('beforeunload', this.cleanup.bind(this));
                 
-                // Setup WebRTC
-                this.setupWebRTC();
+                // Setup WebRTC connections
+                this.setupWebRTC().then(() => {
+                    console.log("WebRTC setup completed");
+                }).catch(err => {
+                    console.error("WebRTC setup failed:", err);
+                    showToast('error', 'Connection Error', 'Failed to initialize WebRTC connections', 5000);
+                });
                 
-                // Check for autoplay issues
-                this.checkForAutoplayIssues();
+                // Check for autoplay issues with videos
+                setTimeout(() => {
+                    this.checkForAutoplayIssues();
+                }, 1000);
             },
             
             // Check for autoplay issues with videos
@@ -438,10 +449,11 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 }
             },
             
-            // Setup WebRTC functionality
+            // Setup WebRTC functionality - returns a promise
             async setupWebRTC() {
-                try {
-                    console.log("Setting up WebRTC with user ID:", userId);
+                return new Promise(async (resolve, reject) => {
+                    try {
+                        console.log("Setting up WebRTC with user ID:", userId);
                     
                     // Clear any existing peer connections
                     for (const id in this.peerConnections) {
@@ -495,24 +507,31 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     this.connectionStatusClass = "connected";
                     this.sessionStatus = "live";
                     
-                    console.log("WebRTC setup completed successfully");
-                    
-                    // If mentor, update session status to live
-                    if (userRole === 'mentor') {
-                        console.log("Updating session status to live (mentor role)");
-                        this.updateSessionStatus('live');
+                        console.log("WebRTC setup completed successfully");
+                        
+                        // If mentor, update session status to live
+                        if (userRole === 'mentor') {
+                            console.log("Updating session status to live (mentor role)");
+                            this.updateSessionStatus('live');
+                        }
+                        
+                        // Show success message
+                        showToast('success', 'Connected', 'You have joined the session successfully.');
+                        
+                        // Resolve the promise
+                        resolve();
+                    } catch (e) {
+                        console.error("Error during WebRTC setup:", e);
+                        showToast('error', 'Connection Error', 'Failed to set up video connection. Please refresh the page.');
+                        this.connectionStatus = "Error";
+                        this.connectionStatusClass = "error";
+                        
+                        // Reject the promise
+                        reject(e);
+                    } finally {
+                        this.isInitializing = false;
                     }
-                    
-                    // Show success message
-                    showToast('success', 'Connected', 'You have joined the session successfully.');
-                } catch (e) {
-                    console.error("Error during WebRTC setup:", e);
-                    showToast('error', 'Connection Error', 'Failed to set up video connection. Please refresh the page.');
-                    this.connectionStatus = "Error";
-                    this.connectionStatusClass = "error";
-                } finally {
-                    this.isInitializing = false;
-                }
+                });
             },
             
             // Connect to WebSocket server for signaling

@@ -1042,29 +1042,45 @@
         
         // Configure ICE servers with multiple STUN servers for better connectivity
         const iceServers = {
-            stunServers: STUN_SERVERS  // This matches the format expected in room_fixed.js
+            stunServers: STUN_SERVERS,  // This matches the format expected in room_fixed.js
+            turnServer: TURN_SERVER,
+            turnUsername: TURN_USERNAME,
+            turnCredential: TURN_CREDENTIAL
         };
         console.log("Using ICE servers:", iceServers);
         
-        // Initialize the room
+        // Initialize room with Alpine.js store
         window.initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, iceServers);
         
-        // Make sure all the video elements are ready
-        try {
-            const localVideo = document.getElementById('local-video');
-            if (!localVideo) {
-                console.warn("Local video element not found on page load");
+        // After store is created, check everything is working properly
+        setTimeout(() => {
+            // Verify the store exists and is initialized
+            if (Alpine.store('webRTCRoom')) {
+                console.log("WebRTC store successfully initialized");
+                
+                // Trigger Alpine.store('webRTCRoom').init() method
+                Alpine.store('webRTCRoom').init();
+            } else {
+                console.error("WebRTC store was not correctly initialized");
             }
             
-            const mainVideo = document.getElementById('main-video');
-            if (!mainVideo) {
-                console.warn("Main video element not found on page load");
+            // Check video elements
+            try {
+                const localVideo = document.getElementById('local-video');
+                const mainVideo = document.getElementById('main-video');
+                
+                if (!localVideo) {
+                    console.warn("Local video element not found on page load");
+                }
+                if (!mainVideo) {
+                    console.warn("Main video element not found on page load");
+                }
+            } catch (e) {
+                console.error("Error checking video elements:", e);
             }
-        } catch (e) {
-            console.error("Error checking video elements:", e);
-        }
+        }, 200);
         
-        // Make variables available globally
+        // Make variables available globally for easier debugging
         window.USER_ID = USER_ID;
         window.USER_NAME = USER_NAME;
         window.USER_ROLE = USER_ROLE;
