@@ -1107,9 +1107,9 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         console.log(`ICE connection state change for ${username}:`, this.peerConnections[userId].iceConnectionState);
                     };
                     
-                    // Handle remote stream
+                    // Enhanced remote stream handling for better video appearance
                     this.peerConnections[userId].ontrack = (event) => {
-                        console.log(`Received remote track from ${username}:`, event.streams[0]);
+                        console.log(`Received remote track from ${username}:`, event.track.kind, event.streams[0]);
                         
                         // Check if we have a valid stream
                         if (!event.streams || !event.streams[0]) {
@@ -1117,6 +1117,9 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             showToast('error', 'Connection Issue', `Problem receiving video from ${username}. Try refreshing.`);
                             return;
                         }
+                        
+                        // Log important track information for debugging
+                        console.log(`Track details from ${username}: type=${event.track.kind}, enabled=${event.track.enabled}, muted=${event.track.muted}, readyState=${event.track.readyState}`);
                         
                         const remoteStream = event.streams[0];
                         
@@ -1494,15 +1497,15 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             },
                             video: isMobile ? {
                                 // Mobile-optimized video (lower resolution, lower framerate)
-                                width: { ideal: 480 },
-                                height: { ideal: 360 },
-                                frameRate: { max: 15 },
+                                width: { ideal: 640, min: 320 },
+                                height: { ideal: 480, min: 240 },
+                                frameRate: { max: 24, ideal: 15 },
                                 facingMode: 'user'
                             } : {
-                                // Desktop-optimized video
-                                width: { ideal: 640 },
-                                height: { ideal: 480 },
-                                frameRate: { ideal: 24 }
+                                // Desktop-optimized video with better quality
+                                width: { ideal: 1280, min: 640 },
+                                height: { ideal: 720, min: 480 },
+                                frameRate: { ideal: 30, min: 15 }
                             }
                         },
                         
