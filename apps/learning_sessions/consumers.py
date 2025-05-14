@@ -12,6 +12,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from .models import Session, Booking
+from apps.users.models import CustomUser
+from apps.notifications.models import Notification
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -441,3 +443,121 @@ class SessionConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error ending session {self.room_code}: {str(e)}")
             return False
+
+
+class DashboardConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Consumer for dashboard real-time updates.
+    This handles updates for sessions, requests, and other dashboard content.
+    """
+    
+    async def connect(self):
+        """
+        Called when the websocket is handshaking.
+        """
+        # Get the user ID from the URL route
+        self.user_id = self.scope['url_route']['kwargs']['user_id']
+        client_info = f"{self.scope['client'][0]}:{self.scope['client'][1]}"
+        
+        logger.info(f"WebSocket connection attempt to dashboard for user {self.user_id} from {client_info}")
+        
+        # Create a group name for this user's dashboard
+        self.group_name = f"dashboard_{self.user_id}"
+        
+        # Accept the connection
+        await self.accept()
+        logger.info(f"WebSocket connection accepted for dashboard of user {self.user_id}")
+        
+        # Join the user-specific dashboard group
+        if hasattr(self, 'channel_layer'):
+            await self.channel_layer.group_add(
+                self.group_name,
+                self.channel_name
+            )
+            
+            # Log successful group join
+            logger.info(f"Added to channel group: {self.group_name}")
+        
+        # Send welcome message with confirmation of connection
+        await self.send_json({
+            'type': 'welcome',
+            'message': 'Connected to dashboard real-time updates',
+            'user_id': self.user_id
+        })
+    
+    async def disconnect(self, close_code):
+        """
+        Called when the WebSocket closes for any reason.
+        """
+        logger.info(f"WebSocket disconnected for dashboard of user {self.user_id} with code {close_code}")
+        
+        # Leave the group
+        if hasattr(self, 'channel_layer'):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+            
+            # Log group leave
+            logger.info(f"Removed from channel group: {self.group_name}")
+    
+    async def receive_json(self, content):
+        """
+        Called when we get a text frame from the client.
+        """
+        message_type = content.get('type', '')
+        logger.info(f"Received dashboard message from user {self.user_id}: {message_type}")
+        
+        # Handle different message types
+        if message_type == 'get_data':
+            # Fetch and send dashboard data
+            await self.send_dashboard_data()
+        elif message_type == 'ping':
+            # Respond to ping with pong
+            await self.send_json({
+                'type': 'pong',
+                'timestamp': timezone.now().isoformat()
+            })
+        else:
+            logger.warning(f"Unknown message type received: {message_type}")
+    
+    async def send_dashboard_data(self):
+        """
+        Fetch and send dashboard data to the client.
+        """
+        # This will be implemented to fetch real-time data for the dashboard
+        # For now, just send a confirmation message
+        await self.send_json({
+            'type': 'dashboard_data',
+            'message': 'Dashboard data function called',
+            'timestamp': timezone.now().isoformat()
+        })
+    
+    # Channel layer message handlers
+    async def session_update(self, event):
+        """
+        Handle session update messages from the channel layer.
+        """
+        # Forward the message to the client
+        await self.send_json(event)
+        
+    async def booking_update(self, event):
+        """
+        Handle booking update messages from the channel layer.
+        """
+        # Forward the message to the client
+        await self.send_json(event)
+        
+    async def session_request_update(self, event):
+        """
+        Handle session request update messages.
+        """
+        # Forward the message to the client
+        await self.send_json(event)
+        
+    async def notification_update(self, event):
+        """
+        Handle notification update messages.
+        """
+        # Forward the message to the client
+        await self.send_json(event)
