@@ -512,7 +512,10 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     this.connectionStatusClass = "connected";
                     this.sessionStatus = "live";
                     
-                        console.log("WebRTC setup completed successfully");
+                    // Start session timer
+                    this.startSessionTimer();
+                    
+                    console.log("WebRTC setup completed successfully");
                         
                         // If mentor, update session status to live
                         if (userRole === 'mentor') {

@@ -10,9 +10,18 @@
         position: relative;
         border-radius: 12px;
         overflow: hidden;
-        background-color: #1a1a1a; /* Darker background like Zoom */
+        background-color: #0f172a; /* Dark premium background */
         box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .participant-tile.role-mentor {
+        border-color: rgba(59, 130, 246, 0.6); /* Blue border for mentors */
+    }
+    
+    .participant-tile.role-learner {
+        border-color: rgba(168, 85, 247, 0.6); /* Purple border for learners */
     }
     
     .participant-tile:hover {
@@ -23,9 +32,8 @@
     .participant-tile video {
         width: 100%;
         height: 100%;
-        object-fit: contain; /* Changed to contain for better proportions */
-        background-color: #1f2937;
-        max-height: 240px;
+        object-fit: cover; /* Changed to cover for more professional look */
+        background-color: #0f172a;
         border-radius: 8px;
         transition: transform 0.2s ease-in-out;
     }
@@ -34,7 +42,7 @@
         transform: scale(1.05);
     }
     
-    /* Camera off placeholder */
+    /* Camera off placeholder - Enhanced Premium Style */
     .video-placeholder {
         position: absolute;
         top: 0;
@@ -45,9 +53,12 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background-color: #1a1a1a;
+        background-color: #0f172a; /* Match container background */
+        background-image: radial-gradient(circle at center, rgba(30, 58, 138, 0.1) 0%, rgba(15, 23, 42, 0.8) 70%);
         color: #ffffff;
         font-size: 1.2rem;
+        text-align: center;
+        padding: 1rem;
         z-index: 5;
     }
     
