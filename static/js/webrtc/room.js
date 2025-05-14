@@ -984,21 +984,63 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 videoElement.srcObject = null;
                             }
                             
-                            // Set new srcObject
-                            videoElement.srcObject = remoteStream;
+                            console.log(`Setting remote stream for ${username} with ${remoteStream.getTracks().length} tracks`);
                             
-                            // Play video with error handling
-                            videoElement.play().catch(e => {
-                                console.error(`Error playing remote video for ${username}:`, e);
-                                showToast('warning', 'Remote Video Issue', `Click the screen to see ${username}'s video`);
+                            // Set new srcObject with explicit error handling
+                            try {
+                                videoElement.srcObject = remoteStream;
                                 
-                                // Add click handler to allow user interaction
-                                document.addEventListener('click', () => {
-                                    videoElement.play().catch(err => {
-                                        console.error(`Still failed to play remote video for ${username} after click:`, err);
-                                    });
-                                }, {once: true});
-                            });
+                                // Also set main video if this is the mentor's stream and local user is a learner
+                                // Or if this is any participant and we're the mentor
+                                const mainVideoElement = document.getElementById('main-video');
+                                const isRemoteUserMentor = this.getParticipantRole(userId) === 'mentor';
+                                
+                                if (mainVideoElement) {
+                                    if ((isRemoteUserMentor && userRole === 'learner') || userRole === 'mentor') {
+                                        console.log(`Setting main video to ${username}'s stream (${isRemoteUserMentor ? 'mentor' : 'participant'})`);
+                                        
+                                        try {
+                                            // First stop any existing tracks
+                                            if (mainVideoElement.srcObject) {
+                                                mainVideoElement.srcObject.getTracks().forEach(track => {
+                                                    // Don't stop tracks that belong to our local stream
+                                                    if (!this.localStream || !this.localStream.getTracks().includes(track)) {
+                                                        track.stop();
+                                                    }
+                                                });
+                                            }
+                                            
+                                            // Set new stream (clone it to avoid issues)
+                                            const clonedStream = new MediaStream();
+                                            remoteStream.getTracks().forEach(track => clonedStream.addTrack(track));
+                                            mainVideoElement.srcObject = clonedStream;
+                                            mainVideoElement.muted = false;
+                                            mainVideoElement.play().catch(e => console.warn("Main video autoplay prevented:", e));
+                                        } catch (mainErr) {
+                                            console.error("Error setting main video:", mainErr);
+                                        }
+                                    }
+                                }
+                            } catch (srcErr) {
+                                console.error(`Error setting srcObject for ${username}:`, srcErr);
+                                showToast('error', 'Video Error', `Could not display ${username}'s video.`);
+                            }
+                            
+                            // Play video with error handling and user interaction option
+                            const playPromise = videoElement.play();
+                            if (playPromise !== undefined) {
+                                playPromise.catch(e => {
+                                    console.error(`Error playing remote video for ${username}:`, e);
+                                    showToast('warning', 'Remote Video Issue', `Click the screen to see ${username}'s video`);
+                                    
+                                    // Add click handler to allow user interaction
+                                    document.addEventListener('click', () => {
+                                        videoElement.play().catch(err => {
+                                            console.error(`Still failed to play remote video for ${username} after click:`, err);
+                                        });
+                                    }, {once: true});
+                                });
+                            }
                             
                             // Update the main video if this is the first remote stream 
                             // or if we don't have a main stream yet
