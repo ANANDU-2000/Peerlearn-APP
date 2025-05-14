@@ -422,17 +422,82 @@ document.addEventListener('alpine:init', () => {
                 this.peerConnection.ontrack = (event) => {
                     console.log('Remote track received:', event.track.kind);
                     
+                    // Show notification when remote track arrives
+                    if (event.track.kind === 'video') {
+                        this.showSuccessMessage('Remote video connected!');
+                        this.playNotificationSound();
+                    }
+                    
                     // Set the remote stream
                     this.remoteStream = event.streams[0];
                     
-                    // Display the remote stream
+                    // Track when remote tracks get muted/unmuted
+                    event.track.onmute = () => {
+                        console.log(`Remote ${event.track.kind} track muted`);
+                        if (event.track.kind === 'video') {
+                            this.remoteVideoEnabled = false;
+                            // Update connection status
+                            this.updateConnectionStatus('Remote video muted');
+                        } else if (event.track.kind === 'audio') {
+                            this.remoteAudioEnabled = false;
+                            this.isRemoteMuted = true;
+                        }
+                    };
+                    
+                    event.track.onunmute = () => {
+                        console.log(`Remote ${event.track.kind} track unmuted`);
+                        if (event.track.kind === 'video') {
+                            this.remoteVideoEnabled = true;
+                            // Update connection status
+                            this.updateConnectionStatus('Remote video available');
+                        } else if (event.track.kind === 'audio') {
+                            this.remoteAudioEnabled = true;
+                            this.isRemoteMuted = false;
+                        }
+                    };
+                    
+                    // Display the remote stream with enhanced error handling
                     const mainVideo = document.getElementById('main-video');
                     if (mainVideo) {
+                        // Store current time position if replacing an existing stream
+                        const currentTime = mainVideo.currentTime;
+                        
+                        // Set the new stream
                         mainVideo.srcObject = this.remoteStream;
+                        
+                        // Enhanced event listeners
                         mainVideo.onloadedmetadata = () => {
-                            mainVideo.play().catch(error => {
-                                console.error('Error playing remote video:', error);
-                            });
+                            console.log('Remote video metadata loaded');
+                            
+                            // Try to restore playback position
+                            if (currentTime > 0) {
+                                mainVideo.currentTime = currentTime;
+                            }
+                            
+                            // Ensure video starts playing
+                            const playPromise = mainVideo.play();
+                            if (playPromise !== undefined) {
+                                playPromise
+                                    .then(() => {
+                                        console.log('Remote video playback started successfully');
+                                    })
+                                    .catch(error => {
+                                        console.error('Error playing remote video:', error);
+                                        // If autoplay was prevented, show a play button
+                                        if (error.name === 'NotAllowedError') {
+                                            this.showError('Autoplay was blocked. Please click the video to start playback.');
+                                        }
+                                    });
+                            }
+                        };
+                        
+                        // Additional event listeners for reliable video display
+                        mainVideo.oncanplay = () => {
+                            console.log('Remote video can start playing');
+                        };
+                        
+                        mainVideo.onerror = (error) => {
+                            console.error('Video element error:', error);
                         };
                         
                         // Set video element attributes for better performance
@@ -442,37 +507,26 @@ document.addEventListener('alpine:init', () => {
                         // Log successful remote stream attachment
                         console.log('Remote video stream attached successfully');
                         
-                        // Force update UI to show remote video is ready
+                        // Update UI to show remote video is ready with a slight delay
+                        // to ensure UI update happens after the stream is properly attached
                         setTimeout(() => {
                             this.remoteVideoEnabled = true;
                             this.isRemoteStreamReady = true;
+                            
+                            // Update UI elements that depend on stream status
+                            const videoPlaceholder = document.querySelector('.video-placeholder');
+                            if (videoPlaceholder) {
+                                videoPlaceholder.style.display = this.remoteVideoEnabled ? 'none' : 'flex';
+                            }
                         }, 500);
+                    } else {
+                        console.error('Main video element not found');
                     }
                     
+                    // Update state variables
                     this.isRemoteStreamReady = true;
-                    this.remoteVideoEnabled = true;
-                    
-                    // Play notification sound
-                    this.playNotificationSound();
-                    
-                    // Track track-specific events
-                    event.track.onmute = () => {
-                        console.log('Remote track muted:', event.track.kind);
-                        if (event.track.kind === 'video') {
-                            this.remoteVideoEnabled = false;
-                        } else if (event.track.kind === 'audio') {
-                            this.isRemoteMuted = true;
-                        }
-                    };
-                    
-                    event.track.onunmute = () => {
-                        console.log('Remote track unmuted:', event.track.kind);
-                        if (event.track.kind === 'video') {
-                            this.remoteVideoEnabled = true;
-                        } else if (event.track.kind === 'audio') {
-                            this.isRemoteMuted = false;
-                        }
-                    };
+                    this.remoteVideoEnabled = event.track.kind === 'video' ? true : this.remoteVideoEnabled;
+                    this.remoteAudioEnabled = event.track.kind === 'audio' ? true : this.remoteAudioEnabled;
                 };
                 
                 // Create offer if this is the mentor (initiator)
