@@ -659,13 +659,24 @@ def mentor_sessions(request):
     
     try:
         # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
+        # For today's sessions, filter out expired ones
         today_sessions = Session.objects.filter(
             mentor=request.user, 
             schedule__date=today,
             status__in=['scheduled', 'live']  # Use string literals instead of constants
         ).distinct().order_by('schedule')
-        logger.info(f"Found {today_sessions.count()} sessions for today")
         
+        # Remove sessions that are "scheduled" but have ended more than 30 minutes ago
+        valid_today_sessions = []
+        for session in today_sessions:
+            session_end_time = session.schedule + timezone.timedelta(minutes=session.duration)
+            if (session.status == 'live') or (session.status == 'scheduled' and session_end_time > now - timezone.timedelta(minutes=30)):
+                valid_today_sessions.append(session)
+        
+        today_sessions = valid_today_sessions
+        logger.info(f"Found {len(today_sessions)} valid sessions for today")
+        
+        # Get upcoming sessions
         upcoming_sessions = Session.objects.filter(
             mentor=request.user, 
             schedule__date__gt=today,
@@ -673,10 +684,12 @@ def mentor_sessions(request):
         ).distinct().order_by('schedule')
         logger.info(f"Found {upcoming_sessions.count()} upcoming sessions")
         
+        # Get past sessions, but limit to most recent 20
         past_sessions = Session.objects.filter(
             models.Q(mentor=request.user, schedule__date__lt=today) |
             models.Q(mentor=request.user, status__in=['completed', 'cancelled'])  # Use string literals
-        ).distinct().order_by('-schedule')
+        ).distinct().order_by('-schedule')[:20]  # Limit to most recent 20 past sessions
+        logger.info(f"Found {len(past_sessions)} past sessions (limited to 20)")
         logger.info(f"Found {past_sessions.count()} past sessions")
     
         # Add booking count and go-live status to each session
@@ -688,13 +701,18 @@ def mentor_sessions(request):
                     status='confirmed'  # Use string literal
                 ).count()
                 
-                # Check if can go live (within 15 min of start time)
+                # Check if can go live (mentors can prepare anytime before end time)
                 time_until_session = session.schedule - now
+                session_end_time = session.schedule + timezone.timedelta(minutes=session.duration)
+                
+                # Mentors can go live anytime before the end time of the session
                 session.can_go_live = (
                     session.status == 'scheduled' and 
-                    time_until_session <= timezone.timedelta(minutes=15) and
-                    time_until_session > timezone.timedelta(minutes=-session.duration)
+                    session_end_time > now
                 )
+                
+                # Log go-live status for debugging
+                logger.info(f"Session {session.id}: Title={session.title}, Status={session.status}, Can Go Live={session.can_go_live}")
                 
                 # Check if session is currently live
                 session.is_live = (session.status == 'live')
