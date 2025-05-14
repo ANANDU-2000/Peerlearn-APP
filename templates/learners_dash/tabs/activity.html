@@ -443,6 +443,10 @@
                                                 <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                                     <i data-feather="clock" class="w-4 h-4 mr-1"></i> Join Room
                                                 </a>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600">
+                                                    <i data-feather="calendar" class="w-4 h-4 mr-1"></i> Scheduled
+                                                </span>
                                             {% endif %}
                                         {% endif %}
                                         
