@@ -129,6 +129,15 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 
                 console.log(`Starting WebSocket connection attempts for room: ${roomCode}`);
                 
+                // Connection state tracking
+                this.connectionStatus = "Connecting";
+                this.connectionStatusClass = "connecting";
+                this.wsReconnectTimer = null;
+                this.wsLastMessageTime = Date.now();
+                this.wsCurrentEndpoint = null;
+                this.wsConnectedOnce = false;
+                this.roomCode = roomCode;
+                
                 // Connection attempts counter and endpoint list
                 let attemptCount = 0;
                 const maxAttempts = 3;
@@ -138,6 +147,10 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 const tryNextEndpoint = () => {
                     if (attemptCount < maxAttempts) {
                         const currentUrl = endpoints[attemptCount];
+                        this.wsCurrentEndpoint = currentUrl;
+                        
+                        // Update UI with connection attempt status
+                        this.connectionStatus = `Connecting (${attemptCount + 1}/${maxAttempts})`;
                         console.log(`WebSocket connection attempt ${attemptCount + 1}/${maxAttempts} at: ${currentUrl}`);
                         
                         try {
@@ -156,15 +169,90 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             // Handle connection success
                             this.websocket.onopen = (event) => {
                                 console.log(`WebSocket connection established successfully to ${currentUrl}`);
+                                this.wsConnectedOnce = true;
                                 this.onWebSocketOpen(event);
+                                
+                                // Start heartbeat mechanism
+                                this.startHeartbeat();
                             };
                             
                             // Handle messages
-                            this.websocket.onmessage = this.onWebSocketMessage.bind(this);
+                            this.websocket.onmessage = (event) => {
+                                // Update last message timestamp for heartbeat checking
+                                this.wsLastMessageTime = Date.now();
+                                // Process the message
+                                this.onWebSocketMessage(event);
+                            };
                             
                             // Handle connection close
                             this.websocket.onclose = (event) => {
-                                // Only try next endpoint if this wasn't a normal closure
+                                // Stop heartbeat checking
+                                if (this.heartbeatInterval) {
+                                    clearInterval(this.heartbeatInterval);
+                                    this.heartbeatInterval = null;
+                                }
+                                
+                                // If we've connected successfully before, try to reconnect to the same endpoint
+                                if (this.wsConnectedOnce) {
+                                    console.warn(`WebSocket connection lost (code ${event.code}), will attempt to reconnect`);
+                                    this.connectionStatus = "Reconnecting";
+                                    this.connectionStatusClass = "connecting";
+                                    
+                                    // Show toast notification
+                                    showToast('warning', 'Connection Lost', 'Connection to the session was lost. Attempting to reconnect automatically...');
+                                    
+                                    // Schedule reconnection attempt (with increasing backoff)
+                                    const reconnectDelay = Math.min(3000 + (this.reconnectAttempts * 1000), 10000);
+                                    this.reconnectAttempts = (this.reconnectAttempts || 0) + 1;
+                                    
+                                    this.wsReconnectTimer = setTimeout(() => {
+                                        console.log(`Attempting to reconnect to ${this.wsCurrentEndpoint}`);
+                                        
+                                        try {
+                                            this.websocket = new WebSocket(this.wsCurrentEndpoint);
+                                            
+                                            // Copy over the same handlers
+                                            this.websocket.onopen = this.onWebSocketOpen.bind(this);
+                                            this.websocket.onmessage = this.onWebSocketMessage.bind(this);
+                                            this.websocket.onclose = this.onWebSocketClose.bind(this);
+                                            this.websocket.onerror = this.onWebSocketError.bind(this);
+                                        } catch (err) {
+                                            console.error("Error during reconnection attempt:", err);
+                                            
+                                            // If we're in a room, try to reload the page after too many failed attempts
+                                            if (this.reconnectAttempts >= 5) {
+                                                showToast('error', 'Connection Failed', 
+                                                    'Failed to reconnect after multiple attempts. The page will reload in 5 seconds.',
+                                                    0 // Don't auto-dismiss
+                                                );
+                                                
+                                                // Add reload button 
+                                                const reloadBtn = document.createElement('button');
+                                                reloadBtn.className = 'ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded';
+                                                reloadBtn.textContent = 'Reload Now';
+                                                reloadBtn.addEventListener('click', () => window.location.reload());
+                                                
+                                                // Find last toast
+                                                const toast = document.querySelector('.toast:last-child .toast-content');
+                                                if (toast) {
+                                                    toast.appendChild(reloadBtn);
+                                                }
+                                                
+                                                // Schedule page reload
+                                                setTimeout(() => window.location.reload(), 5000);
+                                            } else {
+                                                // Schedule another reconnection attempt
+                                                this.wsReconnectTimer = setTimeout(() => {
+                                                    this.connectWebSocket(this.roomCode);
+                                                }, reconnectDelay);
+                                            }
+                                        }
+                                    }, reconnectDelay);
+                                    
+                                    return;
+                                }
+                                
+                                // Only try next endpoint if this wasn't a normal closure and we haven't connected before
                                 if (event.code !== 1000 && event.code !== 1001) {
                                     attemptCount++;
                                     if (attemptCount < maxAttempts) {
@@ -184,7 +272,7 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 console.warn(`WebSocket error on ${currentUrl}:`, error);
                                 // Error handler is lightweight - we let onclose handle the fallback
                                 // Only manually trigger next attempt if this is the first try and we get an immediate error
-                                if (attemptCount === 0) {
+                                if (!this.wsConnectedOnce && attemptCount === 0) {
                                     setTimeout(() => {
                                         if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
                                             attemptCount++;
@@ -192,6 +280,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                         }
                                     }, 1000);
                                 }
+                                
+                                this.onWebSocketError(error);
                             };
                             
                         } catch (e) {
@@ -216,6 +306,71 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 
                 // Start connection attempt sequence
                 tryNextEndpoint();
+            },
+            
+            // Start heartbeat to detect silent disconnections
+            startHeartbeat() {
+                // Clear any existing interval
+                if (this.heartbeatInterval) {
+                    clearInterval(this.heartbeatInterval);
+                }
+                
+                // Check every 15 seconds if we're still receiving messages
+                this.heartbeatInterval = setInterval(() => {
+                    // Calculate time since last message or pong
+                    const now = Date.now();
+                    const timeSinceLastMessage = now - this.wsLastMessageTime;
+                    
+                    // If it's been more than 30 seconds, the connection might be dead
+                    if (timeSinceLastMessage > 30000) {
+                        console.warn(`No WebSocket activity detected for ${Math.round(timeSinceLastMessage/1000)}s, connection may be stale`);
+                        
+                        // Send a ping to check connection
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            try {
+                                this.websocket.send(JSON.stringify({
+                                    type: 'ping',
+                                    timestamp: now
+                                }));
+                                console.log('Sent WebSocket ping to check connection');
+                            } catch (e) {
+                                console.error('Error sending ping:', e);
+                                
+                                // If ping fails, close the socket to trigger reconnection
+                                try {
+                                    this.websocket.close();
+                                } catch (closeError) {
+                                    console.error('Error closing stale WebSocket:', closeError);
+                                }
+                            }
+                        }
+                        
+                        // If it's been more than 45 seconds, force reconnection
+                        if (timeSinceLastMessage > 45000) {
+                            console.error('Connection appears dead, forcing reconnection');
+                            
+                            // Clear this interval
+                            clearInterval(this.heartbeatInterval);
+                            this.heartbeatInterval = null;
+                            
+                            // Force close and reconnect
+                            try {
+                                if (this.websocket) {
+                                    this.websocket.close();
+                                }
+                            } catch (e) {
+                                console.warn('Error closing socket during forced reconnection:', e);
+                            }
+                            
+                            // Reconnect using the last known endpoint
+                            setTimeout(() => {
+                                if (this.wsCurrentEndpoint) {
+                                    this.connectWebSocket(this.roomCode);
+                                }
+                            }, 1000);
+                        }
+                    }
+                }, 15000);
             },
             
             // WebSocket open event handler
@@ -245,9 +400,48 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             async onWebSocketMessage(event) {
                 try {
                     const message = JSON.parse(event.data);
-                    console.log("Received message:", message);
+                    
+                    // Don't log ping/pong messages to avoid console clutter
+                    if (message.type !== 'ping' && message.type !== 'pong') {
+                        console.log("Received message:", message);
+                    }
+                    
+                    // Update the last message timestamp (used for connection health monitoring)
+                    this.wsLastMessageTime = Date.now();
                     
                     switch (message.type) {
+                        case 'ping':
+                            // Respond to ping with pong to keep connection alive
+                            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                this.websocket.send(JSON.stringify({
+                                    type: 'pong',
+                                    timestamp: Date.now(),
+                                    original_timestamp: message.timestamp
+                                }));
+                            }
+                            break;
+                            
+                        case 'pong':
+                            // Calculate latency if we're tracking it
+                            if (message.original_timestamp) {
+                                const latency = Date.now() - message.original_timestamp;
+                                console.log(`WebSocket connection latency: ${latency}ms`);
+                                
+                                // Update connection status if latency is high
+                                if (latency > 500) {
+                                    this.connectionQuality = 'poor';
+                                } else if (latency > 200) {
+                                    this.connectionQuality = 'fair';
+                                } else {
+                                    this.connectionQuality = 'good';
+                                }
+                            }
+                            break;
+                            
+                        case 'heartbeat':
+                            // Server-initiated heartbeat, just acknowledge receipt
+                            break;
+                            
                         case 'user_join':
                             // New user joined
                             if (message.user_id !== userId) {
