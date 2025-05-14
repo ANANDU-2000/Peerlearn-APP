@@ -533,19 +533,27 @@ def session_by_room_code(request, room_code):
         if request.user == session.mentor:
             role = 'mentor'
             is_authorized = True
+            # Log access
+            logger.info(f"Mentor {request.user.username} (ID: {request.user.id}) accessing room {room_code}")
         else:
             # Check if user has a booking for this session
             has_booking = session.bookings.filter(
                 learner=request.user,
-                status='confirmed'
+                status__in=['confirmed', 'paid', 'active']  # Allow all valid booking statuses
             ).exists()
             
             if has_booking:
                 role = 'learner'
                 is_authorized = True
+                # Log access
+                logger.info(f"Learner {request.user.username} (ID: {request.user.id}) accessing room {room_code}")
+            else:
+                # Detailed logging for debugging access issues
+                existing_bookings = list(session.bookings.all().values('learner_id', 'status'))
+                logger.warning(f"Unauthorized access attempt: User {request.user.username} (ID: {request.user.id}) to room {room_code}. Session bookings: {existing_bookings}")
         
         if not is_authorized:
-            messages.error(request, "You don't have permission to access this session")
+            messages.error(request, "You don't have permission to access this session. Only the booked learner and assigned mentor can join this session room.")
             return redirect('sessions:list')
         
         # Check if session is live or scheduled
