@@ -811,13 +811,16 @@ def mentor_sessions(request):
                 session_end_time = session.schedule + timezone.timedelta(minutes=session.duration)
                 
                 # Mentors can go live anytime before the end time of the session
-                session.can_go_live = (
+                # Use setattr instead of direct assignment since can_go_live might be a property
+                setattr(session, '_can_go_live', (
                     session.status == 'scheduled' and 
                     session_end_time > now
-                )
+                ))
+                # Add a dynamically created method to access this attribute
+                session.get_can_go_live = lambda: getattr(session, '_can_go_live', False)
                 
                 # Log go-live status for debugging
-                logger.info(f"Session {session.id}: Title={session.title}, Status={session.status}, Can Go Live={session.can_go_live}")
+                logger.info(f"Session {session.id}: Title={session.title}, Status={session.status}, Can Go Live={getattr(session, '_can_go_live', False)}")
                 
                 # Check if session is currently live
                 session.is_live = (session.status == 'live')

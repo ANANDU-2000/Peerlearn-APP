@@ -3,6 +3,7 @@ Views for session listing, creation, booking, and WebRTC room.
 Also includes API endpoints for real-time updates.
 """
 import json
+import logging
 from django.http import JsonResponse
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -18,6 +19,9 @@ from django.utils import timezone
 from django.db import transaction
 from django.conf import settings
 from decimal import Decimal
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 from .models import Session, SessionRequest, Booking
 from .forms import SessionForm, SessionRequestForm, FeedbackForm

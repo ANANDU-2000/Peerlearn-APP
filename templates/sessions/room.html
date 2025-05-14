@@ -487,7 +487,44 @@
             </div>
         </div>
         <script>
-            // Auto-hide the direct access notification after 4 seconds
+            // Setup camera access button
+            document.getElementById('enable-camera-btn').addEventListener('click', async function() {
+                try {
+                    // Request camera and mic access when button is clicked
+                    await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                    
+                    // Show success message
+                    const statusSpan = this.closest('.bg-white').querySelector('.text-gray-800');
+                    if (statusSpan) {
+                        statusSpan.textContent = 'Camera Access Granted!';
+                        statusSpan.classList.add('text-green-600');
+                    }
+                    
+                    // Hide the notification after successful camera access
+                    setTimeout(() => {
+                        const notification = document.getElementById('direct-access-notification');
+                        if (notification) {
+                            notification.style.opacity = '0';
+                            notification.style.transition = 'opacity 0.5s ease-out';
+                            setTimeout(() => {
+                                notification.style.display = 'none';
+                            }, 500);
+                        }
+                    }, 1500);
+                    
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                    // Update status to show error
+                    const statusSpan = this.closest('.bg-white').querySelector('.text-gray-800');
+                    if (statusSpan) {
+                        statusSpan.textContent = 'Camera Access Denied';
+                        statusSpan.classList.add('text-red-600');
+                    }
+                    this.textContent = 'Retry Camera Access';
+                }
+            });
+            
+            // Auto-hide the direct access notification after 8 seconds (extended time)
             setTimeout(() => {
                 const notification = document.getElementById('direct-access-notification');
                 if (notification) {
@@ -497,7 +534,7 @@
                         notification.style.display = 'none';
                     }, 500);
                 }
-            }, 4000);
+            }, 8000);
         </script>
         {% endif %}
         
