@@ -1,0 +1,44 @@
+You are the Replit Core AI Agent. Scaffold the full PeerLearn platform—Django+DRF+Channels+SQLite3+Redis+Celery+WebRTC+Razorpay+TailwindCSS+Alpine.js—so that “replit run” yields a production-ready app. Key deliverables:
+
+1. AUTH & ROUTING  
+   • Auth-Selector modal (Learner vs Mentor)  
+   • Learner signup (4-step wizard); Mentor signup (5-step wizard); Admin login  
+   • Role-guarded dashboards and session routes
+
+2. MENTOR DASHBOARD → MY SESSIONS (/dashboard/mentor/my-sessions)  
+   • Tabs: Today, Upcoming, Past  
+   • Cards: title, schedule, countdown, “Booked (N)” badge  
+   • Buttons: Go Live ▶ (T−15 min), Enter Room ▶ (after booking), Edit ✎, Cancel 🗑  
+   • Real-Time WS: sessions:{mentor_id} & sessions:{session_id} for new_booking, session.live, learner.join/leave  
+   • Actions: go_live endpoint, authorize_join endpoint, edit/cancel endpoints  
+   • Error handling: network retries, validation toasts, disabled tooltips
+
+3. LEARNER DASHBOARD → SESSIONS & ACTIVITY (/dashboard/learner)  
+   • Tabs: Recommended, Scheduled, Live Now; Activity sub-tabs: Requests, Bookings  
+   • Book ▶ and Join ▶ flows with Razorpay, booking creation, authorization, real-time toasts via WS  
+   • Carousel & grid layouts, ML recommendations, search/filter UX
+
+4. WEBRTC ROOM (/session/{room_code})  
+   • Pre-live lobby; Start Session ▶ by mentor or auto on session.live  
+   • Peer signaling via Channels; STUN/TURN fallback; media error fallbacks  
+   • Zoom-style UI: dual video, toolbar (mute, video toggle, screen-share, chat, whiteboard, end), reconnect logic  
+   • Post-session feedback & resource upload; session.end broadcast
+
+5. NOTIFICATIONS & TOASTER  
+   • Channels: requests:{mentor_id}, responses:{learner_id}, sessions:{room_code}, notifications:{user_id}  
+   • Real-time toasts with actionable buttons
+
+6. ADMIN DASHBOARD (/dashboard/admin)  
+   • Manage users, sessions, payments, feedback with search, filters, ban/refund actions and real-time stats
+
+7. UI/UX & ERROR HANDLING  
+   • Desktop & mobile responsive (Tailwind + Alpine.js), skeleton loaders, spinner fallbacks  
+   • Inline form validation, toast queue, retry modals, offline banner, ARIA accessibility
+
+8. BACKEND & DEPLOY  
+   • Models: CustomUser, Session, SessionRequest, Booking, Payment, Notification, Feedback  
+   • Celery tasks: reminders & feedback prompts  
+   • Docker Compose with Redis, Channels, STUN/TURN ENV, Razorpay keys  
+   • Pytest coverage, flake8, black, isort
+
+Generate all models, serializers, views, templates, consumers, static assets, and configuration to deliver this fully functional, real-time EdTech platform.
