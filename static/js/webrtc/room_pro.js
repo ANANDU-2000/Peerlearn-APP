@@ -177,7 +177,7 @@ document.addEventListener('alpine:init', () => {
                 this.socketConnected = true;
                 
                 // Show a success message to the user
-                this.showSuccess('Connected to session room. Setting up secure video connection...');
+                this.showSuccessMessage('Connected to session room. Setting up secure video connection...');
                 
                 // Send join event with both format versions for compatibility
                 try {
