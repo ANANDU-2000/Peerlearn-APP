@@ -973,7 +973,8 @@ def go_live_session(request, room_code):
     # If the session is already live, just redirect to the room
     if session.status == Session.LIVE:
         messages.info(request, 'Joining the live session now...')
-        return redirect('sessions:room', room_code=session.room_code)
+        # Redirect with direct=true parameter for auto-join
+        return redirect(f'/sessions/{session.room_code}/?direct=true&role={"mentor" if is_mentor else "learner"}')
         
     # At this point, we're handling making a session live (mentor only)
     if not is_mentor:
@@ -1005,23 +1006,77 @@ def go_live_session(request, room_code):
         )
         return redirect('users:mentor_session_detail', session_id=session.id)
     
-    # Update session status to live
+    # Update session status to live and record the start time
     session.status = Session.LIVE
+    session.live_started_at = timezone.now()
     session.save()
     
-    # Notify all confirmed learners
-    from apps.notifications.models import Notification
+    # Set up logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Session {session.id} set to live by mentor {request.user.id} in go_live_session view")
     
+    # Import necessary modules
+    from apps.notifications.models import Notification
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    
+    # Get the channel layer for WebSocket communications
+    channel_layer = get_channel_layer()
+    
+    # Notify all confirmed learners
     for booking in session.bookings.filter(status=Booking.CONFIRMED):
-        Notification.objects.create(
-            user=booking.learner,
-            message=f"Session '{session.title}' is now live! Join now.",
-            notification_type='session_live',
-            reference_id=session.id,
-            link=f"/sessions/{session.room_code}/join/"
-        )
+        try:
+            # Create a notification in the database
+            notification = Notification.objects.create(
+                user=booking.learner,
+                title="Session is Live",
+                message=f"Session '{session.title}' is now live! Join now.",
+                notification_type='session_live',
+                reference_id=session.id,
+                link=f"/sessions/{session.room_code}/join/?direct=true"
+            )
+            
+            # Send real-time WebSocket notification if channel layer is available
+            if channel_layer:
+                try:
+                    # Send to user's notification group
+                    async_to_sync(channel_layer.group_send)(
+                        f"notifications_{booking.learner.id}",
+                        {
+                            "type": "notification_message",
+                            "message": {
+                                "id": notification.id,
+                                "title": "Session is Live",
+                                "message": notification.message,
+                                "link": notification.link,
+                                "created_at": notification.created_at.isoformat(),
+                                "is_read": False
+                            }
+                        }
+                    )
+                    
+                    # Send to user's dashboard group
+                    async_to_sync(channel_layer.group_send)(
+                        f"dashboard_{booking.learner.id}",
+                        {
+                            "type": "session_update",
+                            "message": {
+                                "session_id": session.id,
+                                "status": "live",
+                                "room_code": str(session.room_code),
+                                "join_url": f"/sessions/{session.room_code}/join/?direct=true"
+                            }
+                        }
+                    )
+                    logger.info(f"Sent WebSocket notifications to learner {booking.learner.id}")
+                except Exception as e:
+                    logger.error(f"Error sending WebSocket notification: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error creating notification: {str(e)}")
     
     messages.success(request, 'Session is now live. Joining room...')
     
     # Redirect to the join page with direct=true parameter to bypass the join screen
-    return redirect(f'/sessions/{session.room_code}/join/?direct=true')
+    # Also include mentor role parameter
+    return redirect(f'/sessions/{session.room_code}/join/?direct=true&mentor=true')

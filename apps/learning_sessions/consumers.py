@@ -538,8 +538,23 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
         """
         Handle session update messages from the channel layer.
         """
-        # Forward the message to the client
-        await self.send_json(event)
+        logger.info(f"Received session_update event for user {self.user_id}: {event}")
+        
+        # Extract the message from the event
+        message = event.get('message', {})
+        
+        # Create a more structured response for the client
+        response = {
+            'type': 'session_update',
+            'data': message,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # Forward the formatted message to the client
+        await self.send_json(response)
+        
+        # Log the successful delivery
+        logger.info(f"Sent session update to client for user {self.user_id}")
         
     async def booking_update(self, event):
         """
