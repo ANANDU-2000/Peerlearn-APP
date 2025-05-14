@@ -155,6 +155,22 @@ class Session(models.Model):
         )
     
     @property
+    def can_go_live(self):
+        """Check if the session can be set to live."""
+        # A session can go live if it's scheduled and either:
+        # 1. It's within 15 minutes of the scheduled time, or
+        # 2. It has at least one confirmed booking
+        now = timezone.now()
+        time_until_session = self.schedule - now
+        minutes_until_session = time_until_session.total_seconds() / 60
+        
+        is_near_start_time = minutes_until_session <= 15  # Can go live 15 minutes before schedule
+        has_confirmed_bookings = self.bookings.filter(status='confirmed').exists()
+        
+        return (self.status == self.SCHEDULED and 
+                (is_near_start_time or has_confirmed_bookings))
+    
+    @property
     def get_absolute_url(self):
         """Get the URL for the session detail page."""
         from django.urls import reverse

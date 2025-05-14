@@ -172,15 +172,25 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // WebSocket open event handler
             onWebSocketOpen(event) {
-                console.log("WebSocket connection established");
+                console.log("WebSocket connection established successfully");
+                
+                // Update UI status
+                this.connectionStatus = "Connected to signaling server";
+                this.connectionStatusClass = "connected";
                 
                 // Send join message
-                this.websocket.send(JSON.stringify({
+                const joinMessage = {
                     type: 'join',
                     user_id: userId,
                     username: userName,
                     role: userRole
-                }));
+                };
+                
+                console.log("Sending join message:", joinMessage);
+                this.websocket.send(JSON.stringify(joinMessage));
+                
+                // Show toast notification
+                showToast('info', 'Connected', 'Connected to session room. Setting up video...');
             },
             
             // WebSocket message event handler
