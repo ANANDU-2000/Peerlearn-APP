@@ -545,14 +545,44 @@ def learner_activity(request):
     
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
+    from django.utils import timezone
+    import logging
     
-    bookings = Booking.objects.filter(
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    
+    # Get current time
+    now = timezone.now()
+    
+    # Get all bookings but will filter out expired ones
+    all_bookings = Booking.objects.filter(
         learner=request.user
     ).select_related('session', 'session__mentor').order_by('-created_at')
     
+    # Filter out expired scheduled sessions (keep completed, cancelled, and active ones)
+    valid_bookings = []
+    for booking in all_bookings:
+        if booking.session.status in ['completed', 'cancelled']:
+            # Keep all completed or cancelled sessions
+            valid_bookings.append(booking)
+        elif booking.session.status == 'scheduled':
+            # Check if session has not ended more than 30 minutes ago
+            session_end_time = booking.session.schedule + timezone.timedelta(minutes=booking.session.duration)
+            if session_end_time > now - timezone.timedelta(minutes=30):
+                valid_bookings.append(booking)
+        elif booking.session.status == 'live':
+            # Keep all live sessions
+            valid_bookings.append(booking)
+    
+    # Use the filtered bookings
+    bookings = valid_bookings
+    logger.info(f"Found {len(bookings)} valid bookings for learner {request.user.id}")
+    
+    # Get session requests, limiting to most recent 20
     session_requests = SessionRequest.objects.filter(
         learner=request.user
-    ).select_related('mentor').order_by('-created_at')
+    ).select_related('mentor').order_by('-created_at')[:20]
+    logger.info(f"Found {len(session_requests)} session requests for learner {request.user.id}")
     
     # Create activities list for the combined view
     activities = []
