@@ -134,12 +134,16 @@
                                 </a>
                                 
                                 {% if booking.session.status == 'live' %}
-                                <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                <a href="{% url 'sessions:room' booking.session.room_code %}?direct=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Room
                                 </a>
-                                {% elif booking.session.status == 'scheduled' %}
-                                <a href="/sessions/{{ booking.session.room_code }}/join/" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                {% elif booking.session.status == 'scheduled' and booking.status == 'confirmed' %}
+                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true&auto_join=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Session
+                                </a>
+                                {% elif booking.status == 'confirmed' and booking.session.schedule|date:"Y-m-d" == now|date:"Y-m-d" %}
+                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                    Go Live
                                 </a>
                                 {% elif booking.status == 'confirmed' %}
                                 <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
@@ -203,7 +207,7 @@
                             <p class="text-sm text-gray-700">{{ booking.session.duration }} minutes</p>
                         </div>
                         
-                        <a href="{% url 'sessions:room' booking.session.room_code %}" class="w-full py-2 bg-green-600 text-white text-center text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center">
+                        <a href="{% url 'sessions:room' booking.session.room_code %}?direct=true" class="w-full py-2 bg-green-600 text-white text-center text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                             </svg>
@@ -352,12 +356,16 @@
                                 </a>
                                 
                                 {% if booking.session.status == 'live' %}
-                                <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                <a href="{% url 'sessions:room' booking.session.room_code %}?direct=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Room
                                 </a>
-                                {% elif booking.session.status == 'scheduled' %}
-                                <a href="/sessions/{{ booking.session.room_code }}/join/" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                {% elif booking.session.status == 'scheduled' and booking.status == 'confirmed' %}
+                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true&auto_join=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Session
+                                </a>
+                                {% elif booking.status == 'confirmed' and booking.session.schedule|date:"Y-m-d" == now|date:"Y-m-d" %}
+                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                    Go Live
                                 </a>
                                 {% elif booking.session.status == 'completed' and not booking.has_feedback %}
                                 <a href="{% url 'sessions:feedback' booking.id %}" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">

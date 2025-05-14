@@ -334,7 +334,7 @@
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            Prepare Room
+                                            Go Live Now
                                         </button>
                                         
                                         <!-- Edit button -->
@@ -494,9 +494,7 @@
                 console.log("Preparing room for session ID:", sessionId);
                 
                 // Show preparing notification
-                if (typeof showToast === 'function') {
-                    showToast('Preparing your session room...', 'info');
-                }
+                this.showToast('Preparing your session room...', 'info');
                 
                 // Make API call to set session as live
                 fetch(`/sessions/${sessionId}/go-live/`, {
@@ -507,7 +505,8 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
-                        force: true // Force go live even if time or booking conditions aren't met
+                        force: true, // Force go live even if time or booking conditions aren't met
+                        notify_learners: true // Make sure we notify learners who booked this session
                     })
                 })
                 .then(response => {
@@ -536,18 +535,14 @@
                     }
                     
                     // Show success notification
-                    if (typeof showToast === 'function') {
-                        showToast(data.message || 'Room ready! Redirecting to your live session...', 'success');
-                    } else {
-                        console.log("Toast notification function not available");
-                    }
+                    this.showToast(data.message || 'Room ready! Redirecting to your live session...', 'success');
                     
                     // Redirect to session room with direct=true parameter
                     setTimeout(() => {
-                        const redirectUrl = data.redirect_url || `/sessions/${roomCode}/join/?direct=true`;
+                        const redirectUrl = data.redirect_url || `/sessions/${roomCode}/join/?direct=true&mentor=true`;
                         console.log("Redirecting to:", redirectUrl);
                         window.location.href = redirectUrl;
-                    }, 1000); // Slightly longer delay to allow reading the success message
+                    }, 1500); // Slightly longer delay to allow reading the success message
                 })
                 .catch(error => {
                     console.error('Error preparing room:', error);
