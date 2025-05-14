@@ -499,7 +499,7 @@
                 this.showToast('Preparing your session room...', 'info');
                 
                 // Make API call to set session as live
-                fetch(`/sessions/${sessionId}/go-live/`, {
+                fetch(`/sessions/api/sessions/${sessionId}/go_live/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

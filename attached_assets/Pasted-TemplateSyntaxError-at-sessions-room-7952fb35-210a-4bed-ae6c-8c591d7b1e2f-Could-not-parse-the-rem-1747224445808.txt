@@ -1,0 +1,73 @@
+TemplateSyntaxError at /sessions/room/7952fb35-210a-4bed-ae6c-8c591d7b1e2f/
+Could not parse the remainder: ' == 'Mentor' ? 'your learner' : 'your mentor'' from 'user_role|title == 'Mentor' ? 'your learner' : 'your mentor''
+Request Method:	GET
+Request URL:	http://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/sessions/room/7952fb35-210a-4bed-ae6c-8c591d7b1e2f/
+Django Version:	5.2.1
+Exception Type:	TemplateSyntaxError
+Exception Value:	
+Could not parse the remainder: ' == 'Mentor' ? 'your learner' : 'your mentor'' from 'user_role|title == 'Mentor' ? 'your learner' : 'your mentor''
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/template/base.py, line 710, in __init__
+Raised during:	apps.learning_sessions.views.session_room
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.11.10
+Python Path:	
+['/home/runner/workspace',
+ '.',
+ '/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/dfg63lldbvcj207iyr9z0xw21d8ax02n-python3.11-pip-24.0/lib/python3.11/site-packages',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python311.zip',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/nix/store/wblvmd5y7izx0z10d1w7ga7zc4apjxmb-python3.11-setuptools-75.1.1/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/setuptools/_vendor']
+Server time:	Wed, 14 May 2025 12:06:49 +0000
+Error during template rendering
+In template /home/runner/workspace/templates/sessions/room.html, error at line 822
+
+Could not parse the remainder: ' == 'Mentor' ? 'your learner' : 'your mentor'' from 'user_role|title == 'Mentor' ? 'your learner' : 'your mentor''
+812	                                            </div>
+813	                                        </div>
+814	                                    </div>
+815	                                </template>
+816	                                
+817	                                <div x-show="chatMessages.length === 0" class="flex flex-col items-center justify-center h-40 text-gray-500">
+818	                                    <svg class="w-12 h-12 mb-3 text-primary-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+819	                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+820	                                    </svg>
+821	                                    <p class="mb-1">No messages yet</p>
+822	                                    <p class="text-xs text-gray-400">Start the conversation with {{ user_role|title == 'Mentor' ? 'your learner' : 'your mentor' }}</p>
+823	                                </div>
+824	                            </div>
+825	                            
+826	                            <div class="border-t border-gray-200 p-3 bg-gray-50">
+827	                                <form @submit.prevent="sendChatMessage" class="flex items-center">
+828	                                    <div class="relative flex-1">
+829	                                        <input 
+830	                                            type="text" 
+831	                                            x-model="newMessage" 
+832	                                            placeholder="Type your message..." 
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/exception.py, line 42, in inner
+                response = await get_response(request)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/base.py, line 253, in _get_response_async
+                response = await wrapped_callback(
+                                 …
+Local vars
+/home/runner/workspace/apps/learning_sessions/views.py, line 661, in session_room
+    return render(request, 'sessions/room.html', context)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/shortcuts.py, line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/template/loader.py, line 61, in render_to_string
+        template = get_template(template_name, using=using)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/template/loader.py
