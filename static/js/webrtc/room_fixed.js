@@ -242,6 +242,203 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 window.ROOM_CODE = roomCode;
             },
             
+            // Toggle video stream on/off
+            toggleVideoStream() {
+                try {
+                    console.log("Toggling video stream, current state:", this.videoEnabled);
+                    
+                    if (this.localStream) {
+                        const videoTracks = this.localStream.getVideoTracks();
+                        if (videoTracks.length > 0) {
+                            const track = videoTracks[0];
+                            track.enabled = !track.enabled;
+                            this.videoEnabled = track.enabled;
+                            
+                            // Broadcast media status update
+                            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                this.websocket.send(JSON.stringify({
+                                    type: 'media_status',
+                                    video: this.videoEnabled,
+                                    audio: this.audioEnabled
+                                }));
+                            }
+                            
+                            showToast(
+                                'info', 
+                                this.videoEnabled ? 'Camera Enabled' : 'Camera Disabled',
+                                this.videoEnabled ? 'Your camera is now on.' : 'Your camera is now off.'
+                            );
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error toggling video:", e);
+                    showToast('error', 'Camera Error', 'Could not toggle camera state.', 5000);
+                }
+            },
+            
+            // Toggle audio stream on/off
+            toggleAudioStream() {
+                try {
+                    console.log("Toggling audio stream, current state:", this.audioEnabled);
+                    
+                    if (this.localStream) {
+                        const audioTracks = this.localStream.getAudioTracks();
+                        if (audioTracks.length > 0) {
+                            const track = audioTracks[0];
+                            track.enabled = !track.enabled;
+                            this.audioEnabled = track.enabled;
+                            
+                            // Broadcast media status update
+                            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                this.websocket.send(JSON.stringify({
+                                    type: 'media_status',
+                                    video: this.videoEnabled,
+                                    audio: this.audioEnabled
+                                }));
+                            }
+                            
+                            showToast(
+                                'info', 
+                                this.audioEnabled ? 'Microphone Enabled' : 'Microphone Muted',
+                                this.audioEnabled ? 'Your microphone is now on.' : 'Your microphone is now muted.'
+                            );
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error toggling audio:", e);
+                    showToast('error', 'Microphone Error', 'Could not toggle microphone state.', 5000);
+                }
+            },
+            
+            // Toggle chat panel visibility
+            toggleChat() {
+                this.showChat = !this.showChat;
+                console.log("Chat panel visibility toggled:", this.showChat);
+            },
+            
+            // Toggle layout between grid and speaker view
+            toggleLayout() {
+                this.layoutType = this.layoutType === 'speaker' ? 'grid' : 'speaker';
+                console.log("Layout changed to:", this.layoutType);
+            },
+            
+            // Toggle screen sharing on/off
+            async toggleScreenSharing() {
+                try {
+                    if (this.isScreenSharing) {
+                        // Stop screen sharing
+                        console.log("Stopping screen sharing");
+                        if (this.screenShareStream) {
+                            const tracks = this.screenShareStream.getTracks();
+                            tracks.forEach(track => {
+                                track.stop();
+                            });
+                            this.screenShareStream = null;
+                        }
+                        this.isScreenSharing = false;
+                        
+                        // Switch back to camera
+                        if (this.localStream) {
+                            // Replace screen share track with camera track
+                            if (this.peerConnections) {
+                                for (const userId in this.peerConnections) {
+                                    const pc = this.peerConnections[userId];
+                                    const senders = pc.getSenders();
+                                    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                                    if (videoSender && this.localStream && this.localStream.getVideoTracks().length > 0) {
+                                        videoSender.replaceTrack(this.localStream.getVideoTracks()[0]);
+                                    }
+                                }
+                            }
+                            
+                            // Update UI
+                            if (this.localVideo && this.localVideo.srcObject !== this.localStream) {
+                                this.localVideo.srcObject = this.localStream;
+                            }
+                        }
+                        
+                        showToast('info', 'Screen Sharing Stopped', 'Returned to camera view', 3000);
+                    } else {
+                        // Start screen sharing
+                        console.log("Starting screen sharing");
+                        try {
+                            const stream = await navigator.mediaDevices.getDisplayMedia({
+                                video: {
+                                    cursor: "always"
+                                },
+                                audio: false
+                            });
+                            
+                            // Save screen share stream
+                            this.screenShareStream = stream;
+                            this.isScreenSharing = true;
+                            
+                            // Replace video track in all peer connections
+                            const videoTrack = stream.getVideoTracks()[0];
+                            if (videoTrack && this.peerConnections) {
+                                for (const userId in this.peerConnections) {
+                                    const pc = this.peerConnections[userId];
+                                    const senders = pc.getSenders();
+                                    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                                    if (videoSender) {
+                                        videoSender.replaceTrack(videoTrack);
+                                    }
+                                }
+                            }
+                            
+                            // Update local video preview
+                            if (this.localVideo) {
+                                this.localVideo.srcObject = stream;
+                            }
+                            
+                            // Handle end of screen sharing by browser UI
+                            videoTrack.onended = () => {
+                                this.toggleScreenSharing();
+                            };
+                            
+                            showToast('success', 'Screen Sharing Started', 'Your screen is now visible to other participants', 3000);
+                        } catch (err) {
+                            console.error("Error getting screen:", err);
+                            this.isScreenSharing = false;
+                            showToast('error', 'Screen Sharing Failed', err.message || 'Could not access your screen', 5000);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error toggling screen share:", e);
+                    this.isScreenSharing = false;
+                    showToast('error', 'Screen Sharing Error', 'An error occurred while managing screen sharing', 5000);
+                }
+            },
+            
+            // Send a chat message
+            sendChatMessage() {
+                if (!this.newMessage.trim()) return;
+                
+                try {
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify({
+                            type: 'chat',
+                            message: this.newMessage
+                        }));
+                        
+                        // Add to local chat display
+                        this.chatMessages.push({
+                            sender: USER_NAME,
+                            message: this.newMessage,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Clear input
+                        this.newMessage = '';
+                    } else {
+                        showToast('error', 'Connection Error', 'Cannot send message. Connection lost.', 5000);
+                    }
+                } catch (e) {
+                    console.error("Error sending chat message:", e);
+                    showToast('error', 'Message Error', 'Failed to send message.', 5000);
+                }
+            },
+            
             // Setup WebRTC functionality
             async setupWebRTC() {
                 try {
