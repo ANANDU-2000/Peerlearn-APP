@@ -482,15 +482,60 @@ def join_session_room(request, room_code):
             
             # Notify learners with confirmed bookings
             for booking in session.bookings.filter(status='confirmed'):
-                Notification.objects.create(
-                    user=booking.learner,
-                    title="Session is Live",
-                    message=f"The session '{session.title}' is now live! Join to start learning.",
-                    link=f"/sessions/{session.room_code}/join/"
-                )
+                try:
+                    # Create a notification
+                    notification = Notification.objects.create(
+                        user=booking.learner,
+                        title="Session is Live",
+                        message=f"The session '{session.title}' is now live! Join to start learning.",
+                        link=f"/sessions/{session.room_code}/join/?direct=true"
+                    )
+                    
+                    # Send WebSocket notification if channel layer is available
+                    try:
+                        from channels.layers import get_channel_layer
+                        from asgiref.sync import async_to_sync
+                        
+                        channel_layer = get_channel_layer()
+                        if channel_layer:
+                            # Send to user's notification group
+                            async_to_sync(channel_layer.group_send)(
+                                f"notifications_{booking.learner.id}",
+                                {
+                                    "type": "notification_message",
+                                    "message": {
+                                        "id": notification.id,
+                                        "title": notification.title,
+                                        "message": notification.message,
+                                        "link": notification.link,
+                                        "created_at": notification.created_at.isoformat(),
+                                        "is_read": False
+                                    }
+                                }
+                            )
+                            
+                            # Send to user's dashboard group
+                            async_to_sync(channel_layer.group_send)(
+                                f"dashboard_{booking.learner.id}",
+                                {
+                                    "type": "session_update",
+                                    "message": {
+                                        "session_id": session.id,
+                                        "status": "live",
+                                        "room_code": str(session.room_code),
+                                        "join_url": f"/sessions/{session.room_code}/join/?direct=true"
+                                    }
+                                }
+                            )
+                            
+                            logger.info(f"Sent WebSocket notifications to learner {booking.learner.id}")
+                    except Exception as e:
+                        logger.error(f"Error sending WebSocket notification: {str(e)}")
+                except Exception as e:
+                    logger.error(f"Error creating notification: {str(e)}")
         
-        # Redirect directly to the room
-        return redirect('sessions:room', room_code=room_code)
+        # Redirect directly to the room with direct parameter
+        return redirect(f"/sessions/{room_code}/?direct=true&role={role}")
     
     # Otherwise show the join page
     return render(request, 'sessions/join.html', {
@@ -525,19 +570,77 @@ def session_room(request, room_code):
     
     # If mentor is joining and session is scheduled, make it live
     if user_role == 'mentor' and session.status == Session.SCHEDULED:
+        # Set session to live and record when it started
         session.status = Session.LIVE
+        session.live_started_at = timezone.now()
         session.save()
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Session {session.id} set to live by mentor {request.user.id} in session_room view")
         
         # Notify learners with confirmed bookings
         for booking in session.bookings.filter(status=Booking.CONFIRMED):
-            Notification.objects.create(
-                user=booking.learner,
-                message=f"Session '{session.title}' is now live! Join now.",
-                link=f"/sessions/{session.room_code}/join/"
-            )
+            try:
+                # Create a notification
+                notification = Notification.objects.create(
+                    user=booking.learner,
+                    title="Session is Live",
+                    message=f"The session '{session.title}' is now live! Join to start learning.",
+                    link=f"/sessions/{session.room_code}/join/?direct=true"
+                )
+                
+                # Send WebSocket notification if channel layer is available
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    if channel_layer:
+                        # Send to user's notification group
+                        async_to_sync(channel_layer.group_send)(
+                            f"notifications_{booking.learner.id}",
+                            {
+                                "type": "notification_message",
+                                "message": {
+                                    "id": notification.id,
+                                    "title": notification.title,
+                                    "message": notification.message,
+                                    "link": notification.link,
+                                    "created_at": notification.created_at.isoformat(),
+                                    "is_read": False
+                                }
+                            }
+                        )
+                        
+                        # Send to user's dashboard group
+                        async_to_sync(channel_layer.group_send)(
+                            f"dashboard_{booking.learner.id}",
+                            {
+                                "type": "session_update",
+                                "message": {
+                                    "session_id": session.id,
+                                    "status": "live",
+                                    "room_code": str(session.room_code),
+                                    "join_url": f"/sessions/{session.room_code}/join/?direct=true"
+                                }
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Error sending WebSocket notification: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error creating notification: {str(e)}")
     
-    # Check if this is a direct access request
+    # Check if this is a direct access request and what role was specified
     is_direct = request.GET.get('direct') == 'true'
+    role_param = request.GET.get('role')
+    
+    # Override user_role if role parameter is provided and valid
+    if role_param in ['mentor', 'learner'] and is_direct:
+        # Only allow override if the user actually has this role
+        if (role_param == 'mentor' and session.mentor == request.user) or \
+           (role_param == 'learner' and user_role == 'learner'):
+            user_role = role_param
     
     # Prepare WebRTC context
     context = {
@@ -552,6 +655,7 @@ def session_room(request, room_code):
         'user_name': request.user.get_full_name() or request.user.username,
         'user_id': request.user.id,
         'is_direct': is_direct,
+        'direct_role': role_param if is_direct else None,
     }
     
     return render(request, 'sessions/room.html', context)
