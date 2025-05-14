@@ -511,7 +511,7 @@
                                  'role-mentor': remoteUserRole === 'mentor',
                                  'role-learner': remoteUserRole === 'learner'
                              }">
-                            <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                            <video id="main-video" x-ref="mainVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
                             
                             <!-- Video placeholder when camera is off -->
                             <div class="video-placeholder" x-show="!remoteVideoEnabled">
