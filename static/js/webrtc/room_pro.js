@@ -774,32 +774,58 @@ document.addEventListener('alpine:init', () => {
         },
         
         /**
-         * Send a signaling message via WebSocket
+         * Send a signaling message via WebSocket with enhanced auto-reconnect
          */
         sendSignal(data) {
-            if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-                console.error('Cannot send signal: WebSocket not connected', 
-                             'Socket state:', this.socket ? this.socket.readyState : 'No socket');
-                
-                // Auto-reconnect if needed
-                if (!this.isReconnecting && (!this.socket || this.socket.readyState !== WebSocket.CONNECTING)) {
-                    console.log('Attempting to reconnect WebSocket before sending signal...');
-                    this.isReconnecting = true;
-                    setTimeout(() => {
-                        this.initializeWebSocket();
-                        this.isReconnecting = false;
-                    }, 1000);
-                }
-                return;
-            }
+            const MAX_RETRIES = 3; // Maximum retries for sending signal
+            const RETRY_INTERVAL = 1000; // 1 second between retries
             
-            try {
-                const message = JSON.stringify(data);
-                this.socket.send(message);
-                console.log(`Sent signal of type: ${data.type}`);
-            } catch (error) {
-                console.error('Error sending signal:', error);
-            }
+            const attemptSend = (attempt = 0) => {
+                // Check if websocket exists and is open
+                if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+                    console.warn('WebSocket not ready - state:', this.socket ? this.socket.readyState : 'No socket');
+                    
+                    // If socket doesn't exist or is closed and we're not at max retries
+                    if (attempt < MAX_RETRIES) {
+                        console.log(`Attempting WebSocket reconnection before sending signal (attempt ${attempt+1}/${MAX_RETRIES})...`);
+                        
+                        // Wait for existing socket to close if it's closing
+                        if (this.socket && this.socket.readyState === WebSocket.CLOSING) {
+                            console.log('Waiting for existing socket to close completely...');
+                            setTimeout(() => attemptSend(attempt + 1), RETRY_INTERVAL);
+                            return;
+                        }
+                        
+                        // Initialize new WebSocket connection
+                        this.initializeWebSocket();
+                        
+                        // Set a delay to allow connection to establish before retrying
+                        setTimeout(() => attemptSend(attempt + 1), RETRY_INTERVAL);
+                        return;
+                    } else {
+                        console.error('Failed to send signal after multiple attempts:', data.type);
+                        return;
+                    }
+                }
+                
+                // Socket exists and is open, try sending
+                try {
+                    const message = JSON.stringify(data);
+                    this.socket.send(message);
+                    console.log(`Sent signal of type: ${data.type}`);
+                } catch (error) {
+                    console.error('Error sending signal:', error);
+                    
+                    // Retry sending if there was an error and we haven't reached max retries
+                    if (attempt < MAX_RETRIES) {
+                        console.log(`Retrying signal send after error (attempt ${attempt+1}/${MAX_RETRIES})...`);
+                        setTimeout(() => attemptSend(attempt + 1), RETRY_INTERVAL);
+                    }
+                }
+            };
+            
+            // Start send attempt chain
+            attemptSend(0);
         },
         
         /**

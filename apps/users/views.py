@@ -444,11 +444,11 @@ def learner_dashboard(request):
         schedule__gte=time_filter
     ).order_by('schedule')
     
+    # Use the logger from the parent function
+    # No need to re-import logging here
+    
     # Get top mentors for recommendations
     top_mentors = get_top_mentors(request.user, 6)
-    
-    # Log how many top mentors we got for debugging
-    logger.info(f"Received {len(top_mentors)} top mentors for recommendations")
     
     # Get all unique session topics for filtering
     all_topics = []
