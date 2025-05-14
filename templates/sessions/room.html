@@ -73,16 +73,38 @@
         color: white;
     }
     
-    .user-label.role-mentor::before {
-        background-color: #1c64f2;
+    /* Connection status styling */
+    .connection-status {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.6);
         color: white;
-        content: "Mentor";
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
     
-    .user-label.role-learner::before {
-        background-color: #7e22ce;
-        color: white;
-        content: "Learner";
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    
+    .status-dot.connected {
+        background-color: #10b981; /* green-500 */
+    }
+    
+    .status-dot.connecting {
+        background-color: #f59e0b; /* amber-500 */
+    }
+    
+    .status-dot.disconnected {
+        background-color: #ef4444; /* red-500 */
     }
     
     .video-placeholder {
@@ -130,23 +152,30 @@
     }
     
     .main-video {
-        height: 450px;
         border-radius: 8px;
         overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
     
     /* Specific styling for mentor/learner videos */
     .mentor-video {
         height: 450px;
+        border: 4px solid #1c64f2; /* Rich blue for mentors */
     }
     
     .learner-video {
         height: 350px;
+        border: 4px solid #7e22ce; /* Purple for learners */
     }
     
-    /* Ensure mentor video is prominently displayed */
-    .role-mentor #main-video {
-        border: 3px solid #3b82f6; /* primary blue color */
+    /* Video role indicators */
+    .role-mentor {
+        border-color: #1c64f2 !important;
+    }
+    
+    .role-learner {
+        border-color: #7e22ce !important;
     }
     
     .video-overlay {
@@ -373,10 +402,12 @@
                         <!-- Main video display -->
                         <div class="main-video participant-tile mb-4" 
                              :class="{
-                                 'mentor-video': USER_ROLE === 'mentor' || remoteUserRole === 'mentor',
-                                 'learner-video': USER_ROLE === 'learner' || remoteUserRole === 'learner'
+                                 'mentor-video': remoteUserRole === 'mentor',
+                                 'learner-video': remoteUserRole === 'learner', 
+                                 'role-mentor': remoteUserRole === 'mentor',
+                                 'role-learner': remoteUserRole === 'learner'
                              }">
-                            <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full"></video>
+                            <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full object-cover"></video>
                             
                             <!-- Connection status -->
                             <div class="connection-status">
