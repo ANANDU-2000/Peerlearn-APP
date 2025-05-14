@@ -162,7 +162,7 @@ class SessionConsumer(AsyncWebsocketConsumer):
         # Send ping to keep connection alive
         await self.start_ping()
     
-    async def disconnect(self, close_code):
+    async def disconnect(self, code):
         """
         Called when the WebSocket closes for any reason.
         """
@@ -170,7 +170,7 @@ class SessionConsumer(AsyncWebsocketConsumer):
         logger.info(f"User {user.id} ({user.username}) disconnected from room {self.room_code}")
         
         # Send user_leave message to group
-        if hasattr(self, 'room_group_name'):
+        if hasattr(self, 'room_group_name') and hasattr(self, 'channel_layer'):
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -187,10 +187,14 @@ class SessionConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
     
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, bytes_data=None):
         """
         Called when the consumer receives data from WebSocket.
         """
+        if not text_data:
+            logger.warning(f"Received empty message from user {self.user_id} in room {self.room_code}")
+            return
+            
         text_data_json = json.loads(text_data)
         message_type = text_data_json.get('type')
         

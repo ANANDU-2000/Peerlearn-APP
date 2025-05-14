@@ -121,29 +121,49 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             connectWebSocket(roomCode) {
                 // Create WebSocket connection - support both singular and plural endpoints
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                // First try the plural form for consistency with other WebSocket URLs
-                const wsUrl = `${protocol}//${window.location.host}/ws/sessions/${roomCode}/`;
+                // Try both endpoint formats (singular and plural)
+                const wsUrlPlural = `${protocol}//${window.location.host}/ws/sessions/${roomCode}/`;
+                const wsUrlSingular = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
                 
-                console.log(`Connecting to WebSocket at: ${wsUrl}`);
+                console.log(`Attempting WebSocket connection at: ${wsUrlPlural}`);
+                
+                // Attempt to connect using the plural endpoint first
                 try {
-                    this.websocket = new WebSocket(wsUrl);
-                    console.log("WebSocket connection created successfully");
+                    this.websocket = new WebSocket(wsUrlPlural);
                     
-                    // Add error handling for connection establishment
+                    // Handle initial error (try singular endpoint if plural fails)
                     this.websocket.addEventListener('error', (error) => {
-                        console.error("WebSocket connection error:", error);
-                        showToast('error', 'Connection Error', 'Error connecting to the session. Please refresh the page to try again.');
-                        
-                        // Set connection status
-                        this.connectionStatus = "Connection Error";
-                        this.connectionStatusClass = "error";
-                    });
+                        console.warn("First WebSocket connection attempt failed, trying alternative endpoint");
+                        // Try the singular endpoint as fallback
+                        try {
+                            console.log(`Attempting fallback WebSocket connection at: ${wsUrlSingular}`);
+                            this.websocket = new WebSocket(wsUrlSingular);
+                            
+                            // Set up event handlers for the new connection
+                            this.websocket.onopen = this.onWebSocketOpen.bind(this);
+                            this.websocket.onmessage = this.onWebSocketMessage.bind(this);
+                            this.websocket.onclose = this.onWebSocketClose.bind(this);
+                            this.websocket.onerror = (e) => {
+                                console.error("Both WebSocket connections failed:", e);
+                                showToast('error', 'Connection Error', 'Failed to connect to the session. Please refresh the page and try again.');
+                                
+                                // Set connection status
+                                this.connectionStatus = "Connection Error";
+                                this.connectionStatusClass = "error";
+                            };
+                        } catch (innerError) {
+                            console.error("Error creating fallback WebSocket connection:", innerError);
+                            showToast('error', 'Connection Error', 'Failed to connect to the WebSocket server. Please refresh the page and try again.');
+                        }
+                    }, { once: true }); // Only trigger this handler once
+                    
+                    console.log("Initial WebSocket connection attempt made");
                 } catch (error) {
                     console.error("Error creating WebSocket connection:", error);
                     showToast('error', 'Connection Error', 'Failed to connect to the WebSocket server. Please refresh the page and try again.');
                 }
                 
-                // Set up event handlers
+                // Set up event handlers for the initial connection
                 this.websocket.onopen = this.onWebSocketOpen.bind(this);
                 this.websocket.onmessage = this.onWebSocketMessage.bind(this);
                 this.websocket.onclose = this.onWebSocketClose.bind(this);
