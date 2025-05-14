@@ -276,50 +276,179 @@ function sendDashboardMessage(message) {
  * @param {Object} data - Session update data
  */
 function handleSessionUpdate(data) {
-    const session = data.session;
-    console.log('Session update received:', data.action, session);
+    console.log('Session update received:', data);
     
-    // Show toast notification
-    let toastMessage = '';
-    let toastType = 'info';
+    // Extract session data from the updated structure
+    const sessionData = data.data || {};
     
-    switch (data.action) {
-        case 'created':
-            toastMessage = `New session created: ${session.title}`;
-            toastType = 'success';
-            break;
-        case 'updated':
-            toastMessage = `Session updated: ${session.title}`;
-            break;
-        case 'deleted':
-            toastMessage = `Session deleted: ${session.title}`;
-            toastType = 'warning';
-            break;
-        case 'status_changed':
-            toastMessage = `Session status changed to ${session.status}: ${session.title}`;
-            if (session.status === 'live') {
-                toastType = 'success';
-            } else if (session.status === 'completed') {
-                toastType = 'success';
-            } else if (session.status === 'cancelled') {
-                toastType = 'warning';
+    // Handle both legacy format and new format
+    const session = sessionData.session || sessionData;
+    const action = sessionData.action || 'updated';
+    const status = sessionData.status || (session ? session.status : null);
+    
+    // Handle session going live with direct link
+    if (status === 'live' && sessionData.join_url) {
+        console.log('Session is now live with join URL:', sessionData.join_url);
+        
+        // Show toast notification with join button
+        if (window.showToast) {
+            const message = session && session.title 
+                ? `Session "${session.title}" is now live!` 
+                : "A session is now live!";
+                
+            const toast = window.showToast(message, 'success', 0); // Don't auto-dismiss
+            
+            if (toast) {
+                // Add join button to toast
+                const joinBtn = document.createElement('button');
+                joinBtn.className = 'ml-2 inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500';
+                joinBtn.textContent = 'Join Now';
+                joinBtn.addEventListener('click', () => window.location.href = sessionData.join_url);
+                
+                // Find toast text container
+                const textContainer = toast.querySelector('.text-sm');
+                if (textContainer) {
+                    textContainer.appendChild(joinBtn);
+                }
             }
-            break;
+        }
+        
+        // Optionally trigger a browser notification
+        if (Notification && Notification.permission === "granted") {
+            const notification = new Notification("Session is Live!", {
+                body: session && session.title ? `Session "${session.title}" is now live!` : "A session is now live!",
+                icon: "/static/img/favicon.png"
+            });
+            
+            // Close notification after 10 seconds
+            setTimeout(() => notification.close(), 10000);
+            
+            // Navigate to session when notification is clicked
+            notification.onclick = () => {
+                window.location.href = sessionData.join_url;
+                notification.close();
+            };
+        }
+        
+        // Update UI to show the session is live
+        if (typeof updateLiveSessionUI === 'function') {
+            // Use existing function if defined elsewhere
+            updateLiveSessionUI(sessionData);
+        } else {
+            // Define inline implementation
+            // Add visual indicators for live sessions
+            const sessionId = sessionData.session_id || (session ? session.id : null);
+            
+            if (sessionId) {
+                // Update any session cards to show live status
+                const sessionCards = document.querySelectorAll(`.session-card[data-session-id="${sessionId}"]`);
+                sessionCards.forEach(card => {
+                    // Add live indicator
+                    if (!card.querySelector('.live-indicator')) {
+                        const liveIndicator = document.createElement('div');
+                        liveIndicator.className = 'live-indicator absolute top-2 right-2 flex items-center px-2 py-1 rounded-full bg-red-600 text-white text-xs font-semibold';
+                        liveIndicator.innerHTML = '<span class="animate-pulse mr-1 h-2 w-2 rounded-full bg-white"></span> LIVE';
+                        card.appendChild(liveIndicator);
+                    }
+                    
+                    // Update status badges
+                    const statusBadges = card.querySelectorAll('.status-badge');
+                    statusBadges.forEach(badge => {
+                        badge.textContent = 'Live';
+                        badge.className = 'status-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800';
+                    });
+                    
+                    // Add join button if not already present
+                    if (!card.querySelector('.join-live-btn') && sessionData.join_url) {
+                        const actionArea = card.querySelector('.card-actions') || card;
+                        const joinButton = document.createElement('a');
+                        joinButton.href = sessionData.join_url;
+                        joinButton.className = 'join-live-btn ml-2 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500';
+                        joinButton.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Join Session';
+                        actionArea.appendChild(joinButton);
+                    }
+                });
+                
+                // Also update session entries in any tables
+                const sessionRows = document.querySelectorAll(`tr[data-session-id="${sessionId}"]`);
+                sessionRows.forEach(row => {
+                    // Update status cells
+                    const statusCells = row.querySelectorAll('.session-status');
+                    statusCells.forEach(cell => {
+                        cell.innerHTML = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><span class="animate-pulse mr-1 h-2 w-2 rounded-full bg-red-600"></span> Live</span>';
+                    });
+                    
+                    // Add join button to action cells
+                    const actionCells = row.querySelectorAll('.action-cell');
+                    actionCells.forEach(cell => {
+                        if (!cell.querySelector('.join-live-btn') && sessionData.join_url) {
+                            const joinButton = document.createElement('a');
+                            joinButton.href = sessionData.join_url;
+                            joinButton.className = 'join-live-btn ml-2 inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none';
+                            joinButton.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Join';
+                            cell.appendChild(joinButton);
+                        }
+                    });
+                });
+                
+                // If there's a Go Live button for this session, hide it
+                const goLiveButtons = document.querySelectorAll(`.go-live-btn[data-session-id="${sessionId}"]`);
+                goLiveButtons.forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            }
+        }
+    }
+    else {
+        // Regular session update handling for non-live sessions
+        // Show toast notification
+        let toastMessage = '';
+        let toastType = 'info';
+        
+        switch (action) {
+            case 'created':
+                toastMessage = session && session.title ? `New session created: ${session.title}` : 'New session created';
+                toastType = 'success';
+                break;
+            case 'updated':
+                toastMessage = session && session.title ? `Session updated: ${session.title}` : 'Session updated';
+                break;
+            case 'deleted':
+                toastMessage = session && session.title ? `Session deleted: ${session.title}` : 'Session deleted';
+                toastType = 'warning';
+                break;
+            case 'status_changed':
+                if (session) {
+                    const statusText = session.status || status;
+                    toastMessage = `Session status changed to ${statusText}${session.title ? ': ' + session.title : ''}`;
+                    
+                    if (statusText === 'live') {
+                        toastType = 'success';
+                    } else if (statusText === 'completed') {
+                        toastType = 'success';
+                    } else if (statusText === 'cancelled') {
+                        toastType = 'warning';
+                    }
+                }
+                break;
+        }
+        
+        if (toastMessage && window.showToast) {
+            window.showToast(toastMessage, toastType);
+        }
     }
     
-    if (toastMessage && window.showToast) {
-        window.showToast(toastType, 'Session Update', toastMessage);
+    // Update UI if we have session data
+    if (session) {
+        updateSessionsUI(session, action);
+        
+        // Update earnings if mentor dashboard and earnings data is included
+        if (sessionData.earnings || data.earnings) {
+            updateEarningsUI(sessionData.earnings || data.earnings);
+        }
     }
     
-    // Update UI
-    updateSessionsUI(session, data.action);
-    
-    // Update earnings if mentor dashboard
-    if (data.earnings) {
-        updateEarningsUI(data.earnings);
-    }
-    
-    // Refresh sessions list if we're on a dashboard page
+    // Always refresh sessions list if we're on a dashboard page
     const onDashboard = document.querySelector('.dashboard-container') !== null;
     if (onDashboard) {
         console.log('On dashboard, refreshing sessions list after update');

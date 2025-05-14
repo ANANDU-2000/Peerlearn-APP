@@ -560,19 +560,64 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
         """
         Handle booking update messages from the channel layer.
         """
-        # Forward the message to the client
-        await self.send_json(event)
+        logger.info(f"Received booking_update event for user {self.user_id}: {event}")
+        
+        # Extract the message from the event
+        message = event.get('message', {})
+        
+        # Create a more structured response for the client
+        response = {
+            'type': 'booking_update',
+            'data': message,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # Forward the formatted message to the client
+        await self.send_json(response)
+        
+        # Log the successful delivery
+        logger.info(f"Sent booking update to client for user {self.user_id}")
         
     async def session_request_update(self, event):
         """
         Handle session request update messages.
         """
-        # Forward the message to the client
-        await self.send_json(event)
+        logger.info(f"Received session_request_update event for user {self.user_id}: {event}")
+        
+        # Extract the message from the event
+        message = event.get('message', {})
+        
+        # Create a more structured response for the client
+        response = {
+            'type': 'session_request_update',
+            'data': message,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # Forward the formatted message to the client
+        await self.send_json(response)
+        
+        # Log the successful delivery
+        logger.info(f"Sent session request update to client for user {self.user_id}")
         
     async def notification_update(self, event):
         """
         Handle notification update messages.
         """
-        # Forward the message to the client
-        await self.send_json(event)
+        logger.info(f"Received notification_update event for user {self.user_id}: {event}")
+        
+        # Extract the message from the event
+        message = event.get('message', {})
+        
+        # Create a more structured response for the client
+        response = {
+            'type': 'notification_update',
+            'data': message,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # Forward the formatted message to the client
+        await self.send_json(response)
+        
+        # Log the successful delivery
+        logger.info(f"Sent notification update to client for user {self.user_id}")
