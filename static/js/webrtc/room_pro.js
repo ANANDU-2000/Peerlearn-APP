@@ -1097,7 +1097,49 @@ document.addEventListener('alpine:init', () => {
          * Show an error message to the user
          */
         showError(message) {
-            alert(message);
+            console.error('Error:', message);
+            
+            // Look for error message container
+            const errorContainer = document.getElementById('error-message');
+            if (errorContainer) {
+                errorContainer.textContent = message;
+                errorContainer.classList.remove('hidden');
+                
+                // Add error styling
+                errorContainer.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
+                errorContainer.classList.remove('bg-green-100', 'text-green-800', 'border-green-300');
+                
+                // Hide after 10 seconds
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 10000);
+            } else {
+                // Fallback to alert if no error container
+                alert('Error: ' + message);
+            }
+        },
+        
+        /**
+         * Show a success message to the user
+         */
+        showSuccessMessage(message) {
+            console.log('Success:', message);
+            
+            // Look for message container
+            const messageContainer = document.getElementById('error-message');
+            if (messageContainer) {
+                messageContainer.textContent = message;
+                messageContainer.classList.remove('hidden');
+                
+                // Add success styling
+                messageContainer.classList.add('bg-green-100', 'text-green-800', 'border-green-300');
+                messageContainer.classList.remove('bg-red-100', 'text-red-800', 'border-red-300');
+                
+                // Hide after 5 seconds
+                setTimeout(() => {
+                    messageContainer.classList.add('hidden');
+                }, 5000);
+            }
         },
         
         /**

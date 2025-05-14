@@ -337,8 +337,12 @@
                 <span x-text="sessionTime">00:00:00</span>
             </div>
             <div class="status-badge" x-text="sessionStatus === 'live' ? 'Live' : 'Connecting'">Live</div>
+            <div id="connection-status" class="ml-2 text-xs px-2 py-1 rounded"></div>
         </div>
     </div>
+    
+    <!-- Error/success message container -->
+    <div id="error-message" class="hidden p-3 mb-2 mx-auto max-w-3xl rounded-md shadow-sm border text-center transition-all"></div>
     
     <!-- Video grid -->
     <div class="video-grid" x-init="init">
