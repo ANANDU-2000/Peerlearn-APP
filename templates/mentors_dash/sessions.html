@@ -196,8 +196,9 @@
                                     <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
                                         <!-- Go Live button (always available for scheduled sessions) -->
                                         {% if session.status == 'scheduled' %}
-                                            <button @click="goLive(sessionId)" :disabled="isBusy"
-                                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                                            <button @click="goLive({{ session.id }})" :disabled="isBusy"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out"
+                                                title="Start this session now">
                                                 <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
                                                 </svg>
@@ -205,7 +206,7 @@
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                {% if session.can_go_live %}Go Live{% else %}Prepare Room{% endif %}
+                                                Go Live Now
                                             </button>
                                         {% endif %}
                                         
@@ -492,6 +493,11 @@
                 
                 console.log("Preparing room for session ID:", sessionId);
                 
+                // Show preparing notification
+                if (typeof showToast === 'function') {
+                    showToast('Preparing your session room...', 'info');
+                }
+                
                 // Make API call to set session as live
                 fetch(`/sessions/api/sessions/${sessionId}/go_live/`, {
                     method: 'POST',
@@ -504,13 +510,22 @@
                     })
                 })
                 .then(response => {
+                    console.log("Go Live API response status:", response.status);
+                    
                     if (!response.ok) {
-                        throw new Error('Failed to prepare room');
+                        if (response.status === 403) {
+                            throw new Error('Permission denied. Only the mentor who created this session can start it.');
+                        } else if (response.status === 400) {
+                            throw new Error('This session cannot be started right now. Please check its status.');
+                        } else {
+                            throw new Error('Failed to prepare room. Server error occurred.');
+                        }
                     }
+                    
                     return response.json();
                 })
                 .then(data => {
-                    console.log("Go Live API response:", data);
+                    console.log("Go Live API response data:", data);
                     
                     // Get room code from response
                     const roomCode = data.room_code || data.session?.room_code;
@@ -519,9 +534,9 @@
                         throw new Error('No room code received from server');
                     }
                     
-                    // Show success notification if showToast is available
+                    // Show success notification
                     if (typeof showToast === 'function') {
-                        showToast(data.message || 'Room ready! Redirecting...', 'success');
+                        showToast(data.message || 'Room ready! Redirecting to your live session...', 'success');
                     } else {
                         console.log("Toast notification function not available");
                     }
@@ -530,16 +545,16 @@
                     setTimeout(() => {
                         console.log("Redirecting to:", `/sessions/${roomCode}/join/`);
                         window.location.href = `/sessions/${roomCode}/join/`;
-                    }, 500);
+                    }, 1000); // Slightly longer delay to allow reading the success message
                 })
                 .catch(error => {
                     console.error('Error preparing room:', error);
                     
-                    // Show error notification if showToast is available
+                    // Show detailed error notification
                     if (typeof showToast === 'function') {
-                        showToast('Failed to prepare room. Please try again.', 'error');
+                        showToast(error.message || 'Failed to prepare room. Please try again.', 'error');
                     } else {
-                        alert('Failed to prepare room. Please try again.');
+                        alert(error.message || 'Failed to prepare room. Please try again.');
                     }
                     
                     this.isBusy = false;
