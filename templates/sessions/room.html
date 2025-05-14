@@ -11,6 +11,7 @@
         border-radius: 8px;
         overflow: hidden;
         background-color: #f3f4f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     
     .participant-tile video {
@@ -18,6 +19,46 @@
         height: 100%;
         object-fit: cover;
         background-color: #1f2937;
+    }
+    
+    /* Mentor specific styling */
+    .mentor-video {
+        height: 450px;
+        border: 3px solid #1c64f2;
+    }
+    
+    /* Learner specific styling */
+    .learner-video {
+        height: 350px;
+        border: 3px solid #7e22ce;
+    }
+    
+    /* Role label styling */
+    .user-label {
+        display: flex;
+        align-items: center;
+    }
+    
+    .user-label::before {
+        content: attr(data-role);
+        font-size: 0.75rem;
+        margin-right: 6px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .user-label.role-mentor::before {
+        background-color: #1c64f2;
+        color: white;
+        content: "Mentor";
+    }
+    
+    .user-label.role-learner::before {
+        background-color: #7e22ce;
+        color: white;
+        content: "Learner";
     }
     
     .video-placeholder {
@@ -306,7 +347,11 @@
                 <div class="lg:col-span-2">
                     <div class="p-4">
                         <!-- Main video display -->
-                        <div class="main-video participant-tile mb-4 role-{{ user_role }}" :class="{'mentor-video': USER_ROLE === 'mentor', 'learner-video': USER_ROLE === 'learner'}">
+                        <div class="main-video participant-tile mb-4" 
+                             :class="{
+                                 'mentor-video': USER_ROLE === 'mentor' || remoteUserRole === 'mentor',
+                                 'learner-video': USER_ROLE === 'learner' || remoteUserRole === 'learner'
+                             }">
                             <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full"></video>
                             
                             <!-- Connection status -->
@@ -318,9 +363,12 @@
                             <!-- Session timer -->
                             <div class="session-timer" x-text="sessionTimer"></div>
                             
-                            <!-- Video overlay with username -->
+                            <!-- Video overlay with username and role -->
                             <div class="video-overlay">
-                                <div class="user-label" x-text="mainStreamUser"></div>
+                                <div class="user-label" 
+                                     :class="{'role-mentor': remoteUserRole === 'mentor', 'role-learner': remoteUserRole === 'learner'}"
+                                     x-text="mainStreamUser"
+                                     :data-role="remoteUserRole"></div>
                             </div>
                             
                             <!-- Media status indicators -->
@@ -347,10 +395,18 @@
                         </div>
                         
                         <!-- Small local video display (self view) -->
-                        <div class="local-video-container mb-4 relative w-48 h-36 overflow-hidden rounded-lg shadow-md float-right" :class="{'border-2 border-primary-500': USER_ROLE === 'mentor'}">
+                        <div class="local-video-container mb-4 relative w-48 h-36 overflow-hidden rounded-lg shadow-md float-right" 
+                             :class="{
+                                 'border-3 border-blue-600': USER_ROLE === 'mentor',
+                                 'border-3 border-purple-600': USER_ROLE === 'learner'
+                             }">
                             <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
-                            <div class="absolute bottom-1 left-1 text-xs text-white bg-black bg-opacity-50 px-2 py-1 rounded">
-                                You ({{ user_role|title }})
+                            <div class="absolute bottom-1 left-1 text-xs text-white px-2 py-1 rounded flex items-center"
+                                 :class="{
+                                     'bg-blue-600': USER_ROLE === 'mentor',
+                                     'bg-purple-600': USER_ROLE === 'learner'
+                                 }">
+                                <span>{{ user_role|title }} - You</span>
                             </div>
                             <!-- Media status indicators for local video -->
                             <div class="absolute top-1 right-1 flex space-x-1">
