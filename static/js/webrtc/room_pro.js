@@ -1206,6 +1206,40 @@ document.addEventListener('alpine:init', () => {
                     console.warn('Error playing notification sound:', error);
                 });
             }
+        },
+        
+        /**
+         * Update connection status display with appropriate styling
+         */
+        updateConnectionStatus(status) {
+            console.log('Connection status update:', status);
+            
+            const statusElement = document.getElementById('connection-status');
+            if (!statusElement) return;
+            
+            // Remove all status classes
+            statusElement.classList.remove(
+                'connection-status-checking',
+                'connection-status-connected',
+                'connection-status-completed',
+                'connection-status-disconnected',
+                'connection-status-failed'
+            );
+            
+            // Update text and styling based on status
+            statusElement.textContent = status;
+            
+            if (status.includes('checking') || status.includes('Connecting')) {
+                statusElement.classList.add('connection-status-checking');
+            } else if (status.includes('connected') || status.includes('Connection established')) {
+                statusElement.classList.add('connection-status-connected');
+            } else if (status.includes('completed') || status.includes('available')) {
+                statusElement.classList.add('connection-status-completed');
+            } else if (status.includes('disconnected') || status.includes('closed')) {
+                statusElement.classList.add('connection-status-disconnected');
+            } else if (status.includes('failed')) {
+                statusElement.classList.add('connection-status-failed');
+            }
         }
     }));
 });
