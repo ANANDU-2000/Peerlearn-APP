@@ -6,9 +6,8 @@
 
 // Initialize the WebRTC room with Alpine.js
 function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
-    // Add Alpine.js data component
-    window.webRTCRoom = function() {
-        return {
+    // Create Alpine.js store for global state management
+    Alpine.store('webRTCRoom', {
             // State variables
             roomCode: roomCode,
             localStream: null,
@@ -18,16 +17,19 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             peerConnections: {},
             otherParticipants: [],
             websocket: null,
-            isInitializing: true,
-            audioEnabled: true,
+            // UI state
             videoEnabled: true,
+            audioEnabled: true,
             isScreenSharing: false,
-            screenShareEnabled: false,
+            showChat: false,
+            layoutType: 'speaker',
             screenShareStream: null,
+            chatMessages: [],
+            newMessage: '',
+            isInitializing: true,
             sessionStatus: 'waiting',
             sessionTimer: '00:00',
             sessionStartTime: null,
-            chatMessages: [],
             showChat: false,
             layoutType: 'speaker',
             newMessage: '',
@@ -2163,6 +2165,5 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 if (this.wsHeartbeatTimer) clearInterval(this.wsHeartbeatTimer);
                 if (this.wsReconnectTimer) clearTimeout(this.wsReconnectTimer);
             }
-        };
-    };
+    });
 }

@@ -448,7 +448,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-gray-50 min-h-screen py-6" x-data="webRTCRoom()">
+<div class="bg-gray-50 min-h-screen py-6" x-data="Alpine.store('webRTCRoom')">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {% if is_direct %}
         <!-- Enhanced connection notification for direct access -->
