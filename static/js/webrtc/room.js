@@ -631,20 +631,58 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                     videoEnabled: true
                                 };
                                 
-                                // Create peer connection for new user
-                                await this.createPeerConnection(message.user_id, message.username);
-                                
-                                // If we're the mentor or the other user is the mentor, send an offer
-                                if (userRole === 'mentor' || message.role === 'mentor') {
-                                    const offer = await this.peerConnections[message.user_id].createOffer();
-                                    await this.peerConnections[message.user_id].setLocalDescription(offer);
+                                try {
+                                    // Make sure we have local media first
+                                    if (!this.localStream) {
+                                        console.log("Requesting user media before creating peer connection");
+                                        await this.requestUserMedia();
+                                    }
                                     
-                                    this.websocket.send(JSON.stringify({
-                                        type: 'offer',
-                                        target: message.user_id,
-                                        user_id: userId,
-                                        sdp: this.peerConnections[message.user_id].localDescription
-                                    }));
+                                    // Create peer connection for new user with better error handling
+                                    console.log(`Creating peer connection for ${message.username} (${message.role})`);
+                                    await this.createPeerConnection(message.user_id, message.username);
+                                    
+                                    // Determine who should send the offer to avoid simultaneous offers
+                                    // Mentor always initiates with learner, or use IDs to break ties between same roles
+                                    const shouldInitiate = 
+                                        (userRole === 'mentor' && message.role === 'learner') || 
+                                        (userRole === message.role && parseInt(userId) > parseInt(message.user_id));
+                                    
+                                    console.log(`Connection negotiation: ${shouldInitiate ? 'We initiate' : 'They initiate'}`);
+                                    
+                                    if (shouldInitiate) {
+                                        console.log(`Creating offer for ${message.username}`);
+                                        
+                                        try {
+                                            // Create offer with explicit constraints for better connectivity
+                                            const offer = await this.peerConnections[message.user_id].createOffer({
+                                                offerToReceiveAudio: true, 
+                                                offerToReceiveVideo: true,
+                                                iceRestart: true // More reliable for difficult network conditions
+                                            });
+                                            
+                                            console.log("Offer created, setting local description");
+                                            await this.peerConnections[message.user_id].setLocalDescription(offer);
+                                            
+                                            console.log("Sending offer to remote peer");
+                                            this.websocket.send(JSON.stringify({
+                                                type: 'offer',
+                                                target: message.user_id,
+                                                user_id: userId,
+                                                username: userName,
+                                                role: userRole,
+                                                sdp: this.peerConnections[message.user_id].localDescription
+                                            }));
+                                        } catch (offerError) {
+                                            console.error("Failed to create or send offer:", offerError);
+                                            showToast('error', 'Connection Error', 'Failed to initiate connection. Try refreshing.');
+                                        }
+                                    } else {
+                                        console.log(`Waiting for offer from ${message.username}`);
+                                    }
+                                } catch (peerError) {
+                                    console.error("Error in peer connection setup:", peerError);
+                                    showToast('error', 'Connection Error', 'Problem setting up video connection. Try refreshing.');
                                 }
                                 
                                 // Send our current media state to the new participant
@@ -690,19 +728,55 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                             // Received an offer
                             if (message.target === userId) {
                                 // Create peer connection if it doesn't exist
-                                if (!this.peerConnections[message.user_id]) {
-                                    const username = this.otherParticipants.find(p => p.id === message.user_id)?.username || 'Unknown';
-                                    await this.createPeerConnection(message.user_id, username);
-                                }
-                                
-                                // Set remote description
-                                await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
-                                
-                                // Create answer
-                                const answer = await this.peerConnections[message.user_id].createAnswer();
-                                await this.peerConnections[message.user_id].setLocalDescription(answer);
-                                
-                                this.websocket.send(JSON.stringify({
+                                try {
+                                    if (!this.peerConnections[message.user_id]) {
+                                        const username = this.otherParticipants.find(p => p.id === message.user_id)?.username || 'Unknown';
+                                        console.log(`Creating new peer connection for user ${username} (${message.user_id}) to respond to offer`);
+                                        await this.createPeerConnection(message.user_id, username);
+                                    }
+                                    
+                                    console.log(`Setting remote description from offer by ${message.user_id}`);
+                                    
+                                    // Set remote description with explicit error handling
+                                    try {
+                                        await this.peerConnections[message.user_id].setRemoteDescription(new RTCSessionDescription(message.sdp));
+                                    } catch (sdpError) {
+                                        console.error("Error setting remote description:", sdpError);
+                                        showToast('error', 'Connection Error', 'Failed to process connection data. Please refresh.');
+                                        return;
+                                    }
+                                    
+                                    // Make sure we have our local stream before creating an answer
+                                    if (!this.localStream) {
+                                        console.log("Requesting user media before creating answer");
+                                        await this.requestUserMedia();
+                                    }
+                                    
+                                    // Create answer with explicit timeout and error handling
+                                    console.log("Creating answer");
+                                    let answerCreated = false;
+                                    
+                                    try {
+                                        const answer = await this.peerConnections[message.user_id].createAnswer();
+                                        console.log("Answer created successfully");
+                                        answerCreated = true;
+                                        
+                                        await this.peerConnections[message.user_id].setLocalDescription(answer);
+                                        console.log("Local description set from answer");
+                                    } catch (answerError) {
+                                        console.error("Error creating/setting answer:", answerError);
+                                        showToast('error', 'Connection Error', 'Failed to create connection response. Please refresh.');
+                                        return;
+                                    }
+                                    
+                                    if (!answerCreated) {
+                                        console.error("Answer creation timed out");
+                                        showToast('error', 'Connection Timeout', 'Connection setup timed out. Please refresh.');
+                                        return;
+                                    }
+                                    
+                                    console.log("Sending answer");
+                                    this.websocket.send(JSON.stringify({
                                     type: 'answer',
                                     target: message.user_id,
                                     user_id: userId,
