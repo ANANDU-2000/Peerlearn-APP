@@ -459,12 +459,14 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 return new Promise(async (resolve, reject) => {
                     try {
                         console.log("Setting up WebRTC with user ID:", userId);
+                        console.log("Using ICE servers configuration:", iceServers);
                     
-                    // Clear any existing peer connections
+                    // Clear any existing peer connections to start fresh
                     for (const id in this.peerConnections) {
                         if (this.peerConnections[id]) {
                             try {
                                 this.peerConnections[id].close();
+                                console.log(`Closed existing peer connection for user ${id}`);
                             } catch (e) {
                                 console.warn("Error closing peer connection:", e);
                             }
@@ -472,10 +474,33 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     }
                     this.peerConnections = {};
                     
-                    // Reset state
+                    // Reset state for clean initialization
                     this.otherParticipants = [];
                     this.isInitializing = true;
                     this.connectionStatus = "Connecting";
+                    
+                    // Initialize empty DOM references to ensure they exist
+                    if (!this.mainVideo) {
+                        console.warn("Main video element not found in DOM, checking for element with ID 'main-video'");
+                        const mainVideoElem = document.getElementById('main-video');
+                        if (mainVideoElem) {
+                            console.log("Found main video element by ID");
+                        } else {
+                            console.error("Could not find main video element in the DOM");
+                            showToast('error', 'Video Setup Error', 'Could not find main video element. Please refresh the page.');
+                        }
+                    }
+                    
+                    if (!this.localVideo) {
+                        console.warn("Local video element not found in DOM, checking for element with ID 'local-video'");
+                        const localVideoElem = document.getElementById('local-video');
+                        if (localVideoElem) {
+                            console.log("Found local video element by ID");
+                        } else {
+                            console.error("Could not find local video element in the DOM");
+                            showToast('error', 'Video Setup Error', 'Could not find local video element. Please refresh the page.');
+                        }
+                    }
                     this.connectionStatusClass = "connecting";
                     this.isReconnecting = false;
                     
@@ -1047,46 +1072,48 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             // Create a peer connection for a user
             async createPeerConnection(userId, username) {
                 try {
-                    // ICE servers configuration with multiple STUN servers for better connectivity
-                    const configuration = {
-                        iceServers: []
-                    };
+                    console.log("Creating peer connection for user:", userId, username);
                     
-                    // Add STUN servers (either array or single string)
-                    if (iceServers.stunServers && Array.isArray(iceServers.stunServers)) {
-                        // Use the array of STUN servers
-                        configuration.iceServers.push({ 
-                            urls: iceServers.stunServers 
-                        });
-                        console.log("Using multiple STUN servers:", iceServers.stunServers);
-                    } else if (iceServers.stun) {
-                        // Backward compatibility for single STUN server
-                        configuration.iceServers.push({ 
-                            urls: iceServers.stun 
-                        });
-                        console.log("Using single STUN server:", iceServers.stun);
+                    // Check if we received proper ICE server configuration from the template
+                    let configuration = {};
+                    
+                    if (typeof iceServers === 'object' && Array.isArray(iceServers)) {
+                        // Modern format from Django view: array of objects with urls
+                        configuration = { iceServers };
+                        console.log("Using ICE servers from template:", iceServers);
                     } else {
-                        // Fallback to Google's public STUN servers
+                        // Legacy format with separate properties or undefined
+                        configuration = {
+                            iceServers: []
+                        };
+                        
+                        // Add default Google STUN servers for reliability
                         configuration.iceServers.push({ 
                             urls: [
                                 'stun:stun.l.google.com:19302',
-                                'stun:stun1.l.google.com:19302'
-                            ] 
+                                'stun:stun1.l.google.com:19302',
+                                'stun:stun2.l.google.com:19302',
+                                'stun:stun3.l.google.com:19302',
+                                'stun:stun4.l.google.com:19302'
+                            ]
                         });
-                        console.log("Using fallback STUN servers");
+                        
+                        console.log("Using fallback STUN servers from Google");
+                        
+                        // Check for TURN server from template constants
+                        if (TURN_SERVER && TURN_SERVER.length > 0) {
+                            configuration.iceServers.push({
+                                urls: TURN_SERVER,
+                                username: TURN_USERNAME || '',
+                                credential: TURN_CREDENTIAL || ''
+                            });
+                            console.log("Added TURN server from template constants");
+                        }
                     }
                     
-                    // Add TURN server if provided (for NAT traversal)
-                    if (iceServers.turn) {
-                        configuration.iceServers.push({
-                            urls: iceServers.turn,
-                            username: iceServers.turnUsername,
-                            credential: iceServers.turnCredential
-                        });
-                        console.log("Added TURN server for NAT traversal");
-                    }
+                    console.log("Final ICE configuration:", configuration);
                     
-                    // Create peer connection
+                    // Create peer connection with our ICE server configuration
                     this.peerConnections[userId] = new RTCPeerConnection(configuration);
                     
                     // Add local stream to peer connection

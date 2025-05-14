@@ -709,7 +709,7 @@ def session_room(request, room_code):
     
     if turn_server:
         ice_servers.append({
-            'urls': [turn_server],
+            'urls': turn_server,
             'username': turn_username,
             'credential': turn_credential
         })
@@ -734,8 +734,8 @@ def session_room(request, room_code):
         'direct_role': role_param if is_direct else None,
     }
     
-    # Use the premium room template for an enhanced UX
-    return render(request, 'sessions/room_premium.html', context)
+    # Use the enhanced room template that matches your design reference
+    return render(request, 'sessions/room_enhanced.html', context)
 
 @login_required
 def end_session(request, session_id):

@@ -1,0 +1,625 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.title }} | Live Session Room{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reset for cleaner session room */
+    body {
+        background-color: #f8fafc;
+        overflow-x: hidden;
+    }
+    
+    .container-fluid {
+        padding: 0;
+    }
+    
+    /* Main container */
+    .session-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background-color: #111827;
+        color: white;
+    }
+    
+    /* Top navigation */
+    .session-nav {
+        background-color: #1e293b;
+        padding: 0.75rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .session-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: white;
+    }
+    
+    .session-indicators {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+    
+    .duration-badge {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: monospace;
+    }
+    
+    .status-badge {
+        background-color: #10b981;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    /* Main content */
+    .session-content {
+        flex: 1;
+        display: flex;
+        position: relative;
+    }
+    
+    /* Video container */
+    .video-container {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1rem;
+        padding: 1rem;
+        height: calc(100vh - 60px - 80px); /* Subtract header and footer heights */
+    }
+    
+    .video-wrapper {
+        position: relative;
+        background-color: #0f172a;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .video-wrapper.main-video {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+    }
+    
+    .video-wrapper.secondary-video {
+        grid-column: 2;
+        grid-row: 1;
+    }
+    
+    video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background-color: #0f172a;
+    }
+    
+    /* Camera off placeholder */
+    .video-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #1e293b;
+        z-index: 5;
+    }
+    
+    .avatar-circle {
+        width: 5rem;
+        height: 5rem;
+        background-color: #3b82f6;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* User label */
+    .user-label {
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        z-index: 10;
+        font-size: 0.875rem;
+        backdrop-filter: blur(4px);
+    }
+    
+    .role-indicator {
+        display: inline-block;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    
+    .role-indicator.mentor {
+        background-color: #3b82f6;
+    }
+    
+    .role-indicator.learner {
+        background-color: #a855f7;
+    }
+    
+    /* Connection status */
+    .connection-status {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        z-index: 10;
+        backdrop-filter: blur(4px);
+    }
+    
+    .status-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+    }
+    
+    .status-dot.connected {
+        background-color: #10b981;
+    }
+    
+    .status-dot.connecting {
+        background-color: #f59e0b;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .status-dot.error {
+        background-color: #ef4444;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; }
+        100% { opacity: 0.4; }
+    }
+    
+    /* Chat container */
+    .chat-container {
+        width: 300px;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        background-color: #1e293b;
+    }
+    
+    .chat-header {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-weight: 600;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    
+    .chat-message {
+        margin-bottom: 1rem;
+        max-width: 85%;
+    }
+    
+    .chat-message.sent {
+        margin-left: auto;
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 1rem 0 1rem 1rem;
+        padding: 0.75rem 1rem;
+    }
+    
+    .chat-message.received {
+        margin-right: auto;
+        background-color: #334155;
+        color: white;
+        border-radius: 0 1rem 1rem 1rem;
+        padding: 0.75rem 1rem;
+    }
+    
+    .chat-sender {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .chat-input-container {
+        padding: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .chat-input {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: #334155;
+        color: white;
+        outline: none;
+    }
+    
+    .chat-input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .chat-send-button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    
+    /* Controls */
+    .session-controls {
+        padding: 1rem;
+        background-color: #1e293b;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .control-button {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #334155;
+        color: white;
+        border: none;
+    }
+    
+    .control-button:hover {
+        background-color: #475569;
+    }
+    
+    .control-button.active {
+        background-color: #3b82f6;
+    }
+    
+    .control-button.danger {
+        background-color: #ef4444;
+    }
+    
+    .control-button.danger:hover {
+        background-color: #dc2626;
+    }
+    
+    /* Feedback modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+    }
+    
+    .modal-content {
+        background-color: white;
+        color: #1e293b;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        width: 100%;
+        max-width: 32rem;
+    }
+    
+    .rating-stars {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 1.5rem 0;
+    }
+    
+    .star-button {
+        background-color: #f1f5f9;
+        border: none;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .star-button:hover, .star-button.active {
+        background-color: #facc15;
+        color: white;
+    }
+    
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .session-content {
+            flex-direction: column;
+        }
+        
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .chat-container {
+            width: 100%;
+            border-left: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .session-controls {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="session-container" x-data="webRTCRoom">
+    <!-- Top navigation -->
+    <div class="session-nav">
+        <div class="session-title">{{ session.title }}</div>
+        <div class="session-indicators">
+            <div class="duration-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                </svg>
+                <span x-text="sessionTime">00:00:00</span>
+            </div>
+            <div class="status-badge" x-text="sessionStatus === 'live' ? 'Live' : 'Connecting...'">Live</div>
+        </div>
+    </div>
+    
+    <!-- Main content -->
+    <div class="session-content" x-init="init">
+        <!-- Video container -->
+        <div class="video-container" :class="{'grid-cols-1': layoutType === 'speaker'}">
+            <!-- Main video (remote user) -->
+            <div class="video-wrapper main-video">
+                <video id="main-video" autoplay playsinline></video>
+                
+                <!-- Connection status -->
+                <div class="connection-status">
+                    <div class="status-dot" :class="connectionStatusClass"></div>
+                    <span x-text="connectionStatus">Connected</span>
+                </div>
+                
+                <!-- Video placeholder when camera is off -->
+                <div class="video-placeholder" x-show="!remoteVideoEnabled">
+                    <div class="avatar-circle" x-text="remoteUserName ? remoteUserName.charAt(0).toUpperCase() : ''"></div>
+                    <div class="text-lg font-medium" x-text="remoteUserName || 'Waiting...'">Remote User</div>
+                    <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
+                </div>
+                
+                <!-- User label -->
+                <div class="user-label">
+                    <span class="role-indicator" :class="{'mentor': remoteUserRole === 'mentor', 'learner': remoteUserRole === 'learner'}"></span>
+                    <span x-text="remoteUserName || 'Waiting for participant...'">Remote User</span>
+                    <span x-show="isRemoteMuted" class="ml-2">🔇</span>
+                </div>
+            </div>
+            
+            <!-- Local video -->
+            <div class="video-wrapper secondary-video" :class="{'hidden': layoutType === 'speaker'}">
+                <video id="local-video" autoplay playsinline muted class="transform scale-x-[-1]"></video>
+                
+                <!-- Video placeholder when camera is off -->
+                <div class="video-placeholder" x-show="!videoEnabled">
+                    <div class="avatar-circle">{{ user.full_name.0|upper }}</div>
+                    <div class="text-lg font-medium">{{ user.full_name }} (You)</div>
+                    <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
+                </div>
+                
+                <!-- User label -->
+                <div class="user-label">
+                    <span class="role-indicator" :class="{'mentor': USER_ROLE === 'mentor', 'learner': USER_ROLE === 'learner'}"></span>
+                    <span>{{ user.full_name }} (You)</span>
+                    <span x-show="!audioEnabled" class="ml-2">🔇</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat container -->
+        <div class="chat-container" x-show="showChat">
+            <div class="chat-header">
+                Group Chat
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <template x-for="(message, index) in chatMessages" :key="index">
+                    <div class="chat-message" :class="message.sender === USER_NAME ? 'sent' : 'received'">
+                        <div class="chat-sender" x-show="message.sender !== USER_NAME" x-text="message.sender"></div>
+                        <div class="chat-content" x-text="message.message"></div>
+                    </div>
+                </template>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" placeholder="Type a message..." 
+                       x-model="newMessage" 
+                       @keyup.enter="sendChatMessage">
+                <button class="chat-send-button" @click="sendChatMessage">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Controls bar -->
+    <div class="session-controls">
+        <!-- Microphone control -->
+        <button class="control-button" :class="{'active': audioEnabled}" @click="toggleAudioStream">
+            <svg x-show="audioEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <svg x-show="!audioEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+        </button>
+        
+        <!-- Video control -->
+        <button class="control-button" :class="{'active': videoEnabled}" @click="toggleVideoStream">
+            <svg x-show="videoEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <svg x-show="!videoEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+        </button>
+        
+        <!-- Screen sharing -->
+        <button class="control-button" :class="{'active': isScreenSharing}" @click="toggleScreenSharing">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+        </button>
+        
+        <!-- Chat toggle -->
+        <button class="control-button" :class="{'active': showChat}" @click="toggleChat">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+        </button>
+        
+        <!-- Layout toggle -->
+        <button class="control-button" @click="toggleLayout">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+        </button>
+        
+        <!-- End session -->
+        <button class="control-button danger" @click="endSession">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+    
+    <!-- Feedback modal -->
+    <div class="modal-overlay" x-show="showFeedbackModal" x-cloak>
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-2">Rate Your Session</h3>
+            <p class="text-gray-600 mb-4">Please rate your experience with {{ session.mentor.full_name }}</p>
+            
+            <div class="rating-stars">
+                <button class="star-button" @click="rating = 1" :class="{'active': rating >= 1}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="star-button" @click="rating = 2" :class="{'active': rating >= 2}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="star-button" @click="rating = 3" :class="{'active': rating >= 3}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="star-button" @click="rating = 4" :class="{'active': rating >= 4}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="star-button" @click="rating = 5" :class="{'active': rating >= 5}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <label for="feedback" class="block text-sm font-medium text-gray-700 mb-1">Additional Feedback</label>
+                <textarea id="feedback" x-model="feedbackText" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200" 
+                        @click="showFeedbackModal = false">Skip</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        @click="submitFeedback">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include sound effects -->
+<audio id="notification-sound" src="{% static 'sounds/notification.mp3' %}" preload="auto"></audio>
+
+<!-- Hidden form values for CSRF tokens -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- Constants for JS -->
+<script>
+    const roomCode = "{{ session.room_code }}";
+    const userId = "{{ user.id }}";
+    const userName = "{{ user.full_name }}";
+    const userRole = "{{ user_role }}";
+    const iceServers = {{ ice_servers|safe }};
+    const STUN_SERVER = "{{ STUN_SERVER }}";
+    const TURN_SERVER = "{{ TURN_SERVER }}";
+    const TURN_USERNAME = "{{ TURN_USERNAME }}";
+    const TURN_CREDENTIAL = "{{ TURN_CREDENTIAL }}";
+</script>
+
+<!-- Video conferencing JavaScript -->
+<script src="{% static 'js/webrtc/room_fixed.js' %}"></script>
+
+<!-- Initialize the room -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Initialize the WebRTC room
+        initWebRTCRoom(roomCode, userId, userName, userRole, iceServers);
+    });
+</script>
+{% endblock %}
