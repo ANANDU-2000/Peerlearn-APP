@@ -1,0 +1,76 @@
+1. Authentication & Role Routing
+	1.	Open the App (any public page) → if you click a protected CTA (Book, Request Live, Go Live, Enter Room) while unauthenticated, an Auth-Selector modal appears:
+	•	Choose Learner → driven through a 4-step signup wizard → landed in /dashboard/learner.
+	•	Choose Mentor → a 5-step wizard → landed in /dashboard/mentor.
+	2.	If you log in and your account’s role is Mentor, you go to /dashboard/mentor; if Learner, you go to /dashboard/learner; if Admin, to /dashboard/admin.
+
+⸻
+
+2. Mentor Creates & Manages Sessions
+	1.	Create Session
+	•	In Mentor Dashboard → Create Session, fill out Title, Domain tags, Schedule, Pricing, Thumbnail, Description.
+	•	Click Publish Session ▶ → an AJAX call saves a new Session record (status=scheduled) with a unique room_code.
+	•	On success: toast “Session Scheduled ✔”, redirect to My Sessions → Upcoming.
+	2.	My Sessions → Upcoming
+	•	You see your newly created session card with:
+	•	Schedule showing date & live countdown.
+	•	Booked (0) badge.
+	•	Go Live ▶ (disabled until 15 min before start).
+	•	Enter Room ▶ (disabled until at least one learner books).
+	•	Edit ✎ and Cancel 🗑 actions (allowed until 5 min before start).
+	3.	Real-Time Booking Updates
+	•	When a learner books, backend creates a Booking and broadcasts a new_booking WS event on sessions:{session_id}.
+	•	Your badge updates instantly to Booked (1), and Enter Room ▶ becomes enabled immediately.
+	4.	Going Live
+	•	At or after Schedule−15 min, Go Live ▶ becomes clickable.
+	•	Click it → AJAX POST to set status='live' and broadcast session.live on sessions:{room_code}.
+	•	You’re redirected into the WebRTC room at /session/{room_code}/.
+
+⸻
+
+3. Learner Browses & Books Sessions
+	1.	Browse Sessions
+	•	In Learner Dashboard → Browse Sessions, switch between tabs:
+	•	Recommended (ML-driven),
+	•	Scheduled (all future),
+	•	Live Now (status=live).
+	•	Each session card shows title, domains, mentor, countdown or LIVE badge, price/free, and Book ▶ or Join ▶.
+	2.	Book ▶ Flow
+	•	Click Book ▶ on a scheduled session:
+	•	If paid, you enter Razorpay modal; on success, a Payment + Booking is saved.
+	•	If free, a Booking is saved directly.
+	•	WS notifies the Mentor via requests:{mentor_id} and sessions:{session_id}.
+	•	Your card updates to Booked ✔, and the Mentor’s “Booked” badge increments.
+	3.	Join ▶ Flow
+	•	When now ≥ Schedule−5 min or upon the Mentor going live (session.live event), Join ▶ becomes enabled.
+	•	Click Join ▶ → AJAX GET to authorize; on success, you’re redirected to /session/{room_code}/.
+
+⸻
+
+4. WebRTC Room & Live Interaction
+	1.	Lobby Stage
+	•	On loading /session/{room_code}/, both Mentor and Learner connect via WebSocket to sessions:{room_code}.
+	•	If Mentor arrives first, they see a Waiting Learners list updated by learner.join events.
+	•	Learners see “Waiting for Mentor to start session.”
+	2.	Starting the Session
+	•	Once Mentor clicks Start Session ▶ (or auto-started by the earlier Go Live), both peers exchange SDP offers/answers and ICE candidates via Django Channels.
+	•	getUserMedia({video:true,audio:true}) acquires camera & mic streams.
+	3.	Live Teaching UI
+	•	Video Panes: Mentor’s feed and Learner’s feed side-by-side (desktop) or stacked (mobile).
+	•	Toolbar Controls: mute/unmute, camera on/off, screen-share, chat panel, whiteboard, End Session ▶.
+	•	Real-Time Metrics: attendee count, connection quality indicator, elapsed timer.
+	4.	Error Handling & Reconnection
+	•	Media Issues: “Permission denied” → fallback to audio + toast “Video disabled.”
+	•	Network Drops: automatic WS reconnection + toast “Reconnecting…”; ICE restarts.
+	•	Device Loss: “Camera/mic unavailable” prompts.
+	5.	Ending & Feedback
+	•	Clicking End Session ▶ stops media tracks, closes peer connections, and broadcasts session.end.
+	•	Mentor sees an Upload Resources prompt; Learner sees Rate Your Mentor form.
+	•	Feedback saved and a Celery task triggers a T+1h reminder if not submitted.
+
+⸻
+
+5. Real-Time Notifications
+	•	Channels streams events on:
+	•	requests:{mentor_id}, responses:{learner_id}, sessions:{room_code}, notifications:{user_id}.
+	•	Toasts appear for: booking confirmations, request updates, session reminders, join/leave events

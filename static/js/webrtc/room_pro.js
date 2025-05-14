@@ -1,8 +1,9 @@
 /**
- * Enhanced WebRTC implementation for PeerLearn room
+ * Premium WebRTC implementation for PeerLearn room
  * 
  * This implementation uses improved error handling, reconnection logic,
- * and a more robust ICE server configuration.
+ * robust ICE server configuration, and works with both the SessionConsumer
+ * and any new RoomConsumer implementations.
  */
 
 document.addEventListener('alpine:init', () => {
@@ -81,7 +82,7 @@ document.addEventListener('alpine:init', () => {
             // Handle errors and retries
             window.addEventListener('error', (e) => {
                 console.error('Global error:', e);
-                this.showError('An error occurred. Please refresh the page if video doesn't connect.');
+                this.showError('An error occurred. Please refresh the page if video doesn\'t connect.');
             });
         },
         
@@ -94,17 +95,38 @@ document.addEventListener('alpine:init', () => {
                 this.socket.close();
             }
             
+            // Try multiple endpoints for compatibility with different consumer implementations
+            const wsEndpoints = [
+                `/ws/room/${roomCode}/`,
+                `/ws/sessions/${roomCode}/`,
+                `/ws/session/${roomCode}/`
+            ];
+            
+            // Try the first endpoint
+            this.connectToWebSocketEndpoint(wsEndpoints, 0);
+        },
+        
+        /**
+         * Try connecting to each WebSocket endpoint in order
+         */
+        connectToWebSocketEndpoint(endpoints, index) {
+            if (index >= endpoints.length) {
+                console.error('Failed to connect to any WebSocket endpoint');
+                this.showError('Failed to connect to session. Please refresh the page and try again.');
+                return;
+            }
+            
             // Set up the WebSocket endpoint URL
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomCode}/`;
+            const wsUrl = `${protocol}//${window.location.host}${endpoints[index]}`;
             
-            console.log('Connecting to WebSocket:', wsUrl);
+            console.log(`Trying WebSocket endpoint (${index + 1}/${endpoints.length}):`, wsUrl);
             
             this.socket = new WebSocket(wsUrl);
             
             // Set up socket event handlers
             this.socket.onopen = (event) => {
-                console.log('WebSocket connected');
+                console.log('WebSocket connected successfully to:', wsUrl);
                 this.socketConnected = true;
                 
                 // Send join event
@@ -112,7 +134,8 @@ document.addEventListener('alpine:init', () => {
                     type: 'join',
                     user_id: this.USER_ID,
                     user_role: this.USER_ROLE,
-                    user_name: userName
+                    user_name: userName,
+                    username: userName // For compatibility with SessionConsumer
                 });
                 
                 // Clear any reconnect timers
@@ -129,14 +152,20 @@ document.addEventListener('alpine:init', () => {
                 console.log('WebSocket closed:', event);
                 this.socketConnected = false;
                 
-                // Attempt to reconnect
+                // If never connected successfully, try next endpoint
+                if (event.code === 1006 && !this.isConnected) {
+                    this.connectToWebSocketEndpoint(endpoints, index + 1);
+                    return;
+                }
+                
+                // Attempt to reconnect to the same endpoint
                 if (this.connectionAttempts < this.maxConnectionAttempts) {
                     const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.connectionAttempts), 10000);
                     console.log(`Reconnecting in ${delay / 1000} seconds (attempt ${this.connectionAttempts + 1}/${this.maxConnectionAttempts})`);
                     
                     this.socketReconnectTimer = setTimeout(() => {
                         this.connectionAttempts++;
-                        this.initializeWebSocket();
+                        this.connectToWebSocketEndpoint(endpoints, index);
                     }, delay);
                 } else {
                     console.error('Maximum reconnection attempts reached');
@@ -438,7 +467,9 @@ document.addEventListener('alpine:init', () => {
                 
                 console.log('Signaling message received:', message.type);
                 
+                // Handle messages from different consumer implementations
                 switch (message.type) {
+                    // WebRTC messages
                     case 'offer':
                         this.handleOffer(message.sdp);
                         break;
@@ -450,22 +481,38 @@ document.addEventListener('alpine:init', () => {
                     case 'ice_candidate':
                         this.handleIceCandidate(message.candidate);
                         break;
+                    
+                    // Compatibility with SessionConsumer
+                    case 'signaling_message':
+                        // Handle signaling messages from SessionConsumer
+                        const signalingMessage = message.message;
+                        if (signalingMessage.type === 'offer') {
+                            this.handleOffer(signalingMessage.sdp);
+                        } else if (signalingMessage.type === 'answer') {
+                            this.handleAnswer(signalingMessage.sdp);
+                        } else if (signalingMessage.type === 'ice_candidate') {
+                            this.handleIceCandidate(signalingMessage.candidate);
+                        }
+                        break;
                         
+                    // Compatibility with SessionConsumer and RoomConsumer
+                    case 'user_join':
                     case 'user_joined':
                         // Update remote user info
-                        this.remoteUserName = message.user_name;
+                        this.remoteUserName = message.username || message.user_name;
                         this.remoteUserRole = message.user_role;
                         
                         // Play notification sound
                         this.playNotificationSound();
                         
                         // If this is the receiver (learner), wait for offer
-                        console.log('User joined:', message.user_name, 'with role', message.user_role);
+                        console.log('User joined:', this.remoteUserName, 'with role', this.remoteUserRole);
                         break;
                         
+                    case 'user_leave':
                     case 'user_left':
-                        console.log('User left:', message.user_name);
-                        this.showError(`${message.user_name} has left the session.`);
+                        console.log('User left:', message.username || message.user_name);
+                        this.showError(`${message.username || message.user_name} has left the session.`);
                         
                         // Clear remote stream and user info
                         this.remoteStream = null;
@@ -478,6 +525,7 @@ document.addEventListener('alpine:init', () => {
                         break;
                         
                     case 'session_ended':
+                        console.log('Session ended');
                         this.showFeedbackModal = true;
                         break;
                         
@@ -486,7 +534,17 @@ document.addEventListener('alpine:init', () => {
                             this.remoteVideoEnabled = message.enabled;
                         } else if (message.media_type === 'audio') {
                             this.isRemoteMuted = !message.enabled;
+                        } else if (message.videoEnabled !== undefined) {
+                            // Legacy format
+                            this.remoteVideoEnabled = message.videoEnabled;
                         }
+                        break;
+                        
+                    case 'ping':
+                        // Respond to ping with pong
+                        this.sendSignal({
+                            type: 'pong'
+                        });
                         break;
                         
                     default:
@@ -564,7 +622,8 @@ document.addEventListener('alpine:init', () => {
             this.sendSignal({
                 type: 'media_status',
                 media_type: 'video',
-                enabled: this.videoEnabled
+                enabled: this.videoEnabled,
+                videoEnabled: this.videoEnabled // For compatibility
             });
             
             console.log('Video stream toggled:', this.videoEnabled);
@@ -596,7 +655,8 @@ document.addEventListener('alpine:init', () => {
             this.sendSignal({
                 type: 'media_status',
                 media_type: 'audio',
-                enabled: this.audioEnabled
+                enabled: this.audioEnabled,
+                audioEnabled: this.audioEnabled // For compatibility
             });
             
             console.log('Audio stream toggled:', this.audioEnabled);
@@ -825,7 +885,9 @@ document.addEventListener('alpine:init', () => {
             this.sendSignal({
                 type: 'leave',
                 user_id: this.USER_ID,
-                user_role: this.USER_ROLE
+                user_role: this.USER_ROLE,
+                user_name: userName,
+                username: userName
             });
             
             this.cleanupResources();

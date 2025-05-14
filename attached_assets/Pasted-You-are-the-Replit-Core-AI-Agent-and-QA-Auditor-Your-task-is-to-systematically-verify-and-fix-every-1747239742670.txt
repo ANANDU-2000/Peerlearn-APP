@@ -1,0 +1,51 @@
+You are the Replit Core AI Agent and QA Auditor. Your task is to systematically verify and fix every workflow in PeerLearn—Mentor Dashboard, Learner Dashboard, WebRTC Room, and Admin Panel—ensuring that each click, real-time update, and backend action succeeds without error. Checklists below:
+
+1. AUTH & ROUTING  
+   • Unauthenticated access to protected CTAs → Auth-Selector modal  
+   • Post-signup/login redirect by role (learner→/dashboard/learner; mentor→/dashboard/mentor; admin→/dashboard/admin).
+
+2. MENTOR DASHBOARD → MY SESSIONS  
+   A. *Tabs* filter Today/Upcoming/Past correctly (no past in Upcoming, no future in Past).  
+   B. *Session Cards*  
+     – Countdown shows accurate hh:mm:ss and auto-enables Go Live ▶ at T–15m.  
+     – “Booked (N)” badge updates immediately on learner booking via WS new_booking.  
+     – Enter Room ▶ becomes enabled on first booking or on session.live.  
+     – Edit and Cancel buttons appear/disappear at correct windows (before T–5m and before start).  
+   C. *Flows*  
+     – Go Live ▶ → status=live; WS session.live; redirect to room.  
+     – Enter Room ▶ → authorize_join OK → room.  
+     – Edit & Cancel endpoints update DB and broadcast session.updated/cancelled.  
+   D. *Real-Time*  
+     – new_booking, learner.join/leave, session.live events handled in UI and toasts.  
+   E. *Error Cases*  
+     – Network drop → retry/backoff + toast.  
+     – Unauthorized/time-conflict → disabled buttons + tooltip + toast.
+
+3. LEARNER DASHBOARD → SESSIONS & ACTIVITY  
+   A. *Browse Sessions* tabs Recommended/Scheduled/Live Now filter correctly.  
+   B. *Book ▶* → Razorpay or free flow → Booking in DB + WS requests event + toast.  
+   C. *Join ▶* → enabled at T–5m or on session.live → authorize_join → room.  
+   D. *Activity Sub-tabs* show exactly the right requests/bookings with status chips and actions.  
+   E. *Error Cases* as above.
+
+4. WEBRTC ROOM  
+   A. *Lobby* lists waiting users; Mentor “Start Session ▶”.  
+   B. *Media*: both camera & mic streams on, peer connection established, STUN/TURN fallback, reconnection.  
+   C. *UI Controls*: mute, camera, screen-share, chat, whiteboard, end session—all functional.  
+   D. *End → Feedback*: feedback modals appear correctly, saved in DB.
+
+5. ADMIN PANEL  
+   • Overview stats accurate; Users/Sessions/Payments/Feedback pages CRUD & filters work; WS live feeds.
+
+6. CROSS-CUTTING TESTS  
+   • Role-check middleware on all views and WS.  
+   • CSRF & sanitization enforced.  
+   • Skeleton loaders & fallback spinners appear on slow networks.  
+   • Offline banner & action queue on network loss.  
+
+7. PERFORMANCE & SECURITY  
+   • Celery tasks fire on schedule; Redis caching for recommendations.  
+   • Docker-Compose with correct ENV; no missing keys.  
+   • Lint & format (flake8, black, isort); 90%+ test coverage.
+
+Run through each flow step-by-step, report any failures or mismatches, apply fixes, and confirm all QA checks pass with green status. Output a checklist of passed/failed items and the code corrections made.
