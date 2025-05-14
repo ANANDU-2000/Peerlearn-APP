@@ -107,15 +107,46 @@ document.addEventListener('alpine:init', () => {
                 this.socket.close();
             }
             
+            // Get room code from URL path or the class property
+            const pathRoomCode = window.location.pathname.split('/').filter(Boolean).pop();
+            this.roomCode = pathRoomCode;
+            
             // Try multiple endpoints for compatibility with different consumer implementations
             const wsEndpoints = [
-                `/ws/room/${roomCode}/`,
-                `/ws/sessions/${roomCode}/`,
-                `/ws/session/${roomCode}/`
+                `/ws/room/${this.roomCode}/`,
+                `/ws/sessions/${this.roomCode}/`,
+                `/ws/session/${this.roomCode}/`
             ];
+            
+            console.log('Room code for WebSocket connection:', this.roomCode);
             
             // Try the first endpoint
             this.connectToWebSocketEndpoint(wsEndpoints, 0);
+            
+            // Set up reconnection mechanism
+            this.socketReconnectAttempts = 0;
+            this.maxSocketReconnectAttempts = 5;
+            
+            // Start periodic ping to keep the WebSocket alive
+            this.startWebSocketPing();
+        },
+        
+        /**
+         * Start periodic ping to keep WebSocket connection alive
+         */
+        startWebSocketPing() {
+            // Clear any existing ping interval
+            if (this.pingInterval) {
+                clearInterval(this.pingInterval);
+            }
+            
+            // Set up new ping interval
+            this.pingInterval = setInterval(() => {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.sendSignal({ type: 'ping' });
+                    console.log('Sent WebSocket ping to keep connection alive');
+                }
+            }, 30000); // 30 seconds
         },
         
         /**
@@ -214,6 +245,14 @@ document.addEventListener('alpine:init', () => {
                             console.error('Error playing local video:', error);
                         });
                     };
+                    
+                    // Set video element attributes for better performance
+                    localVideo.setAttribute('autoplay', 'true');
+                    localVideo.setAttribute('playsinline', 'true');
+                    localVideo.setAttribute('muted', 'true');
+                    
+                    // Log successful stream attachment
+                    console.log('Local video stream attached successfully');
                 }
                 
                 this.isLocalStreamReady = true;
@@ -326,6 +365,19 @@ document.addEventListener('alpine:init', () => {
                                 console.error('Error playing remote video:', error);
                             });
                         };
+                        
+                        // Set video element attributes for better performance
+                        mainVideo.setAttribute('autoplay', 'true');
+                        mainVideo.setAttribute('playsinline', 'true');
+                        
+                        // Log successful remote stream attachment
+                        console.log('Remote video stream attached successfully');
+                        
+                        // Force update UI to show remote video is ready
+                        setTimeout(() => {
+                            this.remoteVideoEnabled = true;
+                            this.isRemoteStreamReady = true;
+                        }, 500);
                     }
                     
                     this.isRemoteStreamReady = true;
@@ -375,10 +427,11 @@ document.addEventListener('alpine:init', () => {
             }
             
             try {
-                // Create an offer with constraints
+                // Create an offer with constraints for full audio/video reception
                 const offer = await this.peerConnection.createOffer({
                     offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
+                    offerToReceiveVideo: true,
+                    voiceActivityDetection: false // Disable VAD for better audio
                 });
                 
                 // Set the local description
@@ -391,6 +444,15 @@ document.addEventListener('alpine:init', () => {
                     type: 'offer',
                     sdp: offer
                 });
+                
+                // Set a timeout to recreate the offer if no answer received
+                setTimeout(() => {
+                    if (this.peerConnection.connectionState !== 'connected' && 
+                        this.peerConnection.iceConnectionState !== 'connected') {
+                        console.log('No answer received, recreating offer...');
+                        this.restartIce();
+                    }
+                }, 10000); // 10 seconds timeout
             } catch (error) {
                 console.error('Error creating offer:', error);
                 this.showError('Error creating connection offer. Please try again.');
