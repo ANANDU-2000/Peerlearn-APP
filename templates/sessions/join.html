@@ -81,8 +81,19 @@
                     const urlParams = new URLSearchParams(window.location.search);
                     const direct = urlParams.get('direct');
                     const autoJoin = urlParams.get('auto_join');
+                    const mentor = urlParams.get('mentor');
                     
-                    if (direct === 'true' && autoJoin === 'true') {
+                    // Auto-join if direct=true is set (simplified behavior)
+                    if (direct === 'true') {
+                        console.log("Direct access detected, preparing auto-join");
+                        
+                        // Add role information to the session
+                        if (mentor === 'true') {
+                            console.log("Mentor role detected");
+                            // Set session storage to indicate mentor role for the room
+                            sessionStorage.setItem('joining_as_mentor', 'true');
+                        }
+                        
                         // Auto-click the enter room button after a short delay
                         setTimeout(() => {
                             const enterButton = document.getElementById('enter-room-button');
@@ -103,9 +114,12 @@
                                     
                                     if (counter <= 0) {
                                         clearInterval(countdown);
+                                        console.log("Auto-join countdown complete, entering room");
                                         enterButton.click();
                                     }
                                 }, 1000);
+                            } else {
+                                console.error("Enter button not found for auto-join");
                             }
                         }, 1000);
                     }
