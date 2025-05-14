@@ -212,7 +212,7 @@
                                         
                                         <!-- Enter Room button (if already live) -->
                                         {% if session.is_live %}
-                                            <a href="/sessions/{{ session.room_code }}/join/"
+                                            <a href="/sessions/{{ session.room_code }}/join/?direct=true&mentor=true"
                                                 class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
                                                 <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                     <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
@@ -542,6 +542,12 @@
                         const redirectUrl = data.redirect_url || `/sessions/${roomCode}/join/?direct=true&mentor=true`;
                         console.log("Redirecting to:", redirectUrl);
                         window.location.href = redirectUrl;
+                        
+                        // Force refresh if not redirected in 2.5 seconds (backup)
+                        setTimeout(() => {
+                            console.log("Forcing page refresh as backup...");
+                            window.location.reload();
+                        }, 2500);
                     }, 1500); // Slightly longer delay to allow reading the success message
                 })
                 .catch(error => {
