@@ -38,6 +38,8 @@ urlpatterns = [
     path('room/<uuid:room_code>/', views.session_room, name='room'),
     path('room/<uuid:room_code>/go-live/', views.go_live_session, name='go_live'),
     path('<uuid:room_code>/join/', views.join_session_room, name='join'),
+    # Adding an alternative join route that matches the URL pattern in the error
+    path('<str:room_code>/', views.session_by_room_code, name='session_by_room_code'),
     
     # API endpoints
     path('api/status/', api_views.session_status_api, name='status_api'),

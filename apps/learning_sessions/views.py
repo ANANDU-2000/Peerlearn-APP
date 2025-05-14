@@ -442,107 +442,142 @@ def cancel_booking(request, booking_id):
 @login_required
 def join_session_room(request, room_code):
     """View for joining a session room via /sessions/{room_code}/join/ URL."""
-    session = get_object_or_404(Session, room_code=room_code)
-    
-    # Check if the user is authorized to join this session
-    is_authorized = False
-    role = None
-    
-    # Check if user is the mentor or has a confirmed booking
-    if request.user == session.mentor:
-        is_authorized = True
-        role = 'mentor'
-    else:
-        # Check if user has a confirmed booking for this session
-        has_booking = session.bookings.filter(
-            learner=request.user, 
-            status='confirmed'
-        ).exists()
+    try:
+        session = get_object_or_404(Session, room_code=room_code)
         
-        if has_booking:
+        # Check if the user is authorized to join this session
+        is_authorized = False
+        role = None
+        
+        # Check if user is the mentor or has a confirmed booking
+        if request.user == session.mentor:
             is_authorized = True
-            role = 'learner'
-    
-    if not is_authorized:
-        messages.error(request, "You don't have access to this session")
+            role = 'mentor'
+        else:
+            # Check if user has a confirmed booking for this session
+            has_booking = session.bookings.filter(
+                learner=request.user, 
+                status='confirmed'
+            ).exists()
+            
+            if has_booking:
+                is_authorized = True
+                role = 'learner'
+        
+        if not is_authorized:
+            messages.error(request, "You don't have access to this session")
+            return redirect('home')
+        
+        # If direct access to room is requested via query parameter
+        if request.GET.get('direct') == 'true':
+            # Force role from URL if specified
+            role_param = request.GET.get('role')
+            if role_param in ['mentor', 'learner']:
+                role = role_param
+                
+            # If mentor is joining and session is scheduled, automatically make it live
+            if request.user == session.mentor and session.status == 'scheduled':
+                session.status = 'live'
+                session.live_started_at = timezone.now()
+                session.save()
+                
+                # Log this action
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Session {session.id} marked as live by mentor {request.user.id}")
+                
+            # Redirect to room page
+            return redirect('sessions:room', room_code=session.room_code)
+        
+        # For non-direct access, show session details
+        return render(request, 'sessions/join.html', {
+            'session': session,
+            'role': role
+        })
+        
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in join_session_room: {e}")
+        messages.error(request, f"Error accessing session: {str(e)}")
         return redirect('home')
-    
-    # If direct access to room is requested via query parameter
-    if request.GET.get('direct') == 'true':
-        # If mentor is joining and session is scheduled, automatically make it live
-        if request.user == session.mentor and session.status == 'scheduled':
+
+@login_required
+def session_by_room_code(request, room_code):
+    """
+    View for handling direct access to a session by room code.
+    This handles the URL pattern that's being used when clicking 'Join Now'.
+    """
+    try:
+        # Verify if this is a valid UUID
+        try:
+            # Try to parse the room_code as UUID to validate it
+            import uuid
+            uuid_obj = uuid.UUID(room_code)
+            # If we get here, it's a valid UUID
+        except ValueError:
+            # Not a valid UUID, show error
+            messages.error(request, "Invalid session code format")
+            return redirect('sessions:list')
+        
+        # Find the session
+        try:
+            session = Session.objects.get(room_code=room_code)
+        except Session.DoesNotExist:
+            messages.error(request, "Session not found")
+            return redirect('sessions:list')
+        
+        # Determine role and authorization
+        role = None
+        is_authorized = False
+        
+        if request.user == session.mentor:
+            role = 'mentor'
+            is_authorized = True
+        else:
+            # Check if user has a booking for this session
+            has_booking = session.bookings.filter(
+                learner=request.user,
+                status='confirmed'
+            ).exists()
+            
+            if has_booking:
+                role = 'learner'
+                is_authorized = True
+        
+        if not is_authorized:
+            messages.error(request, "You don't have permission to access this session")
+            return redirect('sessions:list')
+        
+        # Check if session is live or scheduled
+        if session.status not in ['live', 'scheduled']:
+            messages.error(request, f"This session is currently {session.status} and cannot be joined")
+            return redirect('sessions:list')
+        
+        # Update session status if mentor is joining and session is scheduled
+        if role == 'mentor' and session.status == 'scheduled':
             session.status = 'live'
             session.live_started_at = timezone.now()
             session.save()
             
-            # Log this action
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f"Session {session.id} automatically set to live by mentor {request.user.id}")
-            
-            # Notify learners with confirmed bookings
+            # Send notification to learners
             for booking in session.bookings.filter(status='confirmed'):
-                try:
-                    # Create a notification
-                    notification = Notification.objects.create(
-                        user=booking.learner,
-                        title="Session is Live",
-                        message=f"The session '{session.title}' is now live! Join to start learning.",
-                        link=f"/sessions/{session.room_code}/join/?direct=true"
-                    )
-                    
-                    # Send WebSocket notification if channel layer is available
-                    try:
-                        from channels.layers import get_channel_layer
-                        from asgiref.sync import async_to_sync
-                        
-                        channel_layer = get_channel_layer()
-                        if channel_layer:
-                            # Send to user's notification group
-                            async_to_sync(channel_layer.group_send)(
-                                f"notifications_{booking.learner.id}",
-                                {
-                                    "type": "notification_message",
-                                    "message": {
-                                        "id": notification.id,
-                                        "title": notification.title,
-                                        "message": notification.message,
-                                        "link": notification.link,
-                                        "created_at": notification.created_at.isoformat(),
-                                        "is_read": False
-                                    }
-                                }
-                            )
-                            
-                            # Send to user's dashboard group
-                            async_to_sync(channel_layer.group_send)(
-                                f"dashboard_{booking.learner.id}",
-                                {
-                                    "type": "session_update",
-                                    "message": {
-                                        "session_id": session.id,
-                                        "status": "live",
-                                        "room_code": str(session.room_code),
-                                        "join_url": f"/sessions/{session.room_code}/join/?direct=true"
-                                    }
-                                }
-                            )
-                            
-                            logger.info(f"Sent WebSocket notifications to learner {booking.learner.id}")
-                    except Exception as e:
-                        logger.error(f"Error sending WebSocket notification: {str(e)}")
-                except Exception as e:
-                    logger.error(f"Error creating notification: {str(e)}")
+                Notification.objects.create(
+                    recipient=booking.learner,
+                    message=f"Your session '{session.title}' is now live! Join now.",
+                    notification_type='session_live',
+                    related_object_id=session.id,
+                    related_object_type='session'
+                )
         
-        # Redirect directly to the room with direct parameter
-        return redirect(f"/sessions/{room_code}/?direct=true&role={role}")
+        # Redirect to room
+        return redirect('sessions:room', room_code=session.room_code)
     
-    # Otherwise show the join page
-    return render(request, 'sessions/join.html', {
-        'session': session,
-        'user_role': role
-    })
-    
+    except Exception as e:
+        print(f"Error in session_by_room_code: {e}")
+        messages.error(request, "Error accessing session")
+        return redirect('sessions:list')
+
+@login_required
 def session_room(request, room_code):
     """View for the WebRTC session room."""
     session = get_object_or_404(Session, room_code=room_code)

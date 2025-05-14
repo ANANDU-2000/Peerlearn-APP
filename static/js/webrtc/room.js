@@ -831,10 +831,32 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 }
             },
             
-            // Request user media (camera and microphone)
+            // Request user media (camera and microphone) - Improved implementation
             async requestUserMedia() {
                 try {
-                    console.log("Requesting access to camera and microphone - auto-start enabled");
+                    console.log("Requesting access to camera and microphone", {
+                        userId: window.USER_ID,
+                        userRole: window.USER_ROLE,
+                        roomCode: window.ROOM_CODE
+                    });
+                    
+                    // Create camera access prompt message
+                    showToast('info', 'Camera Access', 'PeerLearn needs access to your camera and microphone. Please allow when prompted.', 7000);
+                    
+                    // Debug permissions
+                    try {
+                        const permStatus = await navigator.permissions.query({name: 'camera'});
+                        console.log("Camera permission status:", permStatus.state);
+                        
+                        permStatus.onchange = function() {
+                            console.log("Camera permission changed to:", this.state);
+                            if (this.state === 'granted') {
+                                showToast('success', 'Camera Access', 'Camera access granted!', 3000);
+                            }
+                        };
+                    } catch (err) {
+                        console.log("Permission API not supported:", err);
+                    }
                     
                     // First check if getUserMedia is supported
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
