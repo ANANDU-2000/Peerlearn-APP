@@ -123,6 +123,7 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsUrl = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
                 
+                console.log(`Connecting to WebSocket at: ${wsUrl}`);
                 this.websocket = new WebSocket(wsUrl);
                 
                 // Set up event handlers
