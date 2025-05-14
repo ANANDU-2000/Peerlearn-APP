@@ -248,7 +248,7 @@ def learner_dashboard(request):
     active_tab = request.GET.get('tab', 'home')
     
     # Validate active tab value
-    valid_tabs = ['home', 'activity', 'mentors', 'notifications', 'profile']
+    valid_tabs = ['home', 'activity', 'sessions', 'mentors', 'notifications', 'profile']
     if active_tab not in valid_tabs:
         active_tab = 'home'
     
@@ -407,6 +407,19 @@ def learner_dashboard(request):
         if not hasattr(mentor, 'rating_count'):
             mentor.rating_count = 0
     
+    # Get all unique session topics for filtering
+    all_topics = []
+    for session in all_sessions:
+        if session.topics:
+            for topic in session.topics:
+                if topic not in all_topics:
+                    all_topics.append(topic)
+    
+    # Add has_feedback attribute to bookings
+    for booking in bookings:
+        from apps.learning_sessions.models import Feedback
+        booking.has_feedback = Feedback.objects.filter(booking=booking).exists()
+    
     context = {
         'recommended_sessions': recommended_sessions,
         'trending_sessions': trending_sessions,
@@ -416,7 +429,8 @@ def learner_dashboard(request):
         'top_mentors': top_mentors,
         'active_tab': active_tab, 
         'unread_notifications_count': unread_notifications_count,
-        'now': now  # Pass current time for countdown timers
+        'now': now,  # Pass current time for countdown timers
+        'topics': all_topics  # For session filtering
     }
     
     return render(request, 'learners_dash/dashboard.html', context)

@@ -1,0 +1,465 @@
+{% extends 'partials/tab_content.html' %}
+
+{% block tab_title %}My Sessions{% endblock %}
+
+{% block tab_content %}
+<div class="sessions-dashboard-container">
+    <!-- Sessions Tab Navigation -->
+    <div class="mb-4 border-b border-gray-200">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="sessionTabs" role="tablist">
+            <li class="mr-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 rounded-t-lg active" 
+                        id="upcoming-tab" 
+                        data-tabs-target="#upcoming" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="upcoming" 
+                        aria-selected="true">
+                    Upcoming
+                </button>
+            </li>
+            <li class="mr-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300"
+                        id="live-tab" 
+                        data-tabs-target="#live" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="live" 
+                        aria-selected="false">
+                    Live Now
+                </button>
+            </li>
+            <li class="mr-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300"
+                        id="past-tab" 
+                        data-tabs-target="#past" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="past" 
+                        aria-selected="false">
+                    Past Sessions
+                </button>
+            </li>
+            <li role="presentation">
+                <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300"
+                        id="all-tab" 
+                        data-tabs-target="#all" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="all" 
+                        aria-selected="false">
+                    All Sessions
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Search and Filter Bar -->
+    <div class="mb-5 flex flex-col md:flex-row gap-3">
+        <div class="relative flex-grow">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg class="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                </svg>
+            </div>
+            <input type="search" id="session-search" class="block w-full p-2.5 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500" placeholder="Search by title, mentor name...">
+        </div>
+        
+        <div class="flex flex-row gap-3">
+            <select id="topic-filter" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                <option selected value="">All Topics</option>
+                {% for topic in topics %}
+                <option value="{{ topic }}">{{ topic }}</option>
+                {% endfor %}
+            </select>
+            
+            <select id="status-filter" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                <option selected value="">All Statuses</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Sessions Content -->
+    <div id="sessionsTabContent">
+        <!-- Upcoming Sessions Tab -->
+        <div class="p-1" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for booking in bookings %}
+                {% if booking.session.schedule >= now and booking.session.status != 'completed' %}
+                <div class="session-card bg-white rounded-lg border border-gray-200 shadow-sm" data-topic="{{ booking.session.topics|join:' ' }}" data-status="{{ booking.status }}">
+                    <div class="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-t-lg flex justify-between items-center">
+                        <h3 class="text-lg font-semibold truncate">{{ booking.session.title }}</h3>
+                        <span class="px-2 py-1 text-xs rounded-full {% if booking.status == 'confirmed' %}bg-green-500{% elif booking.status == 'pending' %}bg-yellow-500{% else %}bg-red-500{% endif %}">
+                            {{ booking.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.mentor.get_full_name }}</p>
+                        </div>
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.schedule|date:"M d, Y" }} at {{ booking.session.schedule|date:"h:i A" }}</p>
+                        </div>
+                        <div class="mb-3 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.duration }} minutes</p>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            {% for topic in booking.session.topics %}
+                            <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">{{ topic }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold {% if booking.session.is_free %}text-green-600{% else %}text-gray-900{% endif %}">
+                                {% if booking.session.is_free %}Free{% else %}₹{{ booking.session.price }}{% endif %}
+                            </span>
+                            
+                            <div class="flex space-x-2">
+                                <a href="{% url 'sessions:detail' booking.session.id %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Details
+                                </a>
+                                
+                                {% if booking.session.status == 'live' %}
+                                <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Join Room
+                                </a>
+                                {% elif booking.session.schedule|date:'Y-m-d H:i:s' < now|date:'Y-m-d H:i:s' and booking.session.status == 'scheduled' %}
+                                <a href="{% url 'sessions:go_live' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Go Live
+                                </a>
+                                {% elif booking.status == 'confirmed' %}
+                                <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                                    Cancel
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No upcoming sessions found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Explore and book new sessions from our talented mentors.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'sessions:list' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Browse Sessions
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Live Sessions Tab -->
+        <div class="hidden p-1" id="live" role="tabpanel" aria-labelledby="live-tab">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for booking in bookings %}
+                {% if booking.session.status == 'live' %}
+                <div class="session-card live-session-card bg-white rounded-lg border border-green-300 shadow-md" data-topic="{{ booking.session.topics|join:' ' }}" data-status="{{ booking.status }}">
+                    <div class="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg font-semibold truncate">{{ booking.session.title }}</h3>
+                            <span class="flex items-center">
+                                <span class="mr-1 inline-block h-2 w-2 rounded-full bg-red-400 animate-pulse"></span>
+                                <span class="text-xs font-medium uppercase">Live Now</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.mentor.get_full_name }}</p>
+                        </div>
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">Started at {{ booking.session.schedule|date:"h:i A" }}</p>
+                        </div>
+                        <div class="mb-4 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.duration }} minutes</p>
+                        </div>
+                        
+                        <a href="{% url 'sessions:room' booking.session.room_code %}" class="w-full py-2 bg-green-600 text-white text-center text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            Join Room Now
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No live sessions at the moment</h3>
+                    <p class="mt-1 text-sm text-gray-500">Your upcoming sessions will appear here when they go live.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Past Sessions Tab -->
+        <div class="hidden p-1" id="past" role="tabpanel" aria-labelledby="past-tab">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for booking in bookings %}
+                {% if booking.session.status == 'completed' or booking.session.schedule < now and booking.session.status != 'live' %}
+                <div class="session-card bg-white rounded-lg border border-gray-200 shadow-sm" data-topic="{{ booking.session.topics|join:' ' }}" data-status="{{ booking.status }}">
+                    <div class="p-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-t-lg flex justify-between items-center">
+                        <h3 class="text-lg font-semibold truncate">{{ booking.session.title }}</h3>
+                        <span class="px-2 py-1 text-xs rounded-full {% if booking.session.status == 'completed' %}bg-green-500{% else %}bg-gray-700{% endif %}">
+                            {{ booking.session.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.mentor.get_full_name }}</p>
+                        </div>
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.schedule|date:"M d, Y" }} at {{ booking.session.schedule|date:"h:i A" }}</p>
+                        </div>
+                        <div class="mb-4 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.duration }} minutes</p>
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold {% if booking.session.is_free %}text-green-600{% else %}text-gray-900{% endif %}">
+                                {% if booking.session.is_free %}Free{% else %}₹{{ booking.session.price }}{% endif %}
+                            </span>
+                            
+                            <div class="flex space-x-2">
+                                <a href="{% url 'sessions:detail' booking.session.id %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Details
+                                </a>
+                                
+                                {% if booking.session.status == 'completed' and not booking.has_feedback %}
+                                <a href="{% url 'sessions:feedback' booking.id %}" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                    Give Feedback
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No past sessions</h3>
+                    <p class="mt-1 text-sm text-gray-500">Book new sessions to start learning.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'sessions:list' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Browse Sessions
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- All Sessions Tab -->
+        <div class="hidden p-1" id="all" role="tabpanel" aria-labelledby="all-tab">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for booking in bookings %}
+                <div class="session-card bg-white rounded-lg border border-gray-200 shadow-sm" data-topic="{{ booking.session.topics|join:' ' }}" data-status="{{ booking.status }}">
+                    <div class="p-4 
+                            {% if booking.session.status == 'live' %}bg-gradient-to-r from-green-500 to-green-600
+                            {% elif booking.session.status == 'completed' %}bg-gradient-to-r from-gray-500 to-gray-600
+                            {% else %}bg-gradient-to-r from-blue-500 to-indigo-600{% endif %} 
+                            text-white rounded-t-lg flex justify-between items-center">
+                        <h3 class="text-lg font-semibold truncate">{{ booking.session.title }}</h3>
+                        <span class="px-2 py-1 text-xs rounded-full 
+                            {% if booking.session.status == 'live' %}bg-red-500
+                            {% elif booking.session.status == 'completed' %}bg-gray-700
+                            {% elif booking.status == 'confirmed' %}bg-green-500
+                            {% elif booking.status == 'pending' %}bg-yellow-500
+                            {% else %}bg-red-500{% endif %}">
+                            {% if booking.session.status == 'live' %}Live Now
+                            {% elif booking.session.status == 'completed' %}Completed
+                            {% else %}{{ booking.get_status_display }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.mentor.get_full_name }}</p>
+                        </div>
+                        <div class="mb-2 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.schedule|date:"M d, Y" }} at {{ booking.session.schedule|date:"h:i A" }}</p>
+                        </div>
+                        <div class="mb-3 flex items-center">
+                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-gray-700">{{ booking.session.duration }} minutes</p>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            {% for topic in booking.session.topics %}
+                            <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">{{ topic }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold {% if booking.session.is_free %}text-green-600{% else %}text-gray-900{% endif %}">
+                                {% if booking.session.is_free %}Free{% else %}₹{{ booking.session.price }}{% endif %}
+                            </span>
+                            
+                            <div class="flex space-x-2">
+                                <a href="{% url 'sessions:detail' booking.session.id %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Details
+                                </a>
+                                
+                                {% if booking.session.status == 'live' %}
+                                <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Join Room
+                                </a>
+                                {% elif booking.session.schedule|date:'Y-m-d H:i:s' < now|date:'Y-m-d H:i:s' and booking.session.status == 'scheduled' %}
+                                <a href="{% url 'sessions:go_live' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Go Live
+                                </a>
+                                {% elif booking.session.status == 'completed' and not booking.has_feedback %}
+                                <a href="{% url 'sessions:feedback' booking.id %}" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                    Give Feedback
+                                </a>
+                                {% elif booking.status == 'confirmed' and booking.session.status != 'completed' %}
+                                <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                                    Cancel
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No sessions found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Start booking sessions with our mentors.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'sessions:list' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Browse Sessions
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Session tabs functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('[role="tab"]');
+    const tabPanels = document.querySelectorAll('[role="tabpanel"]');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', changeTab);
+    });
+    
+    function changeTab(e) {
+        // Hide all tab panels
+        tabPanels.forEach(panel => {
+            panel.classList.add('hidden');
+        });
+        
+        // Deactivate all tabs
+        tabs.forEach(tab => {
+            tab.classList.remove('active');
+            tab.setAttribute('aria-selected', false);
+            tab.classList.remove('border-blue-600');
+            tab.classList.add('border-transparent');
+        });
+        
+        // Activate the clicked tab
+        e.target.classList.add('active');
+        e.target.setAttribute('aria-selected', true);
+        e.target.classList.remove('border-transparent');
+        e.target.classList.add('border-blue-600');
+        
+        // Show the associated panel
+        const panelId = e.target.getAttribute('data-tabs-target').substring(1);
+        document.getElementById(panelId).classList.remove('hidden');
+    }
+    
+    // Search and filter functionality
+    const searchInput = document.getElementById('session-search');
+    const topicFilter = document.getElementById('topic-filter');
+    const statusFilter = document.getElementById('status-filter');
+    const sessionCards = document.querySelectorAll('.session-card');
+    
+    // Combined filter function
+    function filterSessions() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const topicValue = topicFilter.value.toLowerCase();
+        const statusValue = statusFilter.value.toLowerCase();
+        
+        sessionCards.forEach(card => {
+            const title = card.querySelector('h3').textContent.toLowerCase();
+            const mentor = card.querySelectorAll('.text-sm')[0].textContent.toLowerCase();
+            const cardTopics = card.dataset.topic.toLowerCase();
+            const cardStatus = card.dataset.status.toLowerCase();
+            
+            const matchesSearch = title.includes(searchTerm) || mentor.includes(searchTerm);
+            const matchesTopic = topicValue === '' || cardTopics.includes(topicValue);
+            const matchesStatus = statusValue === '' || cardStatus === statusValue;
+            
+            if (matchesSearch && matchesTopic && matchesStatus) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    // Attach event listeners
+    if (searchInput) searchInput.addEventListener('input', filterSessions);
+    if (topicFilter) topicFilter.addEventListener('change', filterSessions);
+    if (statusFilter) statusFilter.addEventListener('change', filterSessions);
+});
+</script>
+{% endblock %}
