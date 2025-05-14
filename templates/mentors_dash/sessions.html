@@ -490,6 +490,8 @@
                 if (this.isBusy) return;
                 this.isBusy = true;
                 
+                console.log("Preparing room for session ID:", sessionId);
+                
                 // Make API call to set session as live
                 fetch(`/sessions/api/sessions/${sessionId}/go_live/`, {
                     method: 'POST',
@@ -508,9 +510,6 @@
                     return response.json();
                 })
                 .then(data => {
-                    // Show success notification
-                    this.showToast(data.message || 'Room ready! Redirecting...', 'success');
-                    
                     console.log("Go Live API response:", data);
                     
                     // Get room code from response
@@ -520,12 +519,29 @@
                         throw new Error('No room code received from server');
                     }
                     
+                    // Show success notification if showToast is available
+                    if (typeof showToast === 'function') {
+                        showToast(data.message || 'Room ready! Redirecting...', 'success');
+                    } else {
+                        console.log("Toast notification function not available");
+                    }
+                    
                     // Redirect to session room
-                    window.location.href = `/sessions/${roomCode}/join/`;
+                    setTimeout(() => {
+                        console.log("Redirecting to:", `/sessions/${roomCode}/join/`);
+                        window.location.href = `/sessions/${roomCode}/join/`;
+                    }, 500);
                 })
                 .catch(error => {
                     console.error('Error preparing room:', error);
-                    this.showToast('Failed to prepare room. Please try again.', 'error');
+                    
+                    // Show error notification if showToast is available
+                    if (typeof showToast === 'function') {
+                        showToast('Failed to prepare room. Please try again.', 'error');
+                    } else {
+                        alert('Failed to prepare room. Please try again.');
+                    }
+                    
                     this.isBusy = false;
                 });
             },
