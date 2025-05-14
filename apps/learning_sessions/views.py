@@ -694,14 +694,38 @@ def session_room(request, room_code):
            (role_param == 'learner' and user_role == 'learner'):
             user_role = role_param
     
-    # Prepare WebRTC context
+    # Prepare WebRTC context with enhanced ICE server configuration
+    # Create a proper ICE servers configuration list for WebRTC
+    ice_servers = [
+        {
+            'urls': [getattr(settings, 'STUN_SERVER', 'stun:stun.l.google.com:19302')]
+        }
+    ]
+    
+    # Add TURN server if available
+    turn_server = getattr(settings, 'TURN_SERVER', '')
+    turn_username = getattr(settings, 'TURN_USERNAME', '')
+    turn_credential = getattr(settings, 'TURN_CREDENTIAL', '')
+    
+    if turn_server:
+        ice_servers.append({
+            'urls': [turn_server],
+            'username': turn_username,
+            'credential': turn_credential
+        })
+    
+    # Add additional Google STUN servers for redundancy
+    ice_servers.extend([
+        {'urls': ['stun:stun1.l.google.com:19302']},
+        {'urls': ['stun:stun2.l.google.com:19302']},
+        {'urls': ['stun:stun3.l.google.com:19302']},
+        {'urls': ['stun:stun4.l.google.com:19302']}
+    ])
+    
     context = {
         'session': session,
         'user_role': user_role,
-        'STUN_SERVER': getattr(settings, 'STUN_SERVER', 'stun:stun.l.google.com:19302'),
-        'TURN_SERVER': getattr(settings, 'TURN_SERVER', ''),
-        'TURN_USERNAME': getattr(settings, 'TURN_USERNAME', ''),
-        'TURN_CREDENTIAL': getattr(settings, 'TURN_CREDENTIAL', ''),
+        'ice_servers': json.dumps(ice_servers),  # Pass as JSON string to JS
         'room_code': str(session.room_code),
         'room_name': str(session.room_code),  # For backward compatibility
         'user_name': request.user.get_full_name() or request.user.username,
@@ -710,7 +734,8 @@ def session_room(request, room_code):
         'direct_role': role_param if is_direct else None,
     }
     
-    return render(request, 'sessions/room.html', context)
+    # Use the premium room template for an enhanced UX
+    return render(request, 'sessions/room_premium.html', context)
 
 @login_required
 def end_session(request, session_id):

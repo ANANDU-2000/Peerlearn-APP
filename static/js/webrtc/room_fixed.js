@@ -547,20 +547,23 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 // Create WebSocket connection - support multiple endpoint formats for maximum compatibility
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 
-                // Try all possible endpoint formats
+                // Advanced connection reliability: Try all possible endpoint formats with fallbacks
                 const wsUrlPlural = `${protocol}//${window.location.host}/ws/sessions/${roomCode}/`;
                 const wsUrlSingular = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
                 const wsUrlRoom = `${protocol}//${window.location.host}/ws/room/${roomCode}/`;
                 
-                console.log(`Starting WebSocket connection attempts for room: ${roomCode}`);
+                console.log(`Starting WebSocket connection attempts for room: ${roomCode} with enhanced reliability`);
+                showToast('info', 'Connecting', 'Establishing secure connection to the session...', 3000);
                 
-                // Connection state tracking
+                // Connection state tracking with improved visual feedback
                 this.connectionStatus = "Connecting";
                 this.connectionStatusClass = "connecting";
                 this.wsReconnectTimer = null;
                 this.wsLastMessageTime = Date.now();
                 this.wsCurrentEndpoint = null;
                 this.wsConnectedOnce = false;
+                this.wsConnectionAttempts = 0;
+                this.wsMaxAttempts = 5; // Increased retry attempts for better reliability
                 this.roomCode = roomCode;
                 
                 // Connection attempts counter and endpoint list

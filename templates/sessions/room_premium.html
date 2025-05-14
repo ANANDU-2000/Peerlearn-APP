@@ -1,0 +1,619 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.title }} | Premium Live Session Room{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Premium Video Room Styles - Modern Professional Interface */
+    body {
+        background-color: #f1f5f9; /* Light silver background */
+    }
+    
+    .room-container {
+        max-width: 100%;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 1rem;
+        overflow: hidden;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* Premium header with gradient */
+    .room-header {
+        background-image: linear-gradient(to right, #3b82f6, #2563eb);
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* Meeting Info Section */
+    .meeting-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .meeting-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+    
+    .meeting-badge {
+        background-color: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        backdrop-filter: blur(4px);
+    }
+    
+    /* Timer Display */
+    .timer-display {
+        background-color: rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(4px);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: monospace;
+        font-size: 1.1rem;
+    }
+    
+    /* Participant Containers */
+    .participant-container {
+        position: relative;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        background-color: #0f172a; /* Dark premium background */
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        height: 100%;
+    }
+    
+    .participant-container.mentor {
+        border-color: rgba(59, 130, 246, 0.6); /* Blue border for mentors */
+    }
+    
+    .participant-container.learner {
+        border-color: rgba(168, 85, 247, 0.6); /* Purple border for learners */
+    }
+    
+    .participant-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background-color: #0f172a;
+    }
+    
+    /* Video Placeholder */
+    .video-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #0f172a;
+        background-image: radial-gradient(circle at center, rgba(30, 58, 138, 0.1) 0%, rgba(15, 23, 42, 0.8) 70%);
+        color: white;
+        text-align: center;
+    }
+    
+    .avatar-circle {
+        width: 5rem;
+        height: 5rem;
+        background-color: #3b82f6;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    /* User Label */
+    .user-label {
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        backdrop-filter: blur(4px);
+        z-index: 10;
+    }
+    
+    .role-indicator {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+    }
+    
+    .role-indicator.mentor {
+        background-color: #3b82f6;
+    }
+    
+    .role-indicator.learner {
+        background-color: #a855f7;
+    }
+    
+    /* Media Controls */
+    .controls-container {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        background-color: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .control-button {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: white;
+        color: #1e293b;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
+    
+    .control-button:hover {
+        background-color: #f1f5f9;
+        transform: translateY(-2px);
+    }
+    
+    .control-button.active {
+        background-color: #3b82f6;
+        color: white;
+    }
+    
+    .control-button.danger {
+        background-color: #ef4444;
+        color: white;
+    }
+    
+    .control-button.danger:hover {
+        background-color: #dc2626;
+    }
+    
+    .control-icon {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .control-label {
+        font-size: 0.675rem;
+        white-space: nowrap;
+    }
+    
+    /* Chat Section */
+    .chat-section {
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .chat-header {
+        padding: 1rem;
+        background-color: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 600;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    
+    .chat-message {
+        margin-bottom: 1rem;
+        max-width: 85%;
+    }
+    
+    .chat-message.sent {
+        margin-left: auto;
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 1rem 1rem 0 1rem;
+        padding: 0.75rem 1rem;
+    }
+    
+    .chat-message.received {
+        margin-right: auto;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        border-radius: 1rem 1rem 1rem 0;
+        padding: 0.75rem 1rem;
+    }
+    
+    .chat-sender {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .chat-input-container {
+        padding: 1rem;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .chat-input {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 2rem;
+        border: 1px solid #e2e8f0;
+        outline: none;
+    }
+    
+    .chat-send-button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    
+    /* Connection Status */
+    .connection-status {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        z-index: 10;
+    }
+    
+    .status-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+    }
+    
+    .status-dot.connected {
+        background-color: #10b981;
+    }
+    
+    .status-dot.connecting {
+        background-color: #f59e0b;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .status-dot.error {
+        background-color: #ef4444;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; }
+        100% { opacity: 0.4; }
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .room-grid {
+            grid-template-columns: 1fr !important;
+        }
+        
+        .chat-section {
+            border-left: none;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .controls-container {
+            flex-wrap: wrap;
+        }
+        
+        .participant-container {
+            height: 50vh;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Session Feedback Modal - Hidden by Default -->
+<div id="feedback-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden" x-show="showFeedbackModal">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4">Rate Your Session</h3>
+        <p class="mb-4 text-gray-600">Please rate your experience with {{ session.mentor.full_name }}</p>
+        
+        <div class="flex justify-center mb-6">
+            <div class="rating flex space-x-2">
+                <button class="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center transition-colors" 
+                        x-on:click="rating = 1" 
+                        :class="{'bg-yellow-400 text-white': rating >= 1}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <!-- Repeated for stars 2-5 -->
+                <button class="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center transition-colors" 
+                        x-on:click="rating = 2" 
+                        :class="{'bg-yellow-400 text-white': rating >= 2}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center transition-colors" 
+                        x-on:click="rating = 3" 
+                        :class="{'bg-yellow-400 text-white': rating >= 3}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center transition-colors" 
+                        x-on:click="rating = 4" 
+                        :class="{'bg-yellow-400 text-white': rating >= 4}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <button class="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center transition-colors" 
+                        x-on:click="rating = 5" 
+                        :class="{'bg-yellow-400 text-white': rating >= 5}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <label for="feedback" class="block text-sm font-medium text-gray-700 mb-2">Additional Feedback</label>
+            <textarea id="feedback" x-model="feedbackText" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+            <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200" 
+                    x-on:click="showFeedbackModal = false">Skip</button>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    x-on:click="submitFeedback">Submit</button>
+        </div>
+    </div>
+</div>
+
+<div class="room-container mt-4 mb-8 mx-auto" style="max-width: 1400px;" x-data="webRTCRoom" x-init="init">
+    <!-- Room Header -->
+    <div class="room-header flex justify-between items-center">
+        <div class="meeting-info">
+            <h1 class="meeting-title">{{ session.title }}</h1>
+            <span class="meeting-badge">Live Session</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="timer-display">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                </svg>
+                <span x-text="sessionTime">00:00:00</span>
+            </div>
+            <div class="participants-count flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                </svg>
+                <span x-text="participantsLabel">Participants (1)</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="room-grid grid grid-cols-4" :class="{'grid-cols-3': !showChat, 'grid-cols-4': showChat}">
+        <!-- Video Area -->
+        <div class="col-span-3 p-4 bg-gray-50" :class="{'col-span-4': !showChat}">
+            <div class="video-grid grid grid-cols-2 gap-4 h-[70vh]">
+                <!-- Main participant (remote) -->
+                <div class="participant-container" 
+                     :class="{
+                        'col-span-2': layoutType === 'speaker',
+                        'mentor': remoteUserRole === 'mentor',
+                        'learner': remoteUserRole === 'learner'
+                     }">
+                    <video id="main-video" autoplay playsinline class="w-full h-full object-cover"></video>
+                    
+                    <!-- Connection status indicator -->
+                    <div class="connection-status">
+                        <div class="status-dot" :class="connectionStatusClass"></div>
+                        <span x-text="connectionStatus">Connected</span>
+                    </div>
+                    
+                    <!-- Camera off placeholder -->
+                    <div class="video-placeholder" x-show="!remoteVideoEnabled">
+                        <div class="avatar-circle" x-text="remoteUserName ? remoteUserName.charAt(0).toUpperCase() : ''"></div>
+                        <span class="text-lg font-medium" x-text="remoteUserName || 'Waiting...'"></span>
+                        <span class="text-sm text-gray-300 mt-2">Camera is turned off</span>
+                    </div>
+                    
+                    <!-- User label with role -->
+                    <div class="user-label">
+                        <div class="role-indicator" :class="{'mentor': remoteUserRole === 'mentor', 'learner': remoteUserRole === 'learner'}"></div>
+                        <span x-text="mainStreamUser || remoteUserName">Remote User</span>
+                    </div>
+                </div>
+                
+                <!-- Local participant -->
+                <div class="participant-container" 
+                     :class="{
+                        'absolute bottom-8 right-8 w-64 h-48 z-10': layoutType === 'speaker',
+                        'mentor': USER_ROLE === 'mentor',
+                        'learner': USER_ROLE === 'learner'
+                     }">
+                    <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                    
+                    <!-- Camera off placeholder -->
+                    <div class="video-placeholder" x-show="!videoEnabled">
+                        <div class="avatar-circle">{{ user.full_name.0|upper }}</div>
+                        <span class="text-lg font-medium">{{ user.full_name }} (You)</span>
+                        <span class="text-sm text-gray-300 mt-2">Camera is turned off</span>
+                    </div>
+                    
+                    <!-- User label with role -->
+                    <div class="user-label">
+                        <div class="role-indicator" :class="{'mentor': USER_ROLE === 'mentor', 'learner': USER_ROLE === 'learner'}"></div>
+                        <span>{{ user.full_name }} (You)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Controls Bar -->
+            <div class="controls-container">
+                <!-- Microphone Toggle -->
+                <button class="control-button" 
+                        :class="{'active': audioEnabled}"
+                        @click="toggleAudioStream">
+                    <div class="control-icon">
+                        <svg x-show="audioEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        <svg x-show="!audioEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" stroke-dasharray="2 2" />
+                        </svg>
+                    </div>
+                    <span class="control-label" x-text="audioEnabled ? 'Mute' : 'Unmute'"></span>
+                </button>
+                
+                <!-- Video Toggle -->
+                <button class="control-button" 
+                        :class="{'active': videoEnabled}"
+                        @click="toggleVideoStream">
+                    <div class="control-icon">
+                        <svg x-show="videoEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <svg x-show="!videoEnabled" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                        </svg>
+                    </div>
+                    <span class="control-label" x-text="videoEnabled ? 'Stop Video' : 'Start Video'"></span>
+                </button>
+                
+                <!-- Screen Share Toggle -->
+                <button class="control-button" 
+                        :class="{'active': isScreenSharing}"
+                        @click="toggleScreenSharing">
+                    <div class="control-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <span class="control-label" x-text="isScreenSharing ? 'Stop Sharing' : 'Share Screen'"></span>
+                </button>
+                
+                <!-- Chat Toggle -->
+                <button class="control-button" 
+                        :class="{'active': showChat}"
+                        @click="toggleChat">
+                    <div class="control-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                    </div>
+                    <span class="control-label" x-text="showChat ? 'Hide Chat' : 'Show Chat'"></span>
+                </button>
+                
+                <!-- Layout Toggle -->
+                <button class="control-button" @click="toggleLayout">
+                    <div class="control-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                    </div>
+                    <span class="control-label" x-text="layoutType === 'speaker' ? 'Grid View' : 'Speaker View'"></span>
+                </button>
+                
+                <!-- End Session -->
+                <button class="control-button danger" @click="endSession">
+                    <div class="control-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                    <span class="control-label">End Session</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div class="chat-section" x-show="showChat">
+            <div class="chat-header">
+                Group Chat
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <template x-for="(message, index) in chatMessages" :key="index">
+                    <div class="chat-message" :class="message.sender === USER_NAME ? 'sent' : 'received'">
+                        <div class="chat-sender" x-show="message.sender !== USER_NAME" x-text="message.sender"></div>
+                        <div class="chat-content" x-text="message.message"></div>
+                    </div>
+                </template>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" placeholder="Type a message..." 
+                       x-model="newMessage" 
+                       @keyup.enter="sendChatMessage">
+                <button class="chat-send-button" @click="sendChatMessage">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include sound effects -->
+<audio id="notification-sound" src="{% static 'sounds/notification.mp3' %}" preload="auto"></audio>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Constants for JS -->
+<script>
+    const roomCode = "{{ session.room_code }}";
+    const userId = "{{ user.id }}";
+    const userName = "{{ user.full_name }}";
+    const userRole = "{{ user_role }}";
+    const iceServers = {{ ice_servers|safe }};
+</script>
+
+<!-- Video conferencing JavaScript -->
+<script src="{% static 'js/webrtc/room_fixed.js' %}"></script>
+
+<!-- Initialize the room -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Initialize the WebRTC room
+        initWebRTCRoom(roomCode, userId, userName, userRole, iceServers);
+    });
+</script>
+{% endblock %}
