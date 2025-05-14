@@ -33,8 +33,14 @@ class SessionListView(ListView):
     paginate_by = 12
     
     def get_queryset(self):
-        """Filter to show only scheduled or live sessions."""
-        queryset = Session.objects.filter(status__in=[Session.SCHEDULED, Session.LIVE])
+        """Filter to show only scheduled or live sessions that haven't expired."""
+        now = timezone.now()
+        
+        # Only show sessions that are scheduled or live and haven't passed their scheduled time
+        queryset = Session.objects.filter(
+            status__in=[Session.SCHEDULED, Session.LIVE],
+            schedule__gte=now - timezone.timedelta(minutes=30)  # Include sessions that started within last 30 minutes
+        )
         
         # Apply category filter if provided
         category = self.request.GET.get('category')

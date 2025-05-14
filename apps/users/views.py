@@ -310,10 +310,34 @@ def learner_dashboard(request):
     # Get activities (consolidated from bookings and requests)
     activities = []
     
-    # Add bookings to activities
-    bookings = Booking.objects.filter(
+    # Add bookings to activities - filter out expired sessions
+    now = timezone.now()
+    
+    # Get all bookings first
+    all_bookings = Booking.objects.filter(
         learner=request.user
-    ).select_related('session', 'session__mentor').order_by('-created_at')[:10]
+    ).select_related('session', 'session__mentor').order_by('-created_at')
+    
+    # Filter out expired sessions that are scheduled but past their end time (keep completed and live sessions)
+    filtered_bookings = []
+    for booking in all_bookings:
+        # Keep all completed or cancelled sessions
+        if booking.session.status in ['completed', 'cancelled']:
+            filtered_bookings.append(booking)
+        # Keep all live sessions
+        elif booking.session.status == 'live':
+            filtered_bookings.append(booking)
+        # For scheduled sessions, only keep those that haven't expired
+        elif booking.session.status == 'scheduled':
+            session_end_time = booking.session.schedule + timezone.timedelta(minutes=booking.session.duration)
+            if session_end_time > now - timezone.timedelta(minutes=30):
+                filtered_bookings.append(booking)
+        
+        # Stop after 10 items
+        if len(filtered_bookings) >= 10:
+            break
+    
+    bookings = filtered_bookings
     
     for booking in bookings:
         activity = {

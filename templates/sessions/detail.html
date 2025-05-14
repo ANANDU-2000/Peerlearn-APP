@@ -6,29 +6,37 @@
 <div class="bg-gray-50 min-h-screen py-8">
     <div class="container mx-auto px-4">
         <div class="max-w-5xl mx-auto">
+            <!-- Back to sessions link -->
+            <a href="{% url 'sessions:list' %}" class="inline-flex items-center text-primary-600 hover:text-primary-700 mb-4">
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to all sessions
+            </a>
+            
             <!-- Session Details Card -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
                 <!-- Session Header -->
                 <div class="relative">
                     <!-- Status Badge -->
                     {% if session.status == 'live' %}
-                    <div class="absolute top-4 left-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full flex items-center z-10">
-                        <span class="animate-pulse mr-1 h-2 w-2 bg-white rounded-full"></span>
+                    <div class="absolute top-4 left-4 bg-red-600 text-white text-sm font-bold px-4 py-1.5 rounded-full flex items-center z-10 shadow-md">
+                        <span class="animate-pulse mr-2 h-3 w-3 bg-white rounded-full"></span>
                         LIVE NOW
                     </div>
                     {% else %}
-                    <div class="absolute top-4 left-4 bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full z-10">
+                    <div class="absolute top-4 left-4 bg-blue-600 text-white text-sm font-bold px-4 py-1.5 rounded-full z-10 shadow-md">
                         {{ session.schedule|date:"D, M d, h:i A" }}
                     </div>
                     {% endif %}
                     
                     <!-- Header Background -->
-                    <div class="h-48 bg-gradient-to-r from-primary-600 to-blue-400">
+                    <div class="h-56 bg-gradient-to-r from-primary-600 to-blue-500">
                         <div class="h-full w-full flex items-center justify-center text-white">
                             <div class="text-center">
-                                <div class="text-5xl mb-2">
+                                <div class="text-6xl font-bold mb-2">
                                     {% for topic in session.topics %}
-                                        {% if forloop.first %}{{ topic|first|upper }}{% endif %}
+                                        {% if forloop.first %}{{ topic|first|upper }}{{ topic|slice:"1:2"|upper }}{% endif %}
                                     {% endfor %}
                                 </div>
                             </div>
@@ -37,15 +45,15 @@
                 </div>
                 
                 <!-- Session Content -->
-                <div class="p-6">
-                    <div class="flex flex-wrap gap-2 mb-4">
+                <div class="p-8">
+                    <div class="flex flex-wrap gap-2 mb-5">
                         {% for topic in session.topics %}
                         <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">{{ topic }}</span>
                         {% endfor %}
                         <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">{{ session.duration }} minutes</span>
                     </div>
                     
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{{ session.title }}</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3">{{ session.title }}</h1>
                     
                     <!-- Mentor Info -->
                     <div class="flex items-center mb-6">
@@ -118,7 +126,7 @@
                                             {% if session.is_free %}
                                             Free
                                             {% else %}
-                                            ${{ session.price }}
+                                            ₹{{ session.price }}
                                             {% endif %}
                                         </span>
                                     </div>
