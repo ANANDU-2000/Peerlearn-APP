@@ -289,12 +289,14 @@ def go_live_api(request, session_id):
                 'error': 'Only the mentor who created the session can start it'
             }, status=403)
         
-        # Parse request data to check for force parameter
+        # Parse request data to check for parameters
         try:
             data = json.loads(request.body)
             force = data.get('force', False)
+            notify_learners = data.get('notify_learners', True)
         except:
             force = False
+            notify_learners = True
             
         # Check if session can be started (must be scheduled or we're forcing it)
         if session.status != 'scheduled' and not force:
@@ -339,13 +341,20 @@ def go_live_api(request, session_id):
             )
             
             # Create notifications for all learners with confirmed bookings
-            for booking in confirmed_bookings:
-                Notification.objects.create(
-                    user=booking.learner,
-                    title="Session is Live",
-                    message=f"The session '{session.title}' is now live! Join to start learning.",
-                    link=f"/sessions/{session.room_code}/join/"
-                )
+            if notify_learners:
+                for booking in confirmed_bookings:
+                    # Create notification object
+                    Notification.objects.create(
+                        user=booking.learner,
+                        title="Session is Live",
+                        message=f"The session '{session.title}' is now live! Join to start learning.",
+                        notification_type='session_live',
+                        reference_id=session.id,
+                        link=f"/sessions/{session.room_code}/join/?direct=true"
+                    )
+                    
+                    # Log notification creation
+                    logger.info(f"Created session live notification for learner {booking.learner.id}")
             
             # Send real-time updates via WebSocket
             channel_layer = get_channel_layer()
@@ -370,24 +379,45 @@ def go_live_api(request, session_id):
             )
             
             # Send to each learner's channel group
-            for booking in confirmed_bookings:
-                try:
-                    async_to_sync(channel_layer.group_send)(
-                        f"dashboard_{booking.learner.id}",
-                        {
-                            'type': 'session_update',
-                            'session': session_data,
-                            'action': 'live'
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending WebSocket notification to learner {booking.learner.id}: {str(e)}")
+            if notify_learners:
+                for booking in confirmed_bookings:
+                    try:
+                        # Send session update
+                        async_to_sync(channel_layer.group_send)(
+                            f"dashboard_{booking.learner.id}",
+                            {
+                                'type': 'session_update',
+                                'session': session_data,
+                                'action': 'live'
+                            }
+                        )
+                        
+                        # Send notification update
+                        async_to_sync(channel_layer.group_send)(
+                            f"notif_{booking.learner.id}",
+                            {
+                                'type': 'notification_message',
+                                'message': {
+                                    'type': 'alert',
+                                    'title': 'Session Live Now!',
+                                    'content': f"The session '{session.title}' with {session.mentor.get_full_name()} has started! Join now to participate.",
+                                    'link': f"/sessions/{session.room_code}/join/?direct=true",
+                                    'is_important': True
+                                }
+                            }
+                        )
+                        
+                        logger.info(f"Sent WebSocket notifications to learner {booking.learner.id}")
+                    except Exception as e:
+                        logger.error(f"Error sending WebSocket notification to learner {booking.learner.id}: {str(e)}")
         
-        # Return success response
+        # Return success response with direct=true parameter for immediate access
         return JsonResponse({
             'success': True,
-            'message': 'Session is now live',
-            'room_url': f"/sessions/{session.room_code}/join/",
+            'message': 'Session is now live! Redirecting to your room...',
+            'redirect_url': f"/sessions/{session.room_code}/join/?direct=true&mentor=true",
+            'room_url': f"/sessions/{session.room_code}/join/?direct=true&mentor=true",
+            'room_code': str(session.room_code),
             'session': {
                 'id': session.id,
                 'status': 'live',
