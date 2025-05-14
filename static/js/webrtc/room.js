@@ -124,7 +124,13 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 const wsUrl = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
                 
                 console.log(`Connecting to WebSocket at: ${wsUrl}`);
-                this.websocket = new WebSocket(wsUrl);
+                try {
+                    this.websocket = new WebSocket(wsUrl);
+                    console.log("WebSocket connection created successfully");
+                } catch (error) {
+                    console.error("Error creating WebSocket connection:", error);
+                    showToast('error', 'Connection Error', 'Failed to connect to the WebSocket server. Please refresh the page and try again.');
+                }
                 
                 // Set up event handlers
                 this.websocket.onopen = this.onWebSocketOpen.bind(this);
