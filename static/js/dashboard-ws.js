@@ -72,7 +72,11 @@ function connectDashboardWebSocket() {
     
     // Close existing connection if any
     if (dashboardSocket && dashboardSocket.readyState !== WebSocket.CLOSED) {
-        dashboardSocket.close();
+        try {
+            dashboardSocket.close();
+        } catch (e) {
+            console.warn('Error closing existing WebSocket:', e);
+        }
     }
     
     // Create WebSocket URL
@@ -82,16 +86,42 @@ function connectDashboardWebSocket() {
     try {
         console.log(`Connecting to dashboard WebSocket at ${wsUrl}`);
         
-        // Create WebSocket connection
+        // Create WebSocket connection with a timeout
         dashboardSocket = new WebSocket(wsUrl);
+        
+        // Make dashboardSocket globally accessible for status checks
+        window.dashboardSocket = dashboardSocket;
         
         // Set event handlers
         dashboardSocket.onopen = onDashboardSocketOpen;
         dashboardSocket.onmessage = onDashboardSocketMessage;
         dashboardSocket.onclose = onDashboardSocketClose;
         dashboardSocket.onerror = onDashboardSocketError;
+        
+        // Add connection timeout - close if not connected within 10 seconds
+        const connectionTimeout = setTimeout(() => {
+            if (dashboardSocket && dashboardSocket.readyState === WebSocket.CONNECTING) {
+                console.warn('WebSocket connection timeout - closing socket');
+                dashboardSocket.close();
+                // Update connection indicator
+                updateConnectionIndicator(false);
+            }
+        }, 10000);
+        
+        // Clear timeout when connected
+        dashboardSocket.addEventListener('open', () => {
+            clearTimeout(connectionTimeout);
+        });
+        
+        // Clear timeout when closed (for any reason)
+        dashboardSocket.addEventListener('close', () => {
+            clearTimeout(connectionTimeout);
+        });
+        
     } catch (error) {
         console.error('Error creating dashboard WebSocket:', error);
+        // Update connection indicator on error
+        updateConnectionIndicator(false);
     }
 }
 
@@ -101,9 +131,15 @@ function connectDashboardWebSocket() {
 function onDashboardSocketOpen(event) {
     console.log('Dashboard WebSocket connected');
     
+    // Make dashboardSocket globally accessible for connection status checks
+    window.dashboardSocket = dashboardSocket;
+    
     // Reset reconnection variables
     reconnectAttempts = 0;
     reconnectInterval = 2000;
+    
+    // Update connection indicator immediately
+    updateConnectionIndicator(true);
     
     // Request initial data
     sendDashboardMessage({
@@ -167,6 +203,9 @@ function onDashboardSocketMessage(event) {
 function onDashboardSocketClose(event) {
     console.log('Dashboard WebSocket closed:', event.code, event.reason);
     
+    // Make dashboardSocket globally accessible for connection status checks
+    window.dashboardSocket = dashboardSocket;
+    
     // Check if window is closing/page is unloading - no need to reconnect in that case
     if (window.isUnloading) {
         console.log('Page is unloading, not attempting to reconnect dashboard WebSocket');
@@ -179,54 +218,109 @@ function onDashboardSocketClose(event) {
     
     if (shouldNotReconnect) {
         console.warn(`Not reconnecting dashboard WebSocket due to close code ${event.code}: ${event.reason}`);
+        
+        // Update connection indicator
+        updateConnectionIndicator(false);
         return;
     }
     
     // Set reconnect flag for page reload detection
     sessionStorage.setItem('dashboard_reconnect', 'true');
     
+    // Always update connection indicator when disconnected
+    updateConnectionIndicator(false);
+    
+    // Consider normal close codes as clean disconnects
+    const isCleanDisconnect = event.code === 1000 || event.code === 1001;
+    
     // Attempt to reconnect with exponential backoff
     if (reconnectAttempts < maxReconnectAttempts) {
         // Calculate delay with exponential backoff and a bit of randomization
-        const delay = reconnectInterval * (1 + (Math.random() * 0.1));
+        // Use shorter delay for clean disconnects 
+        const baseDelay = isCleanDisconnect ? 500 : reconnectInterval;
+        const delay = baseDelay * (1 + (Math.random() * 0.1));
+        
         console.log(`Reconnecting dashboard WebSocket in ${(delay/1000).toFixed(1)}s (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
         
         setTimeout(() => {
             reconnectAttempts++;
-            reconnectInterval = Math.min(30000, reconnectInterval * 2); // Max 30s
+            // Only increase the reconnect interval for non-clean disconnects
+            if (!isCleanDisconnect) {
+                reconnectInterval = Math.min(15000, reconnectInterval * 1.5); // Max 15s, gentler growth
+            }
             connectDashboardWebSocket();
         }, delay);
     } else {
         console.error('Max reconnect attempts reached for dashboard WebSocket');
         
-        // Update connection indicator
-        const indicator = document.getElementById('ws-status-indicator');
-        if (indicator) {
+        // Show manual reconnect option with refresh button
+        showReconnectUI();
+    }
+}
+
+/**
+ * Update the WebSocket connection indicator
+ */
+function updateConnectionIndicator(connected) {
+    const indicator = document.getElementById('ws-status-indicator');
+    if (indicator) {
+        if (connected) {
+            indicator.classList.remove('bg-red-500');
+            indicator.classList.add('bg-green-500');
+            indicator.setAttribute('title', 'Connected to real-time updates');
+        } else {
             indicator.classList.remove('bg-green-500');
             indicator.classList.add('bg-red-500');
             indicator.setAttribute('title', 'Disconnected from real-time updates');
         }
+    }
+}
+
+/**
+ * Show UI for manually reconnecting when automatic attempts fail
+ */
+function showReconnectUI() {
+    // Update connection indicator
+    updateConnectionIndicator(false);
+    
+    // Show toast with reload and manual reconnect options
+    if (window.showToast) {
+        const reloadToast = window.showToast(
+            'Connection lost. You can reload the page or try to reconnect.',
+            'error',
+            0 // Don't auto-dismiss
+        );
         
-        // Show toast with reload option
-        if (window.showToast) {
-            const reloadToast = window.showToast(
-                'Connection lost. Please reload the page to reconnect.',
-                'error',
-                0 // Don't auto-dismiss
-            );
+        // Add buttons to toast
+        if (reloadToast) {
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.className = 'mt-2 flex space-x-2';
             
-            // Add reload button to toast
-            if (reloadToast) {
-                const reloadBtn = document.createElement('button');
-                reloadBtn.className = 'ml-2 inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500';
-                reloadBtn.textContent = 'Reload Now';
-                reloadBtn.addEventListener('click', () => window.location.reload());
-                
-                // Find toast text container
-                const textContainer = reloadToast.querySelector('.text-sm');
-                if (textContainer) {
-                    textContainer.appendChild(reloadBtn);
-                }
+            // Reconnect button
+            const reconnectBtn = document.createElement('button');
+            reconnectBtn.className = 'inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500';
+            reconnectBtn.textContent = 'Try Again';
+            reconnectBtn.addEventListener('click', () => {
+                reconnectAttempts = 0;
+                reconnectInterval = 2000;
+                connectDashboardWebSocket();
+                reloadToast.remove();
+            });
+            
+            // Reload button
+            const reloadBtn = document.createElement('button');
+            reloadBtn.className = 'inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500';
+            reloadBtn.textContent = 'Reload Page';
+            reloadBtn.addEventListener('click', () => window.location.reload());
+            
+            // Add buttons to container
+            buttonsContainer.appendChild(reconnectBtn);
+            buttonsContainer.appendChild(reloadBtn);
+            
+            // Find toast text container
+            const textContainer = reloadToast.querySelector('.text-sm');
+            if (textContainer) {
+                textContainer.appendChild(buttonsContainer);
             }
         }
     }

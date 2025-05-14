@@ -518,6 +518,10 @@ def learner_activity_partial(request):
     
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
+    import logging
+    
+    # Set up logger for debugging
+    logger = logging.getLogger(__name__)
     
     bookings = Booking.objects.filter(
         learner=request.user

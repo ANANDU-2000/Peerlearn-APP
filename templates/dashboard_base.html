@@ -232,43 +232,82 @@
     <!-- Initialize WebSocket connections -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if we're on an authenticated page by looking for the user-id meta tag
-            const userIdMeta = document.querySelector('meta[name="user-id"]');
-            
-            // Only proceed if the meta tag exists
-            if (userIdMeta) {
-                const userId = userIdMeta.getAttribute('content');
+            // Wait for all scripts to fully load before initializing WebSockets
+            setTimeout(function() {
+                // Check if we're on an authenticated page by looking for the user-id meta tag
+                const userIdMeta = document.querySelector('meta[name="user-id"]');
                 
-                // Only initialize if we have a valid user ID
-                if (userId) {
-                    console.log('User authenticated with ID:', userId);
+                // Only proceed if the meta tag exists
+                if (userIdMeta) {
+                    const userId = userIdMeta.getAttribute('content');
                     
-                    // Initialize real-time connections
-                    if (typeof window.initDashboardWebSocket === 'function') {
-                        window.initDashboardWebSocket(userId);
+                    // Only initialize if we have a valid user ID
+                    if (userId) {
+                        console.log('User authenticated with ID:', userId);
+                        
+                        // Initialize real-time connections with error handling
+                        try {
+                            if (typeof window.initDashboardWebSocket === 'function') {
+                                window.initDashboardWebSocket(userId);
+                                console.log('Dashboard WebSocket initialized');
+                            } else {
+                                console.warn('Dashboard WebSocket initialization function not found, will retry in 1s');
+                                // Retry once after a delay
+                                setTimeout(() => {
+                                    if (typeof window.initDashboardWebSocket === 'function') {
+                                        window.initDashboardWebSocket(userId);
+                                        console.log('Dashboard WebSocket initialized on retry');
+                                    }
+                                }, 1000);
+                            }
+                        } catch (err) {
+                            console.error('Error initializing dashboard WebSocket:', err);
+                        }
+                        
+                        try {
+                            if (typeof window.initNotifications === 'function') {
+                                window.initNotifications();
+                                console.log('Notifications initialized');
+                            } else {
+                                console.warn('Notifications initialization function not found');
+                                // Retry once after a delay
+                                setTimeout(() => {
+                                    if (typeof window.initNotifications === 'function') {
+                                        window.initNotifications();
+                                        console.log('Notifications initialized on retry');
+                                    }
+                                }, 1000);
+                            }
+                        } catch (err) {
+                            console.error('Error initializing notifications:', err);
+                        }
+                        
+                        // Update connection indicator
+                        const updateIndicator = () => {
+                            const indicator = document.getElementById('ws-status-indicator');
+                            if (indicator) {
+                                if (window.dashboardSocket && window.dashboardSocket.readyState === WebSocket.OPEN) {
+                                    indicator.classList.remove('bg-red-500');
+                                    indicator.classList.add('bg-green-500');
+                                    indicator.setAttribute('title', 'Connected to real-time updates');
+                                } else {
+                                    indicator.classList.remove('bg-green-500');
+                                    indicator.classList.add('bg-red-500');
+                                    indicator.setAttribute('title', 'Disconnected from real-time updates');
+                                }
+                            }
+                        };
+                        
+                        // Update indicator initially and check periodically
+                        updateIndicator();
+                        setInterval(updateIndicator, 5000);
                     } else {
-                        console.warn('Dashboard WebSocket initialization function not found');
-                    }
-                    
-                    if (typeof window.initNotifications === 'function') {
-                        window.initNotifications();
-                    } else {
-                        console.warn('Notifications initialization function not found');
-                    }
-                    
-                    // Update connection indicator
-                    const indicator = document.getElementById('ws-status-indicator');
-                    if (indicator) {
-                        indicator.classList.remove('bg-red-500');
-                        indicator.classList.add('bg-green-500');
-                        indicator.setAttribute('title', 'Connected to real-time updates');
+                        console.warn('User ID meta tag is empty');
                     }
                 } else {
-                    console.warn('User ID meta tag is empty');
+                    console.log('User is not authenticated, WebSocket connections not initialized');
                 }
-            } else {
-                console.log('User is not authenticated, WebSocket connections not initialized');
-            }
+            }, 500); // Wait 500ms to ensure scripts are loaded
         });
     </script>
     {% endif %}
