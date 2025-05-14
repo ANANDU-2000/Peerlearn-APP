@@ -300,52 +300,121 @@ document.addEventListener('alpine:init', () => {
          */
         initializePeerConnection() {
             try {
-                // Create a new RTCPeerConnection with ICE servers
+                // Close any existing peer connection
+                if (this.peerConnection) {
+                    this.peerConnection.close();
+                }
+                
+                // Create new RTCPeerConnection with enhanced ICE servers and configuration
                 this.peerConnection = new RTCPeerConnection({
                     iceServers: this.iceServers,
-                    iceTransportPolicy: 'all'
+                    iceTransportPolicy: 'all',
+                    iceCandidatePoolSize: 10, // Increase candidate pool for better connectivity
+                    bundlePolicy: 'max-bundle', // Optimize for bundling
+                    rtcpMuxPolicy: 'require' // Require RTCP multiplexing
                 });
                 
                 console.log('Peer connection initialized with ICE servers:', this.iceServers);
                 
                 // Add local stream tracks to the peer connection
                 if (this.localStream) {
+                    console.log('Adding local tracks to peer connection...');
                     this.localStream.getTracks().forEach(track => {
-                        this.peerConnection.addTrack(track, this.localStream);
+                        const sender = this.peerConnection.addTrack(track, this.localStream);
+                        console.log(`Added ${track.kind} track to peer connection`);
+                        
+                        // Store track sender for later reference (useful for replacing tracks)
+                        if (track.kind === 'video') {
+                            this.videoSender = sender;
+                        } else if (track.kind === 'audio') {
+                            this.audioSender = sender;
+                        }
                     });
+                } else {
+                    console.warn('No local stream available when initializing peer connection');
                 }
                 
-                // Handle ICE candidates
+                // Handle ICE candidates - more verbose logging for debugging
                 this.peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        console.log('ICE candidate generated:', event.candidate.candidate.substr(0, 50) + '...');
+                        // Log candidate details for debugging
+                        const candidateInfo = event.candidate.candidate || 'unknown';
+                        const shortCandidateInfo = candidateInfo.length > 50 ? 
+                            candidateInfo.substr(0, 50) + '...' : candidateInfo;
+                            
+                        console.log('ICE candidate generated:', shortCandidateInfo);
+                        console.log('Candidate type:', event.candidate.type || 'unknown');
                         
                         // Send the ICE candidate to the other peer via WebSocket
                         this.sendSignal({
                             type: 'ice_candidate',
                             candidate: event.candidate
                         });
+                    } else {
+                        console.log('ICE candidate gathering complete');
                     }
                 };
                 
-                // Handle ICE connection state changes
+                // ICE gathering state monitoring
+                this.peerConnection.onicegatheringstatechange = () => {
+                    console.log('ICE gathering state:', this.peerConnection.iceGatheringState);
+                };
+                
+                // Handle ICE connection state changes with enhanced recovery logic
                 this.peerConnection.oniceconnectionstatechange = () => {
-                    console.log('ICE connection state changed:', this.peerConnection.iceConnectionState);
+                    const state = this.peerConnection.iceConnectionState;
+                    console.log('ICE connection state changed:', state);
                     
-                    if (this.peerConnection.iceConnectionState === 'failed') {
-                        console.warn('ICE connection failed, attempting to restart');
-                        this.restartIce();
-                    } else if (this.peerConnection.iceConnectionState === 'disconnected') {
-                        console.warn('ICE connection disconnected, waiting for reconnection...');
-                        setTimeout(() => {
-                            if (this.peerConnection.iceConnectionState === 'disconnected') {
-                                this.restartIce();
+                    // Update UI indicator for connection status
+                    const connectionStatusIndicator = document.getElementById('connection-status');
+                    if (connectionStatusIndicator) {
+                        connectionStatusIndicator.className = `connection-status-${state}`;
+                        connectionStatusIndicator.textContent = `Connection: ${state}`;
+                    }
+                    
+                    // Handle different ICE connection states
+                    switch (state) {
+                        case 'checking':
+                            console.log('Checking ICE connection...');
+                            break;
+                            
+                        case 'connected':
+                        case 'completed':
+                            console.log('ICE connection established');
+                            this.isConnected = true;
+                            this.sessionStatus = 'live';
+                            this.playNotificationSound();
+                            
+                            // Clear any reconnection attempts
+                            if (this.reconnectionTimer) {
+                                clearTimeout(this.reconnectionTimer);
+                                this.reconnectionTimer = null;
                             }
-                        }, 5000);
-                    } else if (this.peerConnection.iceConnectionState === 'connected') {
-                        console.log('ICE connection established');
-                        this.isConnected = true;
-                        this.sessionStatus = 'live';
+                            
+                            // Update UI to show connected state
+                            this.showSuccessMessage('Connection established successfully!');
+                            break;
+                            
+                        case 'failed':
+                            console.warn('ICE connection failed, attempting to restart');
+                            this.restartIce();
+                            break;
+                            
+                        case 'disconnected':
+                            console.warn('ICE connection disconnected, scheduling reconnection attempt');
+                            // Wait a bit before attempting reconnection to allow for natural recovery
+                            this.reconnectionTimer = setTimeout(() => {
+                                if (this.peerConnection.iceConnectionState === 'disconnected') {
+                                    console.log('Still disconnected after wait, attempting ICE restart');
+                                    this.restartIce();
+                                }
+                            }, 5000); // 5 second wait
+                            break;
+                            
+                        case 'closed':
+                            console.log('ICE connection closed');
+                            this.isConnected = false;
+                            break;
                     }
                 };
                 
@@ -583,6 +652,15 @@ document.addEventListener('alpine:init', () => {
                         console.log('User joined:', this.remoteUserName, 'with role', this.remoteUserRole);
                         break;
                         
+                    // Handle ICE restart request from learner
+                    case 'request_ice_restart':
+                        console.log('ICE restart requested by remote peer');
+                        if (this.USER_ROLE === 'mentor') {
+                            // Only mentors should respond to restart requests
+                            this.restartIce();
+                        }
+                        break;
+                        
                     case 'user_leave':
                     case 'user_left':
                         console.log('User left:', message.username || message.user_name);
@@ -650,23 +728,71 @@ document.addEventListener('alpine:init', () => {
          */
         async restartIce() {
             if (!this.peerConnection) {
+                console.log('Cannot restart ICE: No peer connection');
+                this.initializePeerConnection();
                 return;
             }
             
             console.log('Restarting ICE connection');
             
             try {
+                // First try to reset the connection state
+                const connectionState = this.peerConnection.connectionState;
+                const iceConnectionState = this.peerConnection.iceConnectionState;
+                
+                console.log('Current connection states before restart - Connection:', 
+                           connectionState, 'ICE:', iceConnectionState);
+                
+                // If we're the mentor (initiator), create a new offer with iceRestart flag
                 if (this.USER_ROLE === 'mentor') {
-                    const offer = await this.peerConnection.createOffer({ iceRestart: true });
+                    // Create an offer with iceRestart flag to force ICE to restart
+                    const offer = await this.peerConnection.createOffer({ 
+                        iceRestart: true,
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true
+                    });
+                    
                     await this.peerConnection.setLocalDescription(offer);
                     
+                    console.log('New ICE restart offer created and set as local description');
+                    
+                    // Send the new offer to restart ICE negotiation
                     this.sendSignal({
                         type: 'offer',
                         sdp: offer
                     });
+                    
+                    // Log the event to track restarts
+                    console.log('ICE restart offer sent to remote peer');
+                } else {
+                    // For learners, we'll just send a signal requesting ICE restart
+                    this.sendSignal({
+                        type: 'request_ice_restart'
+                    });
+                    console.log('ICE restart requested from mentor');
                 }
+                
+                // Set a timeout to check if the connection improved
+                setTimeout(() => {
+                    const newConnectionState = this.peerConnection.connectionState;
+                    const newIceState = this.peerConnection.iceConnectionState;
+                    
+                    console.log('Connection states after restart attempt - Connection:', 
+                               newConnectionState, 'ICE:', newIceState);
+                    
+                    // If still disconnected, show a helpful message to the user
+                    if (newConnectionState === 'disconnected' || 
+                        newConnectionState === 'failed' ||
+                        newIceState === 'disconnected' || 
+                        newIceState === 'failed') {
+                        
+                        this.showError('Connection issues detected. Please check your network or refresh the page.');
+                    }
+                }, 5000);
+                
             } catch (error) {
                 console.error('Error restarting ICE connection:', error);
+                this.showError('Connection error occurred. Try refreshing the page.');
             }
         },
         
