@@ -138,8 +138,8 @@
                                     Join Room
                                 </a>
                                 {% elif booking.session.schedule|date:'Y-m-d H:i:s' < now|date:'Y-m-d H:i:s' and booking.session.status == 'scheduled' %}
-                                <a href="{% url 'sessions:go_live' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-                                    Go Live
+                                <a href="/sessions/{{ booking.session.room_code }}/join/" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Join Session
                                 </a>
                                 {% elif booking.status == 'confirmed' %}
                                 <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
