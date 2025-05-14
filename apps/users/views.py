@@ -808,24 +808,16 @@ def mentor_sessions(request):
                     status='confirmed'  # Use string literal
                 ).count()
                 
-                # Check if can go live (mentors can prepare anytime before end time)
+                # We don't need to manually set can_go_live here as it's already a property in the Session model
+                # Just ensure the session is loaded with proper related fields
                 time_until_session = session.schedule - now
                 session_end_time = session.schedule + timezone.timedelta(minutes=session.duration)
                 
-                # Mentors can go live anytime before the end time of the session
-                # For simplicity, we're just creating a new attribute on the session object
-                can_go_live_value = (session.status == 'scheduled' and session_end_time > now)
-                session._can_go_live = can_go_live_value
+                # Log the session's can_go_live property for debugging
+                logger.info(f"Session {session.id}: can_go_live={session.can_go_live}, is_near_start_time={session.is_near_start_time}")
                 
-                # Define get_can_go_live as a proper method instead of using lambda
-                def get_can_go_live_method(self=session):
-                    return self._can_go_live
-                
-                # Attach the method to the session object
-                session.get_can_go_live = get_can_go_live_method
-                
-                # Log go-live status for debugging
-                logger.info(f"Session {session.id}: Title={session.title}, Status={session.status}, Can Go Live={can_go_live_value}")
+                # Log session details for debugging
+                logger.info(f"Session {session.id}: Title={session.title}, Status={session.status}")
                 
                 # Check if session is currently live
                 session.is_live = (session.status == 'live')
