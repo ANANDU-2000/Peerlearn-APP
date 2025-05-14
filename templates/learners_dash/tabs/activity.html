@@ -85,11 +85,7 @@
                                             </a>
                                         {% endif %}
                                         
-                                        {% if activity.can_go_live %}
-                                            <a href="/sessions/{{ activity.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                                <i data-feather="zap" class="w-4 h-4 mr-1"></i> Go Live
-                                            </a>
-                                        {% endif %}
+                                        <!-- Removed Go Live button for learners -->
                                         
                                         {% if activity.can_confirm %}
                                             <form action="/sessions/requests/{{ activity.request_id }}/accept/" method="POST" class="inline">
@@ -437,33 +433,21 @@
                                     <!-- Action Buttons -->
                                     <div class="flex space-x-2">
                                         {% if booking.session.status == 'live' and booking.status == 'confirmed' %}
-                                            <a href="/sessions/{{ booking.session.room_code }}/join/" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                                <i data-feather="video" class="w-4 h-4 mr-1"></i> Join▶
+                                            <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                <i data-feather="video" class="w-4 h-4 mr-1"></i> Join Live
                                             </a>
                                         {% endif %}
                                         
-                                        <!-- Go Live Button - Show for confirmed sessions near start time -->
-                                        <div x-data="{ 
-                                            canGoLive: false,
-                                            sessionTime: '{{ booking.session.schedule|date:'c' }}',
-                                            checkTime() {
-                                                const sessionDate = new Date(this.sessionTime);
-                                                const now = new Date();
-                                                const timeDiff = sessionDate - now;
-                                                
-                                                // Enable for sessions within 15 minutes of start time or up to 30 minutes after start
-                                                return (timeDiff <= 15 * 60 * 1000 && timeDiff >= -30 * 60 * 1000);
-                                            }
-                                        }" 
-                                        x-init="canGoLive = checkTime()"
-                                        class="inline-flex items-center">
-                                            {% if booking.status == 'confirmed' and booking.session.status == 'scheduled' %}
-                                                <a href="/sessions/{{ booking.session.room_code }}/join/" 
-                                                   x-show="canGoLive"
-                                                   class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                                    <i data-feather="video" class="w-4 h-4 mr-1"></i> Go Live
+                                        {% if booking.session.status == 'scheduled' and booking.status == 'confirmed' %}
+                                            {% if booking.session.is_near_start_time %}
+                                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                                    <i data-feather="clock" class="w-4 h-4 mr-1"></i> Join Room
                                                 </a>
                                             {% endif %}
+                                        {% endif %}
+                                        
+                                        <!-- Live session joining functionality -->
+                                        <div class="inline-flex items-center">
                                             
                                             {% if booking.session.status == 'live' %}
                                                 <a href="/sessions/{{ booking.session.room_code }}/join/" 
