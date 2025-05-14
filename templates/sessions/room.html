@@ -603,51 +603,74 @@
                 <!-- Chat sidebar -->
                 <div class="lg:col-span-1">
                     <div class="bg-white shadow rounded-lg overflow-hidden h-full">
-                        <div class="p-4 border-b border-gray-200">
-                            <h2 class="text-lg font-medium text-gray-900">Live Chat</h2>
+                        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-blue-50">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-lg font-bold text-primary-900">
+                                    <span class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-600" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                                            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                                        </svg>
+                                        Live Chat
+                                    </span>
+                                </h2>
+                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Live</span>
+                            </div>
                         </div>
                         
                         <div class="flex flex-col h-full">
                             <div class="flex-1 overflow-y-auto p-4 chat-messages" x-ref="chatMessages">
                                 <template x-for="(message, index) in chatMessages" :key="index">
-                                    <div class="mb-4">
-                                        <div class="flex items-start">
-                                            <div class="flex-shrink-0">
-                                                <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 font-semibold text-sm">
+                                    <div class="mb-4" :class="{'ml-auto max-w-[80%]': message.sender === USER_NAME}">
+                                        <div class="flex items-start" :class="{'flex-row-reverse': message.sender === USER_NAME}">
+                                            <div class="flex-shrink-0" :class="{'ml-3': message.sender === USER_NAME, 'mr-0': message.sender === USER_NAME, 'mr-3': message.sender !== USER_NAME}">
+                                                <div class="h-8 w-8 rounded-full flex items-center justify-center text-sm"
+                                                     :class="message.sender === USER_NAME ? 'bg-primary-600 text-white' : (message.sender === '{{ session.mentor.get_full_name }}' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-700')">
                                                     <span x-text="message.sender.charAt(0).toUpperCase()"></span>
                                                 </div>
                                             </div>
-                                            <div class="ml-3">
-                                                <p class="text-sm font-medium text-gray-900" x-text="message.sender"></p>
-                                                <div class="mt-1 text-sm text-gray-700 bg-gray-50 rounded-lg p-3" x-html="formatMessage(message.content)"></div>
-                                                <p class="mt-1 text-xs text-gray-500" x-text="formatTime(message.timestamp)"></p>
+                                            <div :class="{'text-right': message.sender === USER_NAME}">
+                                                <p class="text-xs font-medium text-gray-500 mb-1" x-text="message.sender + ' • ' + formatTime(message.timestamp)"></p>
+                                                <div class="text-sm rounded-lg p-3 inline-block" 
+                                                     :class="message.sender === USER_NAME ? 'bg-primary-100 text-primary-900 rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'"
+                                                     x-html="formatMessage(message.content)"></div>
                                             </div>
                                         </div>
                                     </div>
                                 </template>
                                 
                                 <div x-show="chatMessages.length === 0" class="flex flex-col items-center justify-center h-40 text-gray-500">
-                                    <svg class="w-10 h-10 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    <svg class="w-12 h-12 mb-3 text-primary-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                     </svg>
-                                    <p>No messages yet</p>
+                                    <p class="mb-1">No messages yet</p>
+                                    <p class="text-xs text-gray-400">Start the conversation with {{ user_role|title == 'Mentor' ? 'your learner' : 'your mentor' }}</p>
                                 </div>
                             </div>
                             
-                            <div class="border-t border-gray-200 p-4">
-                                <form @submit.prevent="sendChatMessage" class="flex">
-                                    <input 
-                                        type="text" 
-                                        x-model="newMessage" 
-                                        placeholder="Type your message..." 
-                                        class="flex-1 shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                    >
+                            <div class="border-t border-gray-200 p-3 bg-gray-50">
+                                <form @submit.prevent="sendChatMessage" class="flex items-center">
+                                    <div class="relative flex-1">
+                                        <input 
+                                            type="text" 
+                                            x-model="newMessage" 
+                                            placeholder="Type your message..." 
+                                            class="pr-10 shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-full py-2 px-4"
+                                        >
+                                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                            <svg x-show="!newMessage.trim()" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                     <button 
                                         type="submit" 
-                                        class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                                         :disabled="!newMessage.trim()"
                                     >
-                                        Send
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                                        </svg>
                                     </button>
                                 </form>
                             </div>
