@@ -325,7 +325,7 @@
                                     <!-- Action buttons -->
                                     <div class="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
                                         <!-- Only show Go Live button for upcoming sessions that are ready to go live -->
-                                        {% if session.can_go_live %}
+                                        {% if session.get_can_go_live %}
                                             <button @click="goLive(sessionId)" :disabled="isBusy"
                                                 class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
                                                 <svg x-show="!isBusy" class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
