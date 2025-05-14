@@ -2088,16 +2088,30 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // Update session status
             updateSessionStatus(status) {
+                // Check if user is a mentor
+                if (userRole !== 'mentor') {
+                    console.log("Only mentors can update session status");
+                    return;
+                }
+                
+                // First send via WebSocket for real-time updates
                 if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log(`Sending session_status via WebSocket: ${status}`);
                     this.websocket.send(JSON.stringify({
                         type: 'session_status',
                         user_id: userId,
                         username: userName,
                         status: status
                     }));
+                } else {
+                    console.warn("WebSocket not connected, status update will only be sent via HTTP");
                 }
                 
-                // Update backend session status
+                // Log the request URL and data for debugging
+                console.log(`Updating session status to ${status} for room ${roomCode}`);
+                console.log(`Calling API: /api/sessions/${roomCode}/status/`);
+                
+                // Update backend session status via HTTP API
                 fetch(`/api/sessions/${roomCode}/status/`, {
                     method: 'POST',
                     headers: {
@@ -2107,10 +2121,33 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     body: JSON.stringify({
                         status: status
                     })
-                }).catch(error => {
+                })
+                .then(response => {
+                    console.log('Status update response:', response.status);
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error('Error response text:', text);
+                            throw new Error(`HTTP error! Status: ${response.status}, Response: ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Session status updated successfully:', data);
+                    
+                    // Display status-specific notifications
+                    if (status === 'live') {
+                        showToast('success', 'Session Started', 'The session is now live!', 5000);
+                    } else if (status === 'completed' || status === 'ended') {
+                        showToast('info', 'Session Ended', 'The session has been marked as completed.', 5000);
+                    }
+                })
+                .catch(error => {
                     console.error("Error updating session status:", error);
+                    showToast('error', 'Status Update Failed', 'Failed to update session status. Please try again.', 5000);
                 });
                 
+                // Update local state
                 this.sessionStatus = status;
             },
             
