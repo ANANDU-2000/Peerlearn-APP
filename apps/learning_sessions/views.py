@@ -909,10 +909,10 @@ def go_live_session(request, room_code):
             message=f"Session '{session.title}' is now live! Join now.",
             notification_type='session_live',
             reference_id=session.id,
-            link=f"/sessions/room/{session.room_code}/"
+            link=f"/sessions/{session.room_code}/join/"
         )
     
     messages.success(request, 'Session is now live. Joining room...')
     
-    # Redirect to the session room
-    return redirect('sessions:room', room_code=session.room_code)
+    # Redirect to the join page with direct=true parameter to bypass the join screen
+    return redirect(f'/sessions/{session.room_code}/join/?direct=true')
