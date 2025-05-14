@@ -698,7 +698,7 @@ def session_room(request, room_code):
     # Create a proper ICE servers configuration list for WebRTC
     ice_servers = [
         {
-            'urls': [getattr(settings, 'STUN_SERVER', 'stun:stun.l.google.com:19302')]
+            'urls': getattr(settings, 'STUN_SERVER', 'stun:stun.l.google.com:19302')
         }
     ]
     
@@ -716,10 +716,10 @@ def session_room(request, room_code):
     
     # Add additional Google STUN servers for redundancy
     ice_servers.extend([
-        {'urls': ['stun:stun1.l.google.com:19302']},
-        {'urls': ['stun:stun2.l.google.com:19302']},
-        {'urls': ['stun:stun3.l.google.com:19302']},
-        {'urls': ['stun:stun4.l.google.com:19302']}
+        {'urls': 'stun:stun1.l.google.com:19302'},
+        {'urls': 'stun:stun2.l.google.com:19302'},
+        {'urls': 'stun:stun3.l.google.com:19302'},
+        {'urls': 'stun:stun4.l.google.com:19302'}
     ])
     
     context = {

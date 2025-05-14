@@ -778,12 +778,25 @@ document.addEventListener('alpine:init', () => {
          */
         sendSignal(data) {
             if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-                console.error('Cannot send signal: WebSocket not connected');
+                console.error('Cannot send signal: WebSocket not connected', 
+                             'Socket state:', this.socket ? this.socket.readyState : 'No socket');
+                
+                // Auto-reconnect if needed
+                if (!this.isReconnecting && (!this.socket || this.socket.readyState !== WebSocket.CONNECTING)) {
+                    console.log('Attempting to reconnect WebSocket before sending signal...');
+                    this.isReconnecting = true;
+                    setTimeout(() => {
+                        this.initializeWebSocket();
+                        this.isReconnecting = false;
+                    }, 1000);
+                }
                 return;
             }
             
             try {
-                this.socket.send(JSON.stringify(data));
+                const message = JSON.stringify(data);
+                this.socket.send(message);
+                console.log(`Sent signal of type: ${data.type}`);
             } catch (error) {
                 console.error('Error sending signal:', error);
             }
