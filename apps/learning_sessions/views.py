@@ -738,6 +738,70 @@ def session_room(request, room_code):
     return render(request, 'sessions/room_enhanced.html', context)
 
 @login_required
+def session_feedback(request, room_code):
+    """Handle feedback submission after a session."""
+    session = get_object_or_404(Session, room_code=room_code)
+    
+    # Check if user is authenticated
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
+        
+    # Check if user has permission to submit feedback
+    if hasattr(request.user, 'is_learner') and request.user.is_learner:
+        # Find the booking for this session and user
+        booking = Booking.objects.filter(session=session, learner=request.user).first()
+        if not booking:
+            return JsonResponse({'status': 'error', 'message': 'No booking found for this session'}, status=403)
+            
+        if request.method == 'POST':
+            try:
+                data = json.loads(request.body)
+                rating = data.get('rating', 0)
+                feedback_text = data.get('feedback', '')
+                
+                # Create user rating
+                from apps.users.models import UserRating
+                
+                # Create or update rating
+                rating_obj, created = UserRating.objects.get_or_create(
+                    from_user=request.user,
+                    to_user=session.mentor,
+                    session=session,
+                    defaults={
+                        'rating': rating,
+                        'comments': feedback_text
+                    }
+                )
+                
+                if not created:
+                    rating_obj.rating = rating
+                    rating_obj.comments = feedback_text
+                    rating_obj.save()
+                    
+                # Mark the booking as completed if not already
+                if booking.status != Booking.COMPLETED:
+                    booking.status = Booking.COMPLETED
+                    booking.save()
+                    
+                # Create notification for mentor
+                Notification.objects.create(
+                    user=session.mentor,
+                    title="New Feedback Received",
+                    message=f"You've received a {rating}/5 rating for your session '{session.title}'.",
+                    link=f"/users/dashboard/mentor/?tab=reviews"
+                )
+                
+                return JsonResponse({'status': 'success'})
+            except json.JSONDecodeError:
+                return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'POST method required'}, status=405)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Only learners can submit feedback'}, status=403)
+
+@login_required
 def end_session(request, session_id):
     """View for mentors to end a session."""
     session = get_object_or_404(Session, id=session_id, mentor=request.user)

@@ -613,13 +613,6 @@
 </script>
 
 <!-- Video conferencing JavaScript -->
-<script src="{% static 'js/webrtc/room_fixed.js' %}"></script>
-
-<!-- Initialize the room -->
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Initialize the WebRTC room
-        initWebRTCRoom(roomCode, userId, userName, userRole, iceServers);
-    });
-</script>
+<script src="{% static 'js/webrtc/room_enhanced.js' %}"></script>
+<!-- No manual initialization needed as it's handled by Alpine.js -->
 {% endblock %}

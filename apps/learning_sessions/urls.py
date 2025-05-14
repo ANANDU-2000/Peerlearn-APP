@@ -38,6 +38,7 @@ urlpatterns = [
     path('room/<uuid:room_code>/', views.session_room, name='room'),
     path('room/<uuid:room_code>/go-live/', views.go_live_session, name='go_live'),
     path('<uuid:room_code>/join/', views.join_session_room, name='join'),
+    path('<uuid:room_code>/feedback/', views.session_feedback, name='session_feedback'),
     # Adding an alternative join route that matches the URL pattern in the error
     path('<str:room_code>/', views.session_by_room_code, name='session_by_room_code'),
     
