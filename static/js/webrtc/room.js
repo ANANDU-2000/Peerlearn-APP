@@ -39,6 +39,9 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // Initialize
             init() {
+                // Set up autoplay detection handlers first
+                this.checkForAutoplayIssues();
+                
                 // Set up WebRTC
                 this.setupWebRTC();
                 
@@ -59,9 +62,175 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 window.addEventListener('beforeunload', () => {
                     this.cleanup();
                 });
+                
+                // Add debugging helper function
+                window.debugVideoElements = () => this.debugVideoElements();
             },
             
             // Set up WebRTC
+            // Check for browser autoplay policy issues
+            checkForAutoplayIssues() {
+                try {
+                    const localVideo = document.getElementById('local-video');
+                    const mainVideo = document.getElementById('main-video');
+                    
+                    if (!localVideo || !mainVideo) {
+                        console.error("Could not find video elements for autoplay check");
+                        return;
+                    }
+                    
+                    // Add autoplay failure handlers
+                    localVideo.addEventListener('loadedmetadata', () => {
+                        console.log("Local video loadedmetadata event fired");
+                        this.tryPlayVideo(localVideo, 'local');
+                    });
+                    
+                    mainVideo.addEventListener('loadedmetadata', () => {
+                        console.log("Main video loadedmetadata event fired");
+                        this.tryPlayVideo(mainVideo, 'main');
+                    });
+                    
+                    // Add click handler to page to help with autoplay
+                    document.addEventListener('click', () => {
+                        this.tryPlayAllVideos();
+                    }, { once: true });
+                    
+                    console.log("Added autoplay issue detection handlers");
+                } catch (e) {
+                    console.error("Error setting up autoplay detection:", e);
+                }
+            },
+            
+            // Try to play a video and handle autoplay issues
+            async tryPlayVideo(videoElement, description) {
+                if (!videoElement) return;
+                
+                try {
+                    if (videoElement.paused) {
+                        console.log(`Attempting to play ${description} video...`);
+                        const playPromise = videoElement.play();
+                        
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                console.log(`${description} video playing successfully`);
+                            }).catch(err => {
+                                console.warn(`Autoplay prevented for ${description} video:`, err);
+                                // Show user interaction required message
+                                showToast('info', 'Interaction Required', 'Please click anywhere on the screen to enable video and audio.', 8000);
+                                
+                                // Add a play button overlay
+                                this.addPlayButtonOverlay();
+                            });
+                        }
+                    } else {
+                        console.log(`${description} video is already playing`);
+                    }
+                } catch (e) {
+                    console.error(`Error trying to play ${description} video:`, e);
+                }
+            },
+            
+            // Try to play all videos
+            tryPlayAllVideos() {
+                const localVideo = document.getElementById('local-video');
+                const mainVideo = document.getElementById('main-video');
+                
+                this.tryPlayVideo(localVideo, 'local');
+                this.tryPlayVideo(mainVideo, 'main');
+                
+                // Remove any play button overlays
+                this.removePlayButtonOverlay();
+            },
+            
+            // Add a play button overlay to help with autoplay
+            addPlayButtonOverlay() {
+                if (document.getElementById('play-overlay')) return;
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'play-overlay';
+                overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50';
+                overlay.innerHTML = `
+                    <div class="text-center p-6 bg-white rounded-lg shadow-xl">
+                        <h3 class="text-xl font-bold mb-4">Start Video and Audio</h3>
+                        <p class="mb-4">Your browser needs permission to play audio and video.</p>
+                        <button id="overlay-play-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                            </svg>
+                            Click to Enable
+                        </button>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                // Add click event to play button
+                document.getElementById('overlay-play-btn').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.tryPlayAllVideos();
+                    this.removePlayButtonOverlay();
+                });
+            },
+            
+            // Remove play button overlay
+            removePlayButtonOverlay() {
+                const overlay = document.getElementById('play-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+            },
+            
+            // Debug video elements
+            debugVideoElements() {
+                try {
+                    const localVideo = document.getElementById('local-video');
+                    const mainVideo = document.getElementById('main-video');
+                    
+                    console.log("=== VIDEO DEBUG INFO ===");
+                    
+                    console.log("Local video:", {
+                        element: localVideo,
+                        srcObject: localVideo.srcObject,
+                        paused: localVideo.paused,
+                        muted: localVideo.muted,
+                        videoTracks: localVideo.srcObject ? localVideo.srcObject.getVideoTracks().length : 0,
+                        videoTrackEnabled: localVideo.srcObject && localVideo.srcObject.getVideoTracks().length > 0 ? 
+                            localVideo.srcObject.getVideoTracks()[0].enabled : 'N/A',
+                        readyState: localVideo.srcObject && localVideo.srcObject.getVideoTracks().length > 0 ? 
+                            localVideo.srcObject.getVideoTracks()[0].readyState : 'N/A'
+                    });
+                    
+                    console.log("Main video:", {
+                        element: mainVideo,
+                        srcObject: mainVideo.srcObject,
+                        paused: mainVideo.paused,
+                        muted: mainVideo.muted,
+                        videoTracks: mainVideo.srcObject ? mainVideo.srcObject.getVideoTracks().length : 0
+                    });
+                    
+                    console.log("Alpine data:", {
+                        localStream: this.localStream ? {
+                            id: this.localStream.id,
+                            active: this.localStream.active,
+                            videoTracks: this.localStream.getVideoTracks().length
+                        } : null,
+                        mainStream: this.mainStream ? {
+                            id: this.mainStream.id,
+                            active: this.mainStream.active,
+                            videoTracks: this.mainStream.getVideoTracks().length
+                        } : null,
+                        videoEnabled: this.videoEnabled,
+                        audioEnabled: this.audioEnabled
+                    });
+                    
+                    return "Debug info logged to console";
+                } catch (e) {
+                    console.error("Error debugging video elements:", e);
+                    return "Error debugging video elements: " + e.message;
+                }
+            },
+            
             async setupWebRTC() {
                 try {
                     console.log("Setting up WebRTC room...");
@@ -840,8 +1009,41 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         roomCode: window.ROOM_CODE
                     });
                     
-                    // Create camera access prompt message
-                    showToast('info', 'Camera Access', 'PeerLearn needs access to your camera and microphone. Please allow when prompted.', 7000);
+                    // Create camera access prompt message with more information
+                    showToast('info', 'Camera Access', 'PeerLearn needs access to your camera and microphone for this session. Please click "Allow" when prompted by your browser.', 7000);
+                    
+                    // Add camera permission button to help with permission prompting
+                    const cameraButton = document.createElement('button');
+                    cameraButton.id = 'camera-permission-button';
+                    cameraButton.className = 'fixed bottom-4 left-4 px-4 py-2 bg-blue-600 text-white rounded-lg z-50 shadow-lg flex items-center';
+                    cameraButton.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                            <path d="M14 6a2 2 0 00-2 2v4a2 2 0 002 2h4a2 2 0 002-2V8a2 2 0 00-2-2h-4z" />
+                        </svg>
+                        Enable Camera & Mic
+                    `;
+                    
+                    // Only add if not already present
+                    if (!document.getElementById('camera-permission-button')) {
+                        document.body.appendChild(cameraButton);
+                        cameraButton.addEventListener('click', async () => {
+                            try {
+                                await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                                showToast('success', 'Permissions Granted', 'Camera and microphone access granted!', 3000);
+                                cameraButton.remove();
+                            } catch (err) {
+                                showToast('error', 'Permission Error', 'Could not access camera/microphone. Check browser permissions.', 5000);
+                            }
+                        });
+                        
+                        // Remove after 15 seconds
+                        setTimeout(() => {
+                            if (document.getElementById('camera-permission-button')) {
+                                document.getElementById('camera-permission-button').remove();
+                            }
+                        }, 15000);
+                    }
                     
                     // Debug permissions
                     try {
