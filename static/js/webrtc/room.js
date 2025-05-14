@@ -1421,7 +1421,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 }
                 
                 // Default to opposite of current user role if we can't determine
-                if (userRole === 'mentor') {
+                const currentUserRole = window.USER_ROLE || userRole; // Fallback to userRole if window.USER_ROLE not defined
+                if (currentUserRole === 'mentor') {
                     return 'learner';
                 } else {
                     return 'mentor';
@@ -1460,7 +1461,8 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         this.remoteUserRole = this.getParticipantRole(userId);
                         
                         // Add zoom effect class for mentor (only if it's not the local user)
-                        if (this.remoteUserRole === 'mentor' && userId !== USER_ID) {
+                        const localUserId = window.USER_ID || userId; // Fallback to userId if USER_ID not defined
+                        if (this.remoteUserRole === 'mentor' && userId !== localUserId) {
                             mainVideo.classList.add('mentor-video');
                             mainVideo.classList.remove('learner-video');
                         } else {

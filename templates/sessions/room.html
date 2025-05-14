@@ -917,6 +917,19 @@
             console.error("Error checking video elements:", e);
         }
         
+        // Make variables available globally
+        window.USER_ID = USER_ID;
+        window.USER_NAME = USER_NAME;
+        window.USER_ROLE = USER_ROLE;
+        window.ROOM_CODE = ROOM_CODE;
+        
+        console.log("Session user details:", {
+            id: USER_ID,
+            name: USER_NAME,
+            role: USER_ROLE,
+            room: ROOM_CODE
+        });
+        
         // Initialize the room from the external room.js file
         try {
             initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, {
