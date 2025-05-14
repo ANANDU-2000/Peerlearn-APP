@@ -1026,20 +1026,82 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                 showToast('error', 'Video Error', `Could not display ${username}'s video.`);
                             }
                             
-                            // Play video with error handling and user interaction option
-                            const playPromise = videoElement.play();
-                            if (playPromise !== undefined) {
-                                playPromise.catch(e => {
-                                    console.error(`Error playing remote video for ${username}:`, e);
-                                    showToast('warning', 'Remote Video Issue', `Click the screen to see ${username}'s video`);
+                            // Ensure we have the video orientation correctly set
+                            videoElement.style.transform = 'scaleX(1)'; // Don't mirror remote video
+                            
+                            // Add a visible play button overlay for better user interaction
+                            const playOverlayId = `play-overlay-${userId}`;
+                            let playOverlay = document.getElementById(playOverlayId);
+                            
+                            if (!playOverlay) {
+                                playOverlay = document.createElement('div');
+                                playOverlay.id = playOverlayId;
+                                playOverlay.classList.add('video-play-overlay');
+                                playOverlay.innerHTML = `
+                                    <div class="bg-black bg-opacity-50 rounded-full p-3 cursor-pointer">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                `;
+                                playOverlay.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; z-index:5;';
+                                
+                                const videoContainer = videoElement.parentElement;
+                                if (videoContainer) {
+                                    videoContainer.style.position = 'relative';
+                                    videoContainer.appendChild(playOverlay);
                                     
-                                    // Add click handler to allow user interaction
-                                    document.addEventListener('click', () => {
-                                        videoElement.play().catch(err => {
-                                            console.error(`Still failed to play remote video for ${username} after click:`, err);
-                                        });
-                                    }, {once: true});
-                                });
+                                    // Function to attempt video playback with better error handling
+                                    const attemptPlay = () => {
+                                        console.log(`Attempting to play video for ${username}`);
+                                        videoElement.muted = false; // Ensure remote video is not muted
+                                        
+                                        // Try playing with detailed error handling
+                                        videoElement.play()
+                                            .then(() => {
+                                                console.log(`✓ Remote video for ${username} playing successfully`);
+                                                // Remove the play overlay once playing
+                                                if (playOverlay.parentElement) {
+                                                    playOverlay.remove();
+                                                }
+                                            })
+                                            .catch(err => {
+                                                console.error(`Error playing remote video for ${username}:`, err);
+                                                
+                                                // Check if this is an autoplay restriction
+                                                if (err.name === 'NotAllowedError') {
+                                                    showToast('warning', 'Video Autoplay Blocked', 
+                                                              'Your browser blocked autoplay. Click the video to start it.', 5000);
+                                                    playOverlay.querySelector('div').classList.add('animate-pulse');
+                                                } else {
+                                                    showToast('error', 'Video Error', 
+                                                             `Could not display ${username}'s video: ${err.message}`, 5000);
+                                                }
+                                            });
+                                    };
+                                    
+                                    // Add click handler to the overlay for user-initiated playback
+                                    playOverlay.addEventListener('click', () => {
+                                        attemptPlay();
+                                    });
+                                    
+                                    // Add click handler to the video itself as well
+                                    videoElement.addEventListener('click', () => {
+                                        attemptPlay();
+                                    });
+                                    
+                                    // Attempt automatic playback first
+                                    attemptPlay();
+                                    
+                                    // Auto-remove overlay after 10 seconds even if not playing
+                                    // This improves user experience if the video is actually playing 
+                                    // but the play promise failed for some reason
+                                    setTimeout(() => {
+                                        if (playOverlay.parentElement) {
+                                            playOverlay.remove();
+                                        }
+                                    }, 10000);
+                                }
                             }
                             
                             // Update the main video if this is the first remote stream 
@@ -1166,33 +1228,65 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                         // Continue anyway, getUserMedia will give more specific errors
                     }
                     
-                    // Try multiple fallbacks in case of issues - start with simpler constraints first
+                    // Try multiple fallbacks in case of issues - start with more robust constraints
                     let stream = null;
+                    
+                    // Enhanced fallback options based on device and best practices
+                    // Check if we're on mobile for device-specific optimizations
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2;
+                    
+                    console.log(`Device info - Mobile: ${isMobile}, Low-end: ${isLowEndDevice}, Cores: ${navigator.hardwareConcurrency || 'unknown'}`);
+                    
                     const fallbackOptions = [
-                        // Option 1: Basic video/audio (most compatible)
+                        // Option 1: Optimized constraints based on device capability
+                        {
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            },
+                            video: isMobile ? {
+                                // Mobile-optimized video (lower resolution, lower framerate)
+                                width: { ideal: 480 },
+                                height: { ideal: 360 },
+                                frameRate: { max: 15 },
+                                facingMode: 'user'
+                            } : {
+                                // Desktop-optimized video
+                                width: { ideal: 640 },
+                                height: { ideal: 480 },
+                                frameRate: { ideal: 24 }
+                            }
+                        },
+                        
+                        // Option 2: Basic video/audio (most compatible)
                         {
                             audio: true,
                             video: true
                         },
-                        // Option 2: Low resolution video
+                        
+                        // Option 3: Reduced quality for compatibility
                         {
                             audio: true,
                             video: {
-                                width: { ideal: 640 },
-                                height: { ideal: 480 },
-                                frameRate: { ideal: 15 }
+                                width: { ideal: 320 },
+                                height: { ideal: 240 },
+                                frameRate: { ideal: 10 }
                             }
                         },
-                        // Option 3: HD constraints
+                        
+                        // Option 4: HD only for high-end devices
                         {
                             audio: true,
-                            video: {
+                            video: (!isMobile && !isLowEndDevice) ? {
                                 width: { ideal: 1280 },
                                 height: { ideal: 720 },
                                 facingMode: 'user'
-                            }
+                            } : true
                         },
-                        // Option 4: Audio only with video placeholder (last resort)
+                        
+                        // Option 5: Audio only with video placeholder (last resort)
                         {
                             audio: true,
                             video: false
