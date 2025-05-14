@@ -444,28 +444,59 @@ def join_session_room(request, room_code):
     """View for joining a session room via /sessions/{room_code}/join/ URL."""
     session = get_object_or_404(Session, room_code=room_code)
     
-    # If mentor is joining and session is scheduled, automatically make it live
-    if request.user == session.mentor and session.status == 'scheduled':
-        session.status = 'live'
-        session.live_started_at = timezone.now()
-        session.save()
-        
-        # Log this action
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Session {session.id} automatically set to live by mentor {request.user.id}")
-        
-        # Notify learners with confirmed bookings
-        for booking in session.bookings.filter(status='confirmed'):
-            Notification.objects.create(
-                user=booking.learner,
-                title="Session is Live",
-                message=f"The session '{session.title}' is now live! Join to start learning.",
-                link=f"/sessions/{session.room_code}/join/"
-            )
+    # Check if the user is authorized to join this session
+    is_authorized = False
+    role = None
     
-    # Redirect to the room
-    return redirect('sessions:room', room_code=room_code)
+    # Check if user is the mentor or has a confirmed booking
+    if request.user == session.mentor:
+        is_authorized = True
+        role = 'mentor'
+    else:
+        # Check if user has a confirmed booking for this session
+        has_booking = session.bookings.filter(
+            learner=request.user, 
+            status='confirmed'
+        ).exists()
+        
+        if has_booking:
+            is_authorized = True
+            role = 'learner'
+    
+    if not is_authorized:
+        messages.error(request, "You don't have access to this session")
+        return redirect('home')
+    
+    # If direct access to room is requested via query parameter
+    if request.GET.get('direct') == 'true':
+        # If mentor is joining and session is scheduled, automatically make it live
+        if request.user == session.mentor and session.status == 'scheduled':
+            session.status = 'live'
+            session.live_started_at = timezone.now()
+            session.save()
+            
+            # Log this action
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Session {session.id} automatically set to live by mentor {request.user.id}")
+            
+            # Notify learners with confirmed bookings
+            for booking in session.bookings.filter(status='confirmed'):
+                Notification.objects.create(
+                    user=booking.learner,
+                    title="Session is Live",
+                    message=f"The session '{session.title}' is now live! Join to start learning.",
+                    link=f"/sessions/{session.room_code}/join/"
+                )
+        
+        # Redirect directly to the room
+        return redirect('sessions:room', room_code=room_code)
+    
+    # Otherwise show the join page
+    return render(request, 'sessions/join.html', {
+        'session': session,
+        'user_role': role
+    })
     
 def session_room(request, room_code):
     """View for the WebRTC session room."""

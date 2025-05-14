@@ -137,7 +137,7 @@
                                 <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Room
                                 </a>
-                                {% elif booking.session.schedule|date:'Y-m-d H:i:s' < now|date:'Y-m-d H:i:s' and booking.session.status == 'scheduled' %}
+                                {% elif booking.session.status == 'scheduled' %}
                                 <a href="/sessions/{{ booking.session.room_code }}/join/" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Session
                                 </a>
@@ -355,9 +355,9 @@
                                 <a href="{% url 'sessions:room' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
                                     Join Room
                                 </a>
-                                {% elif booking.session.schedule|date:'Y-m-d H:i:s' < now|date:'Y-m-d H:i:s' and booking.session.status == 'scheduled' %}
-                                <a href="{% url 'sessions:go_live' booking.session.room_code %}" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-                                    Go Live
+                                {% elif booking.session.status == 'scheduled' %}
+                                <a href="/sessions/{{ booking.session.room_code }}/join/" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                    Join Session
                                 </a>
                                 {% elif booking.session.status == 'completed' and not booking.has_feedback %}
                                 <a href="{% url 'sessions:feedback' booking.id %}" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
