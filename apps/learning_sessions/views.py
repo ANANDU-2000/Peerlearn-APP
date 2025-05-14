@@ -547,11 +547,16 @@ def session_room(request, room_code):
     """View for the WebRTC session room."""
     session = get_object_or_404(Session, room_code=room_code)
     
+    # Check if user is authenticated
+    if not request.user.is_authenticated:
+        messages.error(request, 'You must be logged in to join a session.')
+        return redirect('users:login')
+    
     # Check if user has permission to enter the room
     if session.mentor == request.user:
         # Mentor of the session
         user_role = 'mentor'
-    elif request.user.is_learner and Booking.objects.filter(
+    elif hasattr(request.user, 'is_learner') and request.user.is_learner and Booking.objects.filter(
             session=session,
             learner=request.user,
             status=Booking.CONFIRMED
