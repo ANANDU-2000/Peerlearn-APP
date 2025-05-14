@@ -17,6 +17,11 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             peerConnections: {},
             otherParticipants: [],
             websocket: null,
+            // Session timing and status
+            sessionStartTime: null,
+            sessionTime: '00:00:00',
+            sessionTimerInterval: null,
+            sessionStatus: 'connecting',
             // UI state
             videoEnabled: true,
             audioEnabled: true,
