@@ -199,37 +199,76 @@ def get_top_mentors(user, limit=6):
     """Get top rated mentors for recommendation."""
     from apps.users.models import CustomUser
     from django.db.models import Avg, Count, Q
+    import logging
     
-    # Get all mentors with high ratings (4+ stars)
-    top_rated = CustomUser.objects.filter(
+    # Set up logger for debugging
+    logger = logging.getLogger(__name__)
+    
+    # First, get all mentors regardless of ratings
+    all_active_mentors = CustomUser.objects.filter(
         role=CustomUser.MENTOR,
-        is_active=True,
-        ratings_received__rating__gte=4  # Only consider high ratings
+        is_active=True
     ).annotate(
         avg_rating=Avg('ratings_received__rating'),
         rating_count=Count('ratings_received')
-    ).filter(
-        rating_count__gte=3  # At least 3 ratings
+    )
+    
+    # Log how many active mentors we have
+    mentor_count = all_active_mentors.count()
+    logger.info(f"Found {mentor_count} active mentors")
+    
+    # If we have no active mentors at all, return an empty list
+    if mentor_count == 0:
+        return []
+    
+    # First try to get highly rated mentors
+    top_rated = all_active_mentors.filter(
+        rating_count__gte=1,  # At least one rating
+        avg_rating__gte=4     # Average 4+ stars
     ).order_by('-avg_rating')[:limit]
     
-    # If we don't have enough top rated mentors, fill with recently active mentors
-    if top_rated.count() < limit:
-        additional_needed = limit - top_rated.count()
-        
-        # Get mentors who aren't already in top_rated
+    # Log how many top rated mentors we found
+    top_rated_count = top_rated.count()
+    logger.info(f"Found {top_rated_count} top rated mentors")
+    
+    # If we don't have enough top rated mentors, include active mentors based on session count
+    if top_rated_count < limit:
+        # Get the IDs of mentors we already have
         existing_ids = [mentor.id for mentor in top_rated]
-        active_mentors = CustomUser.objects.filter(
-            role=CustomUser.MENTOR, 
-            is_active=True
-        ).exclude(
+        
+        # How many more mentors we need
+        additional_needed = limit - top_rated_count
+        logger.info(f"Need {additional_needed} more mentors to fill quota")
+        
+        # Get additional mentors based on session count
+        active_mentors = all_active_mentors.exclude(
             id__in=existing_ids
         ).annotate(
             session_count=Count('session')
         ).order_by('-session_count')[:additional_needed]
         
-        # Combine both querysets
+        # Log how many active mentors we found to supplement
+        active_mentors_count = active_mentors.count()
+        logger.info(f"Found {active_mentors_count} additional active mentors")
+        
+        # Combine the lists
         top_rated = list(top_rated) + list(active_mentors)
     
+    # If we still don't have any mentors (unlikely, but possible with no ratings and no sessions)
+    # Just get any mentors up to the limit
+    if len(top_rated) == 0:
+        logger.info("No rated or active mentors found, getting any available mentors")
+        top_rated = list(all_active_mentors.order_by('?')[:limit])
+    
+    # Make sure all mentors have avg_rating and rating_count attributes
+    for mentor in top_rated:
+        if mentor.avg_rating is None:
+            mentor.avg_rating = 0
+        if mentor.rating_count is None:
+            mentor.rating_count = 0
+    
+    # Log final count before returning
+    logger.info(f"Returning {len(top_rated)} mentors")
     return top_rated
 
 def learner_dashboard(request):
@@ -408,12 +447,8 @@ def learner_dashboard(request):
     # Get top mentors for recommendations
     top_mentors = get_top_mentors(request.user, 6)
     
-    # Add default rating values for mentors without them
-    for mentor in top_mentors:
-        if not hasattr(mentor, 'avg_rating'):
-            mentor.avg_rating = 0
-        if not hasattr(mentor, 'rating_count'):
-            mentor.rating_count = 0
+    # Log how many top mentors we got for debugging
+    logger.info(f"Received {len(top_mentors)} top mentors for recommendations")
     
     # Get all unique session topics for filtering
     all_topics = []
