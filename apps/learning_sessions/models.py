@@ -161,18 +161,25 @@ class Session(models.Model):
         time_until_session = self.schedule - now
         minutes_until_session = time_until_session.total_seconds() / 60
         
+        # A session is near start time if it's within 15 minutes before or during session duration
         return minutes_until_session <= 15 and minutes_until_session > -self.duration
         
     @property
     def can_go_live(self):
         """Check if the session can be set to live."""
-        # A session can go live if it's scheduled and either:
-        # 1. It's within 15 minutes of the scheduled time, or
-        # 2. It has at least one confirmed booking
-        has_confirmed_bookings = self.bookings.filter(status='confirmed').exists()
+        # A session can go live if it's scheduled and meets the following conditions:
+        # 1. It's within the time window to go live (15 minutes before until end of session)
+        # 2. It hasn't been cancelled or already marked as completed
         
-        return (self.status == self.SCHEDULED and 
-                (self.is_near_start_time or has_confirmed_bookings))
+        # Log Go Live eligibility for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        is_eligible = (self.status == self.SCHEDULED and self.is_near_start_time)
+        
+        logger.info(f"Session {self.id} can_go_live: {is_eligible} (status={self.status}, is_near_start_time={self.is_near_start_time})")
+        
+        return is_eligible
     
     @property
     def get_absolute_url(self):

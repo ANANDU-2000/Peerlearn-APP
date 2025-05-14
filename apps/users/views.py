@@ -543,15 +543,26 @@ def learner_activity_partial(request):
         
         if booking.status == 'confirmed' and booking.session.schedule:
             time_diff = (booking.session.schedule - now).total_seconds() / 60
-            # Session is joinable 15 minutes before start time and until 3 hours 45 minutes after start
-            is_joinable = time_diff >= -15 and time_diff <= 225
-            # Session is today if scheduled for today
+            
+            # Enhanced logic to match Session.is_near_start_time property
+            # Session is joinable 15 minutes before start time and until session duration after start
+            is_joinable = (time_diff <= 15 and time_diff > -booking.session.duration) and booking.session.status == 'scheduled'
+            
+            # Is the session today?
             is_today = booking.session.schedule.date() == now.date()
-            # Can go live if it's today but not yet joinable
-            can_go_live = is_today and (not is_joinable) and time_diff > -15
+            
+            # Can go live checks - use same is_near_start_time logic as Session model
+            # Session can go live if it's scheduled and within 15 minutes of start time
+            can_go_live = (booking.session.status == 'scheduled' and 
+                          time_diff <= 15 and 
+                          time_diff > -booking.session.duration)
+            
+            # Log session info for debugging
+            logger.info(f"Session {booking.session.id} for booking {booking.id}: time_diff={time_diff}, is_joinable={is_joinable}, can_go_live={can_go_live}")
         else:
             is_today = False
             can_go_live = False
+            is_joinable = False
         
         activity = {
             'type': 'booking',
