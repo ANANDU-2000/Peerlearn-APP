@@ -764,10 +764,12 @@ def mentor_sessions(request):
     
     try:
         # Fetch all sessions by this mentor with DISTINCT to eliminate duplicates
-        # For today's sessions, filter out expired ones
+        # For today's sessions, filter out expired ones and only show active sessions
+        now = timezone.now()
         today_sessions = Session.objects.filter(
             mentor=request.user, 
             schedule__date=today,
+            schedule__gte=now - timezone.timedelta(minutes=120),
             status__in=['scheduled', 'live']  # Use string literals instead of constants
         ).distinct().order_by('schedule')
         

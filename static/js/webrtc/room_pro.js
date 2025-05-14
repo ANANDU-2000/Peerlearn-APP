@@ -58,6 +58,9 @@ document.addEventListener('alpine:init', () => {
             // Show appropriate roles
             this.remoteUserRole = this.USER_ROLE === 'mentor' ? 'learner' : 'mentor';
             
+            // Set initial name for remote user based on role
+            this.remoteUserName = this.USER_ROLE === 'mentor' ? 'Learner' : 'Mentor';
+            
             // Initialize ICE servers from Django context
             this.iceServers = iceServers || [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -66,6 +69,12 @@ document.addEventListener('alpine:init', () => {
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' }
             ];
+            
+            // Check browser support for WebRTC
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                this.showError('Your browser does not support video calls. Please use a modern browser like Chrome, Firefox, or Safari.');
+                return;
+            }
             
             // Initialize WebSocket connection
             this.initializeWebSocket();
@@ -84,6 +93,9 @@ document.addEventListener('alpine:init', () => {
                 console.error('Global error:', e);
                 this.showError('An error occurred. Please refresh the page if video doesn\'t connect.');
             });
+            
+            // Log initialization complete
+            console.log('Room initialization complete');
         },
         
         /**
