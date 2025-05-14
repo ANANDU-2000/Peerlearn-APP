@@ -37,16 +37,40 @@
     .user-label {
         display: flex;
         align-items: center;
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.875rem;
     }
     
-    .user-label::before {
-        content: attr(data-role);
+    .user-label.role-mentor::before {
+        content: "Mentor";
+        display: inline-block;
         font-size: 0.75rem;
         margin-right: 6px;
         padding: 2px 6px;
         border-radius: 4px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        background-color: #1c64f2;
+        color: white;
+    }
+    
+    .user-label.role-learner::before {
+        content: "Learner";
+        display: inline-block;
+        font-size: 0.75rem;
+        margin-right: 6px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #7e22ce;
+        color: white;
     }
     
     .user-label.role-mentor::before {
