@@ -369,6 +369,21 @@ class SessionConsumer(AsyncWebsocketConsumer):
             'username': event['username'],
             'timestamp': event['timestamp'],
         }))
+        
+    async def session_status_update(self, event):
+        """
+        Handle session status updates from the API.
+        This is called when a status update comes from the API endpoint.
+        """
+        # Send message to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'session_status_update',
+            'status': event['status'],
+            'room_code': event['room_code'],
+            'updated_by': event['updated_by'],
+            'updated_by_name': event['updated_by_name'],
+            'timestamp': timezone.now().isoformat(),
+        }))
     
     async def start_ping(self):
         """

@@ -50,4 +50,7 @@ urlpatterns = [
     path('api/session/<int:session_id>/', api_endpoints.session_details_api, name='session_details_api'),
     path('api/sessions/<int:session_id>/cancel/', api_endpoints.cancel_session_api, name='cancel_session_api'),
     path('api/sessions/<int:session_id>/go_live/', api_endpoints.go_live_api, name='go_live_api'),
+    
+    # WebRTC and room status API endpoints
+    path('api/sessions/<uuid:room_code>/status/', api_views.update_session_status, name='update_session_status'),
 ]

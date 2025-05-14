@@ -2,11 +2,19 @@
 API Views for learning sessions.
 """
 import json
+import logging
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from .models import Session, Booking
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 def session_status_api(request):
     """API endpoint to check status of a user's sessions."""
@@ -182,3 +190,77 @@ def booking_detail_api(request, booking_id):
     }
     
     return JsonResponse(booking_data)
+
+
+@csrf_exempt
+@require_POST
+@login_required
+def update_session_status(request, room_code):
+    """
+    API endpoint to update a session's status and broadcast via WebSockets.
+    Used by WebRTC room to communicate session state changes.
+    """
+    try:
+        # Parse the request data
+        data = json.loads(request.body)
+        status = data.get('status')
+        
+        if not status:
+            return JsonResponse({'error': 'Status is required'}, status=400)
+        
+        # Get the session
+        session = get_object_or_404(Session, room_code=room_code)
+        
+        # Check permissions (only mentor can update session status)
+        if session.mentor != request.user:
+            return JsonResponse({'error': 'Only the mentor can update session status'}, status=403)
+        
+        # Update status based on request
+        if status == 'live':
+            session.status = Session.LIVE
+            # Update any associated bookings
+            bookings = Booking.objects.filter(session=session, status=Booking.CONFIRMED)
+            bookings.update(status=Booking.IN_PROGRESS)
+        elif status == 'ended' or status == 'completed':
+            session.status = Session.COMPLETED
+            # Update any associated bookings
+            bookings = Booking.objects.filter(session=session, status=Booking.IN_PROGRESS)
+            bookings.update(status=Booking.COMPLETED)
+        else:
+            return JsonResponse({'error': f'Invalid status: {status}'}, status=400)
+        
+        # Save session with updated status
+        session.save()
+        
+        # Send update to WebSocket channel
+        channel_layer = get_channel_layer()
+        room_group_name = f'sessions:{room_code}'
+        
+        try:
+            # Broadcast session status update
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    'type': 'session_status_update',
+                    'status': status,
+                    'room_code': str(room_code),
+                    'updated_by': request.user.id,
+                    'updated_by_name': request.user.get_full_name() or request.user.username
+                }
+            )
+            logger.info(f"WebSocket notification sent for session {room_code} status update to {status}")
+        except Exception as e:
+            logger.error(f"Error sending WebSocket notification: {e}")
+        
+        return JsonResponse({
+            'success': True,
+            'session_id': session.id,
+            'status': status,
+            'room_code': str(room_code)
+        })
+        
+    except Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating session status: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
