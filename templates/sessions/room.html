@@ -571,7 +571,7 @@
                                     'w-full': layoutType === 'speaker',
                                     'w-[49%]': layoutType === 'grid'
                                 }">
-                                <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                                <video id="main-video" x-ref="mainVideo" autoplay playsinline class="w-full h-full object-contain"></video>
                                 
                                 <!-- Video placeholder when camera is off -->
                                 <div class="video-placeholder" x-show="!remoteVideoEnabled">
@@ -617,7 +617,7 @@
                                     'role-mentor': USER_ROLE === 'mentor',
                                     'role-learner': USER_ROLE === 'learner'
                                 }">
-                                <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                                <video id="local-video" autoplay playsinline muted class="w-full h-full object-contain transform scale-x-[-1]"></video>
                                 
                                 <!-- Video placeholder when camera is off -->
                                 <div class="video-placeholder" x-show="!videoEnabled">
@@ -688,7 +688,7 @@
                                  'border-blue-600': USER_ROLE === 'mentor',
                                  'border-purple-600': USER_ROLE === 'learner'
                              }">
-                            <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                            <video id="local-video" autoplay playsinline muted class="w-full h-full object-contain transform scale-x-[-1]"></video>
                             
                             <!-- Video placeholder when camera is off -->
                             <div class="video-placeholder" x-show="!videoEnabled" style="font-size: 0.8rem;">

@@ -2059,6 +2059,7 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // End session (mentor only)
             endSession() {
+                // Only mentors can end the session for everyone
                 if (userRole !== 'mentor') {
                     showToast('error', 'Permission Denied', 'Only mentors can end the session.');
                     return;
@@ -2067,8 +2068,15 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                 // Confirm before ending
                 if (!confirm('Are you sure you want to end this session for all participants?')) return;
                 
-                // Send session end message
+                console.log('Mentor ending session - sending notifications');
+                showToast('info', 'Ending Session', 'Please wait while we end the session...', 3000);
+                
+                // Update the session status to 'ended'
+                this.updateSessionStatus('ended');
+                
+                // Send session end message via WebSocket for real-time notification
                 if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    console.log('Sending session_ended message via WebSocket');
                     this.websocket.send(JSON.stringify({
                         type: 'session_ended',
                         user_id: userId,
@@ -2076,20 +2084,81 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                     }));
                 }
                 
-                // Update session status
-                this.updateSessionStatus('ended');
-                
-                // Redirect to dashboard after a delay
-                showToast('info', 'Session Ended', 'The session has been ended. Redirecting to dashboard...');
-                setTimeout(() => {
-                    window.location.href = '/users/dashboard/mentor/';
-                }, 3000);
+                // Make a direct API call to ensure the session is correctly marked as ended in the database
+                fetch(`/sessions/${roomCode}/end/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Session ended successfully via direct API call:', data);
+                    
+                    // Clean up WebRTC connections
+                    this.cleanupWebRTC();
+                    
+                    // Show success message and redirect
+                    showToast('success', 'Session Ended', 'The session has been ended successfully. Redirecting to dashboard...');
+                    setTimeout(() => {
+                        window.location.href = '/users/dashboard/mentor/';
+                    }, 3000);
+                })
+                .catch(error => {
+                    console.error('Error ending session via API:', error);
+                    
+                    // Even if API fails, still clean up and redirect
+                    this.cleanupWebRTC();
+                    
+                    showToast('warning', 'Session Ended', 'The session has been ended with some issues. Redirecting to dashboard...');
+                    setTimeout(() => {
+                        window.location.href = '/users/dashboard/mentor/';
+                    }, 3000);
+                });
             },
             
             // Update session status
+            // Leave session (for learners)
+            leaveSession() {
+                if (userRole !== 'learner') {
+                    showToast('error', 'Permission Denied', 'This function is for learners only. Mentors should use End Session.');
+                    return;
+                }
+                
+                if (!confirm('Are you sure you want to leave this session?')) return;
+                
+                console.log('Learner leaving session');
+                showToast('info', 'Leaving Session', 'Please wait while we disconnect you from the session...', 3000);
+                
+                // Clean up WebRTC connections
+                this.cleanupWebRTC();
+                
+                // Send notification through WebSocket if connected
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.send(JSON.stringify({
+                        type: 'participant_left',
+                        user_id: userId,
+                        username: userName,
+                        role: userRole
+                    }));
+                }
+                
+                // Show success message and redirect to learner dashboard
+                showToast('success', 'Left Session', 'You have left the session successfully. Redirecting to dashboard...');
+                setTimeout(() => {
+                    window.location.href = '/users/dashboard/learner/';
+                }, 2000);
+            },
+            
             updateSessionStatus(status) {
                 // Check if user is a mentor
-                if (userRole !== 'mentor') {
+                if (userRole !== 'mentor' && status !== 'participant_joined') {
                     console.log("Only mentors can update session status");
                     return;
                 }
