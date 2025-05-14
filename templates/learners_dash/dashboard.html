@@ -31,7 +31,7 @@
     window.getActiveTabFromURL = function() {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab');
-        return ['home', 'activity', 'mentors', 'notifications', 'profile'].includes(tab) ? tab : '{{ active_tab }}';
+        return ['home', 'activity', 'sessions', 'mentors', 'notifications', 'profile'].includes(tab) ? tab : '{{ active_tab }}';
     }
     
     // Initialize Alpine.js data for tab management
