@@ -112,10 +112,11 @@ document.addEventListener('alpine:init', () => {
             this.roomCode = pathRoomCode;
             
             // Try multiple endpoints for compatibility with different consumer implementations
+            // Make sure they match the patterns in apps/learning_sessions/routing.py
             const wsEndpoints = [
-                `/ws/room/${this.roomCode}/`,
+                `/ws/session/${this.roomCode}/`,   // Primary endpoint (listed first)
                 `/ws/sessions/${this.roomCode}/`,
-                `/ws/session/${this.roomCode}/`
+                `/ws/room/${this.roomCode}/`
             ];
             
             console.log('Room code for WebSocket connection:', this.roomCode);
@@ -170,16 +171,27 @@ document.addEventListener('alpine:init', () => {
             // Set up socket event handlers
             this.socket.onopen = (event) => {
                 console.log('WebSocket connected successfully to:', wsUrl);
+                console.log('WebSocket readyState:', this.socket.readyState);
+                
+                // Update the connection status immediately
                 this.socketConnected = true;
                 
-                // Send join event
-                this.sendSignal({
-                    type: 'join',
-                    user_id: this.USER_ID,
-                    user_role: this.USER_ROLE,
-                    user_name: userName,
-                    username: userName // For compatibility with SessionConsumer
-                });
+                // Show a success message to the user
+                this.showSuccess('Connected to session room. Setting up secure video connection...');
+                
+                // Send join event with both format versions for compatibility
+                try {
+                    this.sendSignal({
+                        type: 'join',
+                        user_id: this.USER_ID,
+                        user_role: this.USER_ROLE,
+                        user_name: userName, 
+                        username: userName // For compatibility with older consumer
+                    });
+                    console.log('Join signal sent successfully');
+                } catch (error) {
+                    console.error('Error sending join signal:', error);
+                }
                 
                 // Clear any reconnect timers
                 if (this.socketReconnectTimer) {
