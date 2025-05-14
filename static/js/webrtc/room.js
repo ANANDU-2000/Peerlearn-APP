@@ -119,55 +119,103 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             
             // Connect to WebSocket server
             connectWebSocket(roomCode) {
-                // Create WebSocket connection - support both singular and plural endpoints
+                // Create WebSocket connection - support multiple endpoint formats for maximum compatibility
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                // Try both endpoint formats (singular and plural)
+                
+                // Try all possible endpoint formats
                 const wsUrlPlural = `${protocol}//${window.location.host}/ws/sessions/${roomCode}/`;
                 const wsUrlSingular = `${protocol}//${window.location.host}/ws/session/${roomCode}/`;
+                const wsUrlRoom = `${protocol}//${window.location.host}/ws/room/${roomCode}/`;
                 
-                console.log(`Attempting WebSocket connection at: ${wsUrlPlural}`);
+                console.log(`Starting WebSocket connection attempts for room: ${roomCode}`);
                 
-                // Attempt to connect using the plural endpoint first
-                try {
-                    this.websocket = new WebSocket(wsUrlPlural);
-                    
-                    // Handle initial error (try singular endpoint if plural fails)
-                    this.websocket.addEventListener('error', (error) => {
-                        console.warn("First WebSocket connection attempt failed, trying alternative endpoint");
-                        // Try the singular endpoint as fallback
+                // Connection attempts counter and endpoint list
+                let attemptCount = 0;
+                const maxAttempts = 3;
+                const endpoints = [wsUrlPlural, wsUrlSingular, wsUrlRoom];
+                
+                // Function to try the next endpoint in sequence
+                const tryNextEndpoint = () => {
+                    if (attemptCount < maxAttempts) {
+                        const currentUrl = endpoints[attemptCount];
+                        console.log(`WebSocket connection attempt ${attemptCount + 1}/${maxAttempts} at: ${currentUrl}`);
+                        
                         try {
-                            console.log(`Attempting fallback WebSocket connection at: ${wsUrlSingular}`);
-                            this.websocket = new WebSocket(wsUrlSingular);
+                            // Close previous connection if it exists but isn't in OPEN state
+                            if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+                                try {
+                                    this.websocket.close();
+                                } catch (e) {
+                                    console.warn("Error closing previous socket:", e);
+                                }
+                            }
                             
-                            // Set up event handlers for the new connection
-                            this.websocket.onopen = this.onWebSocketOpen.bind(this);
+                            // Create new WebSocket connection
+                            this.websocket = new WebSocket(currentUrl);
+                            
+                            // Handle connection success
+                            this.websocket.onopen = (event) => {
+                                console.log(`WebSocket connection established successfully to ${currentUrl}`);
+                                this.onWebSocketOpen(event);
+                            };
+                            
+                            // Handle messages
                             this.websocket.onmessage = this.onWebSocketMessage.bind(this);
-                            this.websocket.onclose = this.onWebSocketClose.bind(this);
-                            this.websocket.onerror = (e) => {
-                                console.error("Both WebSocket connections failed:", e);
-                                showToast('error', 'Connection Error', 'Failed to connect to the session. Please refresh the page and try again.');
-                                
-                                // Set connection status
+                            
+                            // Handle connection close
+                            this.websocket.onclose = (event) => {
+                                // Only try next endpoint if this wasn't a normal closure
+                                if (event.code !== 1000 && event.code !== 1001) {
+                                    attemptCount++;
+                                    if (attemptCount < maxAttempts) {
+                                        console.warn(`WebSocket connection to ${currentUrl} failed (code ${event.code}), trying next endpoint...`);
+                                        setTimeout(tryNextEndpoint, 500); // Add delay between attempts
+                                    } else {
+                                        console.error("All WebSocket connection attempts failed");
+                                        this.onWebSocketClose(event);
+                                    }
+                                } else {
+                                    this.onWebSocketClose(event);
+                                }
+                            };
+                            
+                            // Handle errors
+                            this.websocket.onerror = (error) => {
+                                console.warn(`WebSocket error on ${currentUrl}:`, error);
+                                // Error handler is lightweight - we let onclose handle the fallback
+                                // Only manually trigger next attempt if this is the first try and we get an immediate error
+                                if (attemptCount === 0) {
+                                    setTimeout(() => {
+                                        if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+                                            attemptCount++;
+                                            tryNextEndpoint();
+                                        }
+                                    }, 1000);
+                                }
+                            };
+                            
+                        } catch (e) {
+                            console.error(`Error creating WebSocket connection to ${currentUrl}:`, e);
+                            attemptCount++;
+                            if (attemptCount < maxAttempts) {
+                                setTimeout(tryNextEndpoint, 500);
+                            } else {
+                                // All attempts failed
                                 this.connectionStatus = "Connection Error";
                                 this.connectionStatusClass = "error";
-                            };
-                        } catch (innerError) {
-                            console.error("Error creating fallback WebSocket connection:", innerError);
-                            showToast('error', 'Connection Error', 'Failed to connect to the WebSocket server. Please refresh the page and try again.');
+                                showToast('error', 'Connection Error', 'Failed to connect to the session. Please refresh the page and try again.');
+                            }
                         }
-                    }, { once: true }); // Only trigger this handler once
-                    
-                    console.log("Initial WebSocket connection attempt made");
-                } catch (error) {
-                    console.error("Error creating WebSocket connection:", error);
-                    showToast('error', 'Connection Error', 'Failed to connect to the WebSocket server. Please refresh the page and try again.');
-                }
+                    } else {
+                        // All attempts failed
+                        this.connectionStatus = "Connection Error";
+                        this.connectionStatusClass = "error";
+                        showToast('error', 'Connection Error', 'Failed to connect to the room after multiple attempts. Please refresh the page or try again later.');
+                    }
+                };
                 
-                // Set up event handlers for the initial connection
-                this.websocket.onopen = this.onWebSocketOpen.bind(this);
-                this.websocket.onmessage = this.onWebSocketMessage.bind(this);
-                this.websocket.onclose = this.onWebSocketClose.bind(this);
-                this.websocket.onerror = this.onWebSocketError.bind(this);
+                // Start connection attempt sequence
+                tryNextEndpoint();
             },
             
             // WebSocket open event handler
