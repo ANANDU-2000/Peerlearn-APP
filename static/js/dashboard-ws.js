@@ -1023,6 +1023,28 @@ function createSessionElement(session) {
 function updateSessionsListUI(sessions, tabFilter) {
     if (!sessions || !Array.isArray(sessions)) {
         console.error('Invalid sessions data for UI update:', sessions);
+        
+        // Handle error: Show error message to user
+        const sessionsLists = document.querySelectorAll('.sessions-list');
+        sessionsLists.forEach(list => {
+            if (list.children.length === 0) {
+                list.innerHTML = `
+                    <div class="w-full text-center py-8">
+                        <div class="text-red-500 mb-2">
+                            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900">Error loading sessions</h3>
+                        <p class="mt-1 text-sm text-gray-500">Please try again later or refresh the page.</p>
+                        <button onclick="window.location.reload()" class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Refresh Page
+                        </button>
+                    </div>
+                `;
+            }
+        });
+        
         return;
     }
     
