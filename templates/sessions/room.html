@@ -1007,8 +1007,15 @@
         
         // Initialize the room from the external room.js file
         try {
+            // Use multiple public STUN servers for improved connectivity
             initWebRTCRoom(ROOM_CODE, USER_ID, USER_NAME, USER_ROLE, {
-                stun: STUN_SERVER || 'stun:stun.l.google.com:19302',
+                stunServers: [
+                    'stun:stun.l.google.com:19302',
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302',
+                    'stun:stun3.l.google.com:19302',
+                    'stun:stun4.l.google.com:19302'
+                ],
                 turn: TURN_SERVER,
                 turnUsername: TURN_USERNAME,
                 turnCredential: TURN_CREDENTIAL

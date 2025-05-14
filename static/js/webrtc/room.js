@@ -824,20 +824,43 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
             // Create a peer connection for a user
             async createPeerConnection(userId, username) {
                 try {
-                    // ICE servers configuration
+                    // ICE servers configuration with multiple STUN servers for better connectivity
                     const configuration = {
-                        iceServers: [
-                            { urls: iceServers.stun }
-                        ]
+                        iceServers: []
                     };
                     
-                    // Add TURN server if provided
+                    // Add STUN servers (either array or single string)
+                    if (iceServers.stunServers && Array.isArray(iceServers.stunServers)) {
+                        // Use the array of STUN servers
+                        configuration.iceServers.push({ 
+                            urls: iceServers.stunServers 
+                        });
+                        console.log("Using multiple STUN servers:", iceServers.stunServers);
+                    } else if (iceServers.stun) {
+                        // Backward compatibility for single STUN server
+                        configuration.iceServers.push({ 
+                            urls: iceServers.stun 
+                        });
+                        console.log("Using single STUN server:", iceServers.stun);
+                    } else {
+                        // Fallback to Google's public STUN servers
+                        configuration.iceServers.push({ 
+                            urls: [
+                                'stun:stun.l.google.com:19302',
+                                'stun:stun1.l.google.com:19302'
+                            ] 
+                        });
+                        console.log("Using fallback STUN servers");
+                    }
+                    
+                    // Add TURN server if provided (for NAT traversal)
                     if (iceServers.turn) {
                         configuration.iceServers.push({
                             urls: iceServers.turn,
                             username: iceServers.turnUsername,
                             credential: iceServers.turnCredential
                         });
+                        console.log("Added TURN server for NAT traversal");
                     }
                     
                     // Create peer connection
@@ -1187,11 +1210,41 @@ function initWebRTCRoom(roomCode, userId, userName, userRole, iceServers) {
                                             localVideoElement.srcObject = null;
                                         }
                                         
-                                        // Set new srcObject
-                                        localVideoElement.srcObject = stream;
+                                        // Set new srcObject with explicit error handling
+                                        try {
+                                            localVideoElement.srcObject = stream;
+                                            console.log("Successfully set local video srcObject");
+                                            
+                                            // Explicitly play the video to handle autoplay issues
+                                            const playPromise = localVideoElement.play();
+                                            if (playPromise !== undefined) {
+                                                playPromise.catch(err => {
+                                                    console.warn("Auto-play prevented for local video:", err);
+                                                    // Add a manual play button overlay
+                                                    this.addPlayButtonOverlay();
+                                                });
+                                            }
+                                        } catch (srcError) {
+                                            console.error("Error setting srcObject on local video:", srcError);
+                                            showToast('error', 'Video Error', 'Could not display video. Please refresh and try again.');
+                                        }
                                         
                                         // Set main stream to the local stream initially (for display in the main video area)
                                         this.mainStream = stream;
+                                        
+                                        // Also try to set the main video, which might help with some browser issues
+                                        const mainVideoElement = document.getElementById('main-video');
+                                        if (mainVideoElement && userRole === 'learner') {
+                                            try {
+                                                // For learners, show their own video in main area temporarily
+                                                // until the mentor connects
+                                                mainVideoElement.muted = true;  // Important for self-view
+                                                mainVideoElement.srcObject = new MediaStream(stream.getTracks());
+                                                mainVideoElement.play().catch(() => console.log("Could not autoplay main video"));
+                                            } catch (e) {
+                                                console.warn("Could not set main video for learner:", e);
+                                            }
+                                        }
                                         
                                         // Explicitly log video tracks
                                         const videoTracks = stream.getVideoTracks();
