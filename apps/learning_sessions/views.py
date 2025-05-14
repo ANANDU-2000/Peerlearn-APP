@@ -734,8 +734,8 @@ def session_room(request, room_code):
         'direct_role': role_param if is_direct else None,
     }
     
-    # Use the enhanced room template that matches your design reference
-    return render(request, 'sessions/room_enhanced.html', context)
+    # Use the pro room template that exactly matches your design reference
+    return render(request, 'sessions/room_pro.html', context)
 
 @login_required
 def session_feedback(request, room_code):
