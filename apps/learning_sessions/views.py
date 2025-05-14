@@ -39,7 +39,7 @@ class SessionListView(ListView):
         # Only show sessions that are scheduled or live and haven't passed their scheduled time
         queryset = Session.objects.filter(
             status__in=[Session.SCHEDULED, Session.LIVE],
-            schedule__gte=now - timezone.timedelta(minutes=30)  # Include sessions that started within last 30 minutes
+            schedule__gte=now  # Only show current or future sessions
         )
         
         # Apply category filter if provided
@@ -363,10 +363,16 @@ def respond_to_request(request, request_id):
 def book_session(request, session_id):
     """View for learners to book a session."""
     session = get_object_or_404(Session, id=session_id)
+    now = timezone.now()
     
     if not request.user.is_learner:
         messages.error(request, 'Only learners can book sessions.')
         return redirect('sessions:detail', pk=session_id)
+    
+    # Check if session is in the past
+    if session.schedule < now:
+        messages.error(request, 'This session has already started or expired and cannot be booked.')
+        return redirect('sessions:list')
     
     # Check if already booked
     if Booking.objects.filter(session=session, learner=request.user).exists():
@@ -809,29 +815,45 @@ def go_live_session(request, room_code):
     """View to make a session go live and redirect to the room."""
     # Get the session
     session = get_object_or_404(Session, room_code=room_code)
+    now = timezone.now()
     
-    # Check if user is the mentor
-    if session.mentor != request.user:
+    # Check if user is the mentor or a confirmed learner
+    is_mentor = session.mentor == request.user
+    is_learner = request.user.is_learner and session.bookings.filter(
+        learner=request.user, status=Booking.CONFIRMED
+    ).exists()
+    
+    if not (is_mentor or is_learner):
+        messages.error(request, 'You do not have permission to access this session room.')
+        if request.user.is_mentor:
+            return redirect('users:mentor_dashboard')
+        else:
+            return redirect('users:learner_dashboard')
+    
+    # If the session is already live, just redirect to the room
+    if session.status == Session.LIVE:
+        messages.info(request, 'Joining the live session now...')
+        return redirect('sessions:room', room_code=session.room_code)
+        
+    # At this point, we're handling making a session live (mentor only)
+    if not is_mentor:
         messages.error(request, 'Only the mentor can make this session go live.')
-        return redirect('users:mentor_dashboard')
+        return redirect('users:learner_dashboard')
     
     # Check if session is in scheduled status
     if session.status != Session.SCHEDULED:
-        if session.status == Session.LIVE:
-            # Session is already live, just redirect to the room
-            messages.info(request, 'Session is already live. Joining now.')
-        else:
-            messages.error(request, f'Cannot go live with a session that is {session.get_status_display().lower()}.')
-            return redirect('users:mentor_session_detail', session_id=session.id)
+        messages.error(request, f'Cannot go live with a session that is {session.get_status_display().lower()}.')
+        return redirect('users:mentor_session_detail', session_id=session.id)
     
     # Calculate time until session
-    time_until_session = session.schedule - timezone.now()
+    time_until_session = session.schedule - now
     
     # Check if it's too early to go live (more than 15 min before scheduled time)
-    if time_until_session > timezone.timedelta(minutes=15):
+    # We're relaxing this restriction to 30 minutes to be more flexible
+    if time_until_session > timezone.timedelta(minutes=30):
         messages.error(
             request, 
-            f'It\'s too early to go live. You can make the session live within 15 minutes of the scheduled time.'
+            f'It\'s too early to go live. You can make the session live within 30 minutes of the scheduled time.'
         )
         return redirect('users:mentor_session_detail', session_id=session.id)
     
