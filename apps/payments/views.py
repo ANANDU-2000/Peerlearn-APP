@@ -251,11 +251,11 @@ def payment_success(request, payment_id):
             return redirect('sessions:detail', pk=payment.booking.session.id)
         else:
             messages.error(request, 'Payment was not completed. Please try again.')
-            return redirect('payment_create', booking_id=payment.booking.id)
+            return redirect('payments:payment_create', booking_id=payment.booking.id)
     
     except Exception as e:
         messages.error(request, f'Error verifying payment: {str(e)}')
-        return redirect('payment_create', booking_id=payment.booking.id)
+        return redirect('payments:payment_create', booking_id=payment.booking.id)
 
 @login_required
 def initiate_refund(request, payment_id):

@@ -117,6 +117,28 @@ class CustomUser(AbstractUser):
         elif self.is_admin_user:
             return '/admin/'
         return '/'
+        
+    @property
+    def rating_average(self):
+        """Calculate the average rating for this user."""
+        # Only applies to mentors
+        if not self.is_mentor:
+            return 0
+            
+        ratings = self.ratings_received.all()
+        if not ratings.exists():
+            return 0
+            
+        total_rating = sum(r.rating for r in ratings)
+        return int(total_rating / ratings.count())
+    
+    @property
+    def rating_count(self):
+        """Get the number of ratings for this user."""
+        if not self.is_mentor:
+            return 0
+            
+        return self.ratings_received.count()
 
 class UserRating(models.Model):
     """
