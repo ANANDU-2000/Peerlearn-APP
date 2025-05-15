@@ -1,0 +1,42 @@
+also comepleet payemnt age not workign ?also very veyr bad leaner dahbaord my actitui sesison boed and not have gfo live room buuton also not woekign ?why also leaner dashabord recomdatioon sesison from database not showing isnatnly showe tehir msut strongly work also top mentro sesion also not showinmg lenaerd ahabord also when book a sesion bok clcik not working also chekc my actity not booked sesison not shwoing go liev and room buuton not showing ?when joiend alrrt noficatison icon clcik or pop menyro dahbaord not seeing ?mentro dahabord go liev buuton cl;cik mentro can not still go liev buuton clcik not workign ?alrrft flow nofctaiosn ?### My Sessions (/dashboard/mentor/my-sessions)
+
+Tabs: Today | Upcoming | Past (filter future/live/past only; no duplicates)
+Cards display: Title, local schedule, Alpine.js countdown or LIVE badge, “Booked (N)” badge (initial + WS updates), buttons:
+Go Live ▶ (enabled ≥15 min before or if status=live)
+Enter Room ▶ (enabled on first booking or on live)
+Edit ✎ (until 5 min before) → modal AJAX PUT + WS session.updated
+Cancel 🗑 (until start) → AJAX DELETE + WS session.cancelled
+Real-Time WS: subscribe to sessions:{mentor_id} & sessions:{session_id} for new_booking, session.live, learner.join/leave → update badges, lobby list, toasts
+Buttons persist once enabled until session ennot workign this not coorect aso uiux deisgna dn frame layout are bad also,room advace webrtc uiusx very big issues?i was said windowidviepwort horsially show like zoom deisgn uiux framevidoe crop and make ensure all workign vidoe cmaer both and soudn auido not workign still ?## 3. LEARNER DASHBOARD
+Browse Sessions (/dashboard/learner/sessions)
+Tabs: Recommended (ML via /api/recommendations), Scheduled (future), Live Now (status=live)
+Search & Filters: debounce input, domain/title/mentor filters, category pills
+Cards include: thumbnail, title, mentor, countdown/LIVE, price/free badge, actions:
+Book ▶ (free or Razorpay paid) → POST /api/bookings/ + /api/payments/ → WS new_booking → toast “Booked ✔” → enable Enter Room
+Enter Room ▶ (on live or after booking)
+My Activity (/dashboard/learner/activity)
+Sub-Tabs: Requests (status chips + Confirm▶/Cancel▶), Bookings (Booked ✔ + Join ▶), All
+WS channels responses:{learner_id}, sessions:{session_id} for real-time updates and toasts
+Join ▶ flow: GET /api/sessions/{id}/authorize_join/ → redirect to /session/{room_code}/
+Notifications & Profile
+WS notifications:{learner_id} for toasts; list page + dismiss
+Profile edit via PATCH + ML vector recalc
+not workign uiux and bakcend and databse all recomdation not swori stillnot workign recomdatiosn?also where si subpage callased sesison in leaner dahabrod ?4. WEBRTC ROOM RENOVATION
+────────────────────────────────────────────────────────────────
+Route /session/{room_code}:
+• Layout: Zoom-style two-panel (mentor left, learner right on web; stacked on mobile).
+• Lobby: show title, countdown, list of joined learners, Mentor “Start Session ▶” button.
+• Signaling: Channels consumer for SDP/ICE, STUN/TURN fallback.
+• Media: getUserMedia({video:true,audio:true}); handle permission/device errors; fallback audio.
+• Toolbar: mute/unmute, camera toggle, screen-share, chat pane, whiteboard pane, End Session ▶.
+• Timers: elapsed timer, auto-end at scheduled end_time + 10m.
+• Reconnection: WS + ICE auto-retry/backoff + toasts.
+• End & Feedback: broadcast session.end, show rating modal for learner, resource upload for mentor; save to DB; toast.
+────────────────────────────────────────────────────────────────
+5. ADMIN DASHBOARD
+────────────────────────────────────────────────────────────────
+• Manage Users/Sessions/Payments/Feedback with real-time stats via WS.
+• Ban/unban, refund actions, 2FA login.
+• Overview cards auto-refresh, charts via Celery analytics.
+
+?all coorect and workign uiux database store and workign real tirm isnatnly updation and remoeving and workign flow and all noficatiosna jsnd websocket very strong powerfull code for conenction stable and sucuefull coenction and low conenction erro ahdling issue s?all do

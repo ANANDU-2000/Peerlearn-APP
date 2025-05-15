@@ -50,14 +50,15 @@
         border: 1px solid #DC2626;
     }
     
-    /* Video grid layout */
+    /* Video grid layout - Zoom-style horizontal layout */
     .video-grid {
-        display: grid;
-        grid-template-columns: 3fr 1fr;
-        grid-gap: 10px;
-        padding: 10px;
+        display: flex;
+        flex-direction: row;
+        gap: 16px;
+        padding: 16px;
         height: calc(100vh - 130px); /* Subtract header and footer heights */
         z-index: 10;
+        position: relative;
     }
     
     /* Video wrapper elements */
@@ -68,16 +69,24 @@
         overflow: hidden;
     }
     
-    /* Main video (large) */
+    /* Main video (large) - takes up most of the space */
     .main-video-wrapper {
-        grid-column: 1;
-        grid-row: 1 / span 2;
+        flex: 3;
+        height: 100%;
     }
     
-    /* Secondary video (small) */
+    /* Secondary video (small) - takes up less space */
     .secondary-video-wrapper {
-        grid-column: 2;
-        grid-row: 1;
+        flex: 1;
+        height: 100%;
+    }
+    
+    /* Ensures videos maintain aspect ratio but fill their containers */
+    .video-container {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
     }
     
     /* Video elements */
@@ -308,31 +317,30 @@
     /* Media queries for responsiveness */
     @media (max-width: 768px) {
         .video-grid {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto;
+            flex-direction: column;
             height: calc(100vh - 170px);
         }
         
         .main-video-wrapper {
-            grid-column: 1;
-            grid-row: 1;
-            height: 70vh;
+            flex: 2;
+            height: 60vh;
         }
         
         .secondary-video-wrapper {
-            grid-column: 1;
-            grid-row: 2;
-            height: 20vh;
+            flex: 1;
+            height: 25vh;
         }
         
         .video-controls-bar {
             flex-wrap: wrap;
             padding: 8px;
+            justify-content: center;
         }
         
         .control-button {
             width: 48px;
             height: 48px;
+            margin: 4px;
         }
         
         .session-info-bar {
@@ -346,6 +354,21 @@
             width: 100%;
             justify-content: space-between;
         }
+    }
+    
+    /* Enhanced video container for better aspect ratio */
+    .video-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    /* Ensure videos have correct aspect ratio but fill available space */
+    .video-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
     }
 </style>
 {% endblock %}
@@ -370,43 +393,47 @@
     <!-- Error/success message container -->
     <div id="error-message" class="hidden p-3 mb-2 mx-auto max-w-3xl rounded-md shadow-sm border text-center transition-all"></div>
     
-    <!-- Video grid -->
+    <!-- Zoom-style video grid with horizontal layout -->
     <div class="video-grid" x-init="init">
-        <!-- Main video -->
+        <!-- Main video (remote participant) -->
         <div class="video-wrapper main-video-wrapper">
-            <video id="main-video" autoplay playsinline></video>
-            
-            <!-- Placeholder when video is off -->
-            <div class="video-placeholder" x-show="!remoteVideoEnabled">
-                <div class="avatar-circle" x-text="remoteUserName ? remoteUserName.charAt(0).toUpperCase() : ''">?</div>
-                <div class="text-lg font-medium" x-text="remoteUserName || 'Waiting...'">Remote User</div>
-                <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
-            </div>
-            
-            <!-- User label -->
-            <div class="user-label">
-                <span class="role-indicator" :class="{'mentor': remoteUserRole === 'mentor', 'learner': remoteUserRole === 'learner'}"></span>
-                <span x-text="remoteUserName || 'Waiting for participant...'">Remote User</span>
-                <span x-show="isRemoteMuted" class="ml-2">🔇</span>
+            <div class="video-container">
+                <video id="main-video" autoplay playsinline></video>
+                
+                <!-- Placeholder when video is off -->
+                <div class="video-placeholder" x-show="!remoteVideoEnabled">
+                    <div class="avatar-circle" x-text="remoteUserName ? remoteUserName.charAt(0).toUpperCase() : ''">?</div>
+                    <div class="text-lg font-medium" x-text="remoteUserName || 'Waiting...'">Remote User</div>
+                    <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
+                </div>
+                
+                <!-- User label -->
+                <div class="user-label">
+                    <span class="role-indicator" :class="{'mentor': remoteUserRole === 'mentor', 'learner': remoteUserRole === 'learner'}"></span>
+                    <span x-text="remoteUserName || 'Waiting for participant...'">Remote User</span>
+                    <span x-show="isRemoteMuted" class="ml-2">🔇</span>
+                </div>
             </div>
         </div>
         
         <!-- Local video (you) -->
         <div class="video-wrapper secondary-video-wrapper">
-            <video id="local-video" autoplay playsinline muted class="transform scale-x-[-1]"></video>
-            
-            <!-- Placeholder when video is off -->
-            <div class="video-placeholder" x-show="!videoEnabled">
-                <div class="avatar-circle">{{ user.username.0|upper }}</div>
-                <div class="text-lg font-medium">{{ user.username }} (You)</div>
-                <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
-            </div>
-            
-            <!-- User label -->
-            <div class="user-label">
-                <span class="role-indicator" :class="{'mentor': USER_ROLE === 'mentor', 'learner': USER_ROLE === 'learner'}"></span>
-                <span>{{ user.username }} (You)</span>
-                <span x-show="!audioEnabled" class="ml-2">🔇</span>
+            <div class="video-container">
+                <video id="local-video" autoplay playsinline muted class="transform scale-x-[-1]"></video>
+                
+                <!-- Placeholder when video is off -->
+                <div class="video-placeholder" x-show="!videoEnabled">
+                    <div class="avatar-circle">{{ user.username.0|upper }}</div>
+                    <div class="text-lg font-medium">{{ user.username }} (You)</div>
+                    <div class="text-sm text-gray-400 mt-2">Camera is turned off</div>
+                </div>
+                
+                <!-- User label -->
+                <div class="user-label">
+                    <span class="role-indicator" :class="{'mentor': USER_ROLE === 'mentor', 'learner': USER_ROLE === 'learner'}"></span>
+                    <span>{{ user.username }} (You)</span>
+                    <span x-show="!audioEnabled" class="ml-2">🔇</span>
+                </div>
             </div>
         </div>
     </div>
