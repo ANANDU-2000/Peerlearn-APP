@@ -81,6 +81,7 @@
                         <div class="sessions-list grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                             {% for session in today_sessions %}
                                 <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition duration-200 ease-in-out hover:shadow-md"
+                                    data-session-id="{{ session.id }}"
                                     x-data="{ 
                                         showOptionsMenu: false, 
                                         isBusy: false,
@@ -95,7 +96,7 @@
                                                 
                                                 <!-- Status badges -->
                                                 <div class="mt-1 flex items-center space-x-2">
-                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                    <span class="status-badge px-2.5 py-0.5 rounded-full text-xs font-medium
                                                         {% if session.status == 'scheduled' %}bg-gray-100 text-gray-800
                                                         {% elif session.status == 'live' %}bg-red-100 text-red-800
                                                         {% elif session.status == 'completed' %}bg-blue-100 text-blue-800
@@ -104,7 +105,7 @@
                                                     </span>
                                                     
                                                     <!-- Participants badge -->
-                                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    <span class="booking-badge px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                         {{ session.confirmed_bookings_count }} / {{ session.max_participants }} Booked
                                                     </span>
                                                 </div>
@@ -176,7 +177,19 @@
                                                 <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
                                                 </svg>
-                                                <span class="countdown-display text-primary-600" x-text="'Starts in ' + formatCountdown('{{ session.countdown_str }}')">Starts in {{ session.countdown_str }}</span>
+                                                <span class="countdown-display text-primary-600">
+                                                    Starts in <span 
+                                                        data-countdown="true" 
+                                                        data-countdown-type="start"
+                                                        data-session-id="{{ session.id }}"
+                                                        data-session-time="{{ session.schedule|date:'c' }}">
+                                                        {% if session.countdown_str %}
+                                                            {{ session.countdown_str }}
+                                                        {% else %}
+                                                            calculating...
+                                                        {% endif %}
+                                                    </span>
+                                                </span>
                                             </div>
                                             {% endif %}
                                             
