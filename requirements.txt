@@ -1,6 +1,6 @@
 # Core Framework
-Django==4.2.10
-djangorestframework==3.14.0
+Django>=4.2,<5.0
+djangorestframework>=3.14,<3.15
 django-filter==23.2
 django-cors-headers==4.3.0
 django-crispy-forms==2.0
@@ -8,11 +8,11 @@ django-storages==1.14.2
 whitenoise==6.5.0
 
 # Real-time Communication
-channels==4.0.0
+channels>=4.0,<5.0
 channels-redis==4.1.0
-daphne==4.0.0
+daphne>=4.0,<5.0
 websockets==11.0.3
-twisted[tls]==23.10.0
+twisted[tls]>=23.0,<24.0
 
 # Database and Caching
 psycopg2-binary==2.9.9
@@ -35,7 +35,7 @@ django-allauth==0.55.0
 django-otp==1.2.2
 django-two-factor-auth==1.15.3
 djangorestframework-simplejwt==5.3.0
-cryptography==41.0.4
+cryptography>=41.0.0
 django-ratelimit==4.1.0
 
 # File Handling and Media

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PeerLearn - Advanced One-to-One EdTech Platform
 
 PeerLearn is a premium, personalized one-to-one live EdTech platform enabling intelligent digital learning interactions, with a focus on professional skill development and knowledge transfer.
@@ -297,3 +298,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Django and DRF for the amazing web framework
 - Tailwind CSS and Alpine.js for streamlined frontend development
 - The open source community for the countless libraries that make this possible
+=======
+# Peerlearn-APP
+Edtech App 
+>>>>>>> 7da94adce6b7ff2cc537dc5b41fa83f8875c5eee
