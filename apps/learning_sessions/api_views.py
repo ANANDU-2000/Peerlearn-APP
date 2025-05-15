@@ -10,11 +10,95 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.utils import timezone
 
 from .models import Session, Booking
 
 # Get logger
 logger = logging.getLogger(__name__)
+
+@login_required
+@require_POST
+def end_session(request, room_code):
+    """API endpoint to end a session when a mentor or learner clicks 'End Session'"""
+    try:
+        # Get the session by room code
+        session = get_object_or_404(Session, room_code=room_code)
+        
+        # Ensure the user has permission to end this session
+        # Only mentor or a confirmed learner can end the session
+        is_mentor = session.mentor == request.user
+        is_learner = False
+        
+        if hasattr(request.user, 'is_learner') and request.user.is_learner:
+            booking = Booking.objects.filter(
+                session=session,
+                learner=request.user,
+                status__in=['confirmed', 'in_progress']
+            ).first()
+            is_learner = booking is not None
+        
+        if not (is_mentor or is_learner):
+            return JsonResponse({
+                'status': 'error',
+                'message': 'You do not have permission to end this session.'
+            }, status=403)
+        
+        # Mark the session as ended
+        if session.status in [Session.LIVE, Session.IN_PROGRESS]:
+            session.status = Session.COMPLETED
+            session.ended_at = timezone.now()
+            session.save()
+            
+            # Update any associated bookings
+            bookings = Booking.objects.filter(session=session, status__in=['confirmed', 'in_progress'])
+            for booking in bookings:
+                booking.status = Booking.COMPLETED
+                booking.save()
+            
+            # Send a message to the WebSocket channel if needed
+            try:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    # Create a hash of the room code to ensure we get valid characters (same as in consumer)
+                    import hashlib
+                    hashed_code = hashlib.md5(room_code.encode()).hexdigest()[:8]
+                    room_group_name = f'room_{hashed_code}'
+                    
+                    # Send message to room group
+                    async_to_sync(channel_layer.group_send)(
+                        room_group_name,
+                        {
+                            'type': 'session_ended',
+                            'user_id': request.user.id,
+                            'user_name': request.user.get_full_name() or request.user.username,
+                            'user_role': 'mentor' if is_mentor else 'learner',
+                            'session_id': session.id,
+                            'timestamp': timezone.now().isoformat()
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"Error sending WebSocket message: {str(e)}")
+            
+            # Log the action
+            logger.info(f"Session {room_code} ended by {request.user.username} (ID: {request.user.id})")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Session ended successfully.'
+            })
+        else:
+            return JsonResponse({
+                'status': 'warning',
+                'message': 'Session was not live or in progress.'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error ending session: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Error ending session: {str(e)}'
+        }, status=500)
 
 def session_status_api(request):
     """API endpoint to check status of a user's sessions."""
