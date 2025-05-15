@@ -290,6 +290,19 @@ wheels = [
 ]
 
 [[package]]
+name = "crispy-bootstrap4"
+version = "2024.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "django-crispy-forms" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/0b/6a3e2ab27d9eab3fd95628e45212454ac486b2c501def355f3c425cf4ae3/crispy-bootstrap4-2024.10.tar.gz", hash = "sha256:503e8922b0f3b5262a6fdf303a3a94eb2a07514812f1ca130b88f7c02dd25e2b", size = 35301 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/a9/2a22c0e6b72323205a6780f9a93e8121bc2c81338d34a0ddc1f6d1a958e7/crispy_bootstrap4-2024.10-py3-none-any.whl", hash = "sha256:138a97884044ae4c4799c80595b36c42066e4e933431e2e971611e251c84f96c", size = 23060 },
+]
+
+[[package]]
 name = "cryptography"
 version = "44.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -650,6 +663,7 @@ dependencies = [
     { name = "celery" },
     { name = "channels" },
     { name = "channels-redis" },
+    { name = "crispy-bootstrap4" },
     { name = "daphne" },
     { name = "django" },
     { name = "django-crispy-forms" },
@@ -666,6 +680,7 @@ requires-dist = [
     { name = "celery", specifier = ">=5.5.2" },
     { name = "channels", specifier = ">=4.2.2" },
     { name = "channels-redis", specifier = ">=4.2.1" },
+    { name = "crispy-bootstrap4", specifier = ">=2024.10" },
     { name = "daphne", specifier = ">=4.1.2" },
     { name = "django", specifier = ">=5.2.1" },
     { name = "django-crispy-forms", specifier = ">=2.4" },

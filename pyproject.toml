@@ -16,4 +16,5 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "razorpay>=1.4.2",
     "redis>=6.0.0",
+    "crispy-bootstrap4>=2024.10",
 ]
