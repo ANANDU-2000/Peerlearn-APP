@@ -618,6 +618,9 @@ def learner_activity_partial(request):
     # Get bookings and requests for the learner
     from apps.learning_sessions.models import Booking, SessionRequest
     import logging
+    from django.urls import reverse
+    from django.utils import timezone
+    import datetime
     
     # Set up logger for debugging
     logger = logging.getLogger(__name__)
@@ -636,71 +639,206 @@ def learner_activity_partial(request):
     # Add bookings to activities
     for booking in bookings:
         # Check if session is confirmed and has started (or is about to start in 15 minutes)
-        from django.utils import timezone
-        import datetime
-        
-        # Session is joinable if it's confirmed and the scheduled time is within a 4-hour window
-        # (15 minutes before to 3 hours 45 minutes after the start time)
         now = timezone.now()
         is_joinable = False
         
         if booking.status == 'confirmed' and booking.session.schedule:
             time_diff = (booking.session.schedule - now).total_seconds() / 60
             
-            # Enhanced logic to match Session.is_near_start_time property
             # Session is joinable 15 minutes before start time and until session duration after start
-            is_joinable = (time_diff <= 15 and time_diff > -booking.session.duration) and booking.session.status == 'scheduled'
+            is_joinable = (time_diff <= 15 and time_diff > -booking.session.duration)
+            
+            # Always consider live sessions as joinable
+            if booking.session.status == 'live':
+                is_joinable = True
             
             # Is the session today?
             is_today = booking.session.schedule.date() == now.date()
             
-            # Can go live checks - use same is_near_start_time logic as Session model
-            # Session can go live if it's scheduled and within 15 minutes of start time
+            # Can go live checks (for mentors only)
             can_go_live = (booking.session.status == 'scheduled' and 
                           time_diff <= 15 and 
                           time_diff > -booking.session.duration)
             
             # Log session info for debugging
-            logger.info(f"Session {booking.session.id} for booking {booking.id}: time_diff={time_diff}, is_joinable={is_joinable}, can_go_live={can_go_live}")
+            logger.info(f"Session {booking.session.id} for booking {booking.id}: time_diff={time_diff}, is_joinable={is_joinable}, status={booking.session.status}")
         else:
             is_today = False
             can_go_live = False
             is_joinable = False
         
+        # Get display values for prices
+        price_display = f"${booking.session.price:.2f}" if booking.session.price else "Free"
+        
+        # Prepare mentor info
+        mentor_name = f"{booking.session.mentor.first_name} {booking.session.mentor.last_name}"
+        mentor_image = booking.session.mentor.profile_picture.url if booking.session.mentor.profile_picture else None
+        mentor_initials = ''.join([n[0] for n in mentor_name.split() if n])[:2].upper()
+        mentor_expertise = booking.session.mentor.expertise or "No expertise listed"
+        
+        # Set status display and class
+        if booking.status == 'confirmed':
+            if booking.session.status == 'live':
+                status_display = "Live Now!"
+                status_class = "bg-red-100 text-red-800"
+            elif is_joinable:
+                status_display = "Ready to Join"
+                status_class = "bg-green-100 text-green-800"
+            else:
+                status_display = "Confirmed"
+                status_class = "bg-blue-100 text-blue-800"
+        else:
+            status_display = booking.get_status_display()
+            status_class = "bg-green-100 text-green-800" if booking.status == 'completed' else \
+                          "bg-blue-100 text-blue-800" if booking.status == 'confirmed' else \
+                          "bg-yellow-100 text-yellow-800" if booking.status == 'pending' else \
+                          "bg-red-100 text-red-800"
+        
+        # Setup action buttons for the activity
+        action_buttons = []
+        
+        # Join Room button - show for confirmed bookings that are joinable or live
+        if booking.status == 'confirmed' and (is_joinable or booking.session.status == 'live'):
+            action_buttons.append({
+                'type': 'link',
+                'url': reverse('sessions:room', kwargs={'room_code': booking.session.room_code}),
+                'text': 'Join Room',
+                'icon': 'video',
+                'border_class': 'border-transparent',
+                'bg_class': 'bg-red-600 hover:bg-red-700',
+                'text_class': 'text-white',
+                'ring_class': 'focus:ring-red-500'
+            })
+        
+        # View Details button
+        action_buttons.append({
+            'type': 'link',
+            'url': reverse('sessions:detail', kwargs={'pk': booking.session.id}),
+            'text': 'View Details',
+            'icon': 'info',
+            'border_class': 'border-gray-300',
+            'bg_class': 'bg-white hover:bg-gray-50',
+            'text_class': 'text-gray-700',
+            'ring_class': 'focus:ring-blue-500'
+        })
+        
+        # Submit Feedback button - for completed sessions without feedback
+        if booking.status == 'completed' and not booking.feedback_submitted:
+            action_buttons.append({
+                'type': 'link',
+                'url': reverse('sessions:submit_feedback', kwargs={'booking_id': booking.id}),
+                'text': 'Submit Feedback',
+                'icon': 'star',
+                'border_class': 'border-transparent',
+                'bg_class': 'bg-blue-600 hover:bg-blue-700',
+                'text_class': 'text-white',
+                'ring_class': 'focus:ring-blue-500'
+            })
+        
+        # Cancel Booking button - for confirmed future sessions
+        if booking.status == 'confirmed' and booking.session.status == 'scheduled' and time_diff > 0:
+            action_buttons.append({
+                'type': 'link',
+                'url': reverse('sessions:cancel_booking', kwargs={'booking_id': booking.id}),
+                'text': 'Cancel',
+                'icon': 'x',
+                'border_class': 'border-transparent',
+                'bg_class': 'bg-gray-600 hover:bg-gray-700',
+                'text_class': 'text-white',
+                'ring_class': 'focus:ring-gray-500'
+            })
+        
         activity = {
             'type': 'booking',
             'type_color': 'blue',
             'title': booking.session.title,
-            'mentor': booking.session.mentor,
+            'mentor_name': mentor_name,
+            'mentor_image': mentor_image,
+            'mentor_initials': mentor_initials,
+            'mentor_expertise': mentor_expertise,
             'timestamp': booking.created_at,
-            'status': booking.get_status_display(),
-            'status_color': 'green' if booking.status == 'completed' else 'blue' if booking.status == 'confirmed' else 'yellow' if booking.status == 'pending' else 'red',
+            'status_display': status_display,
+            'status_class': status_class,
             'description': booking.session.description,
             'can_review': booking.status == 'completed',
             'has_feedback': booking.feedback_submitted,
             'room_code': booking.session.room_code,
             'joinable': is_joinable,
             'is_today': is_today,
-            'can_go_live': can_go_live,
             'id': booking.id,
             'booking_id': booking.id,
             'schedule': booking.session.schedule,
-            'duration': booking.session.duration
+            'duration': booking.session.duration,
+            'price_label': 'Price',
+            'price_display': price_display,
+            'action_buttons': action_buttons,
+            'upcoming': booking.session.schedule > now if booking.session.schedule else False
         }
         activities.append(activity)
     
     # Add requests to activities
     for session_req in session_requests:
+        # Prepare mentor info
+        mentor_name = f"{session_req.mentor.first_name} {session_req.mentor.last_name}"
+        mentor_image = session_req.mentor.profile_picture.url if session_req.mentor.profile_picture else None
+        mentor_initials = ''.join([n[0] for n in mentor_name.split() if n])[:2].upper()
+        mentor_expertise = session_req.mentor.expertise or "No expertise listed"
+        
+        # Set status display and class
+        status_display = session_req.get_status_display()
+        status_class = "bg-green-100 text-green-800" if session_req.status == 'accepted' else \
+                      "bg-blue-100 text-blue-800" if session_req.status == 'counter_offer' else \
+                      "bg-yellow-100 text-yellow-800" if session_req.status == 'pending' else \
+                      "bg-red-100 text-red-800"
+        
+        # Setup action buttons for the activity
+        action_buttons = []
+        
+        # Accept Counter Offer button
+        if session_req.status == 'counter_offer':
+            action_buttons.append({
+                'type': 'link',
+                'url': reverse('sessions:accept_counter_offer', kwargs={'request_id': session_req.id}),
+                'text': 'Accept Counter Offer',
+                'icon': 'check',
+                'border_class': 'border-transparent',
+                'bg_class': 'bg-green-600 hover:bg-green-700',
+                'text_class': 'text-white',
+                'ring_class': 'focus:ring-green-500'
+            })
+        
+        # Cancel Request button for pending requests
+        if session_req.status == 'pending':
+            action_buttons.append({
+                'type': 'link',
+                'url': reverse('sessions:cancel_session_request', kwargs={'request_id': session_req.id}),
+                'text': 'Cancel Request',
+                'icon': 'x',
+                'border_class': 'border-transparent',
+                'bg_class': 'bg-gray-600 hover:bg-gray-700',
+                'text_class': 'text-white',
+                'ring_class': 'focus:ring-gray-500'
+            })
+        
+        price_display = f"${session_req.budget:.2f}" if session_req.budget else "No budget specified"
+        
         activity = {
             'type': 'request',
             'type_color': 'indigo',
             'title': session_req.title,
-            'mentor': session_req.mentor,
+            'mentor_name': mentor_name,
+            'mentor_image': mentor_image,
+            'mentor_initials': mentor_initials,
+            'mentor_expertise': mentor_expertise,
             'timestamp': session_req.created_at,
-            'status': session_req.get_status_display(),
-            'status_color': 'green' if session_req.status == 'accepted' else 'blue' if session_req.status == 'counter_offer' else 'yellow' if session_req.status == 'pending' else 'red',
+            'status_display': status_display,
+            'status_class': status_class,
             'description': session_req.description,
-            'id': session_req.id
+            'id': session_req.id,
+            'price_label': 'Budget',
+            'price_display': price_display,
+            'action_buttons': action_buttons,
+            'upcoming': False
         }
         activities.append(activity)
     
