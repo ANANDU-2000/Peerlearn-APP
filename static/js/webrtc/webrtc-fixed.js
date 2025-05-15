@@ -91,16 +91,35 @@ document.addEventListener('alpine:init', () => {
             
             // Determine WebSocket URL
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws/session/${this.roomCode}/`;
             
-            console.log('Connecting to WebSocket:', wsUrl);
+            // Try multiple WebSocket URL formats for compatibility
+            this.wsUrls = [
+                // Format 1: sessions (plural)
+                `${wsProtocol}//${window.location.host}/ws/sessions/${this.roomCode}/`,
+                // Format 2: room
+                `${wsProtocol}//${window.location.host}/ws/room/${this.roomCode}/`,
+                // Format 3: session (singular)
+                `${wsProtocol}//${window.location.host}/ws/session/${this.roomCode}/`
+            ];
+            
+            // Try to connect using the first URL format
+            this.currentUrlIndex = 0;
+            this.tryConnectWebSocket();
+        },
+        
+        /**
+         * Try to connect using the current WebSocket URL, and fall back to other formats if needed
+         */
+        tryConnectWebSocket() {
+            const wsUrl = this.wsUrls[this.currentUrlIndex];
+            console.log(`Trying WebSocket connection (${this.currentUrlIndex + 1}/${this.wsUrls.length}):`, wsUrl);
             
             // Create WebSocket connection
             this.socket = new WebSocket(wsUrl);
             
             // Set up event handlers
             this.socket.onopen = () => {
-                console.log('WebSocket connected');
+                console.log('WebSocket connected successfully!');
                 this.socketConnected = true;
                 this.connectionStatus = 'Connected to signaling server';
                 
@@ -119,6 +138,15 @@ document.addEventListener('alpine:init', () => {
             this.socket.onclose = (e) => {
                 console.log('WebSocket closed:', e);
                 this.socketConnected = false;
+                
+                // If this is a connection failure (not a runtime close), try the next URL format
+                if (!this.hasConnected && this.currentUrlIndex < this.wsUrls.length - 1) {
+                    this.currentUrlIndex++;
+                    console.log(`Connection failed. Trying next WebSocket URL format (${this.currentUrlIndex + 1}/${this.wsUrls.length})`);
+                    setTimeout(() => this.tryConnectWebSocket(), 500);
+                    return;
+                }
+                
                 this.connectionStatus = 'Disconnected from signaling server';
                 
                 // Stop ping interval
@@ -126,16 +154,20 @@ document.addEventListener('alpine:init', () => {
                 
                 // Try to reconnect after delay if not intentionally closed
                 if (!this.isClosing) {
-                    setTimeout(() => this.initWebSocket(), 5000);
+                    setTimeout(() => this.tryConnectWebSocket(), 5000);
                 }
             };
             
             this.socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 this.connectionStatus = 'Connection error';
+                
+                // Error will be followed by onclose, which will try the next URL format
             };
             
             this.socket.onmessage = (event) => {
+                // Mark as having successfully connected once we receive a message
+                this.hasConnected = true;
                 this.handleSignalingMessage(event);
             };
         },

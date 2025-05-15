@@ -39,18 +39,33 @@ async def ws_404_handler(scope, receive, send):
         "reason": "Path not found",
     })
 
+# Add explicit import for the session consumer to avoid import errors
+from apps.learning_sessions.consumers import SessionConsumer
+
+# Special direct import for DashboardConsumer
+try:
+    from apps.learning_sessions.consumers import DashboardConsumer
+except ImportError:
+    try:
+        from apps.learning_sessions.dashboard_consumer import DashboardConsumer
+    except ImportError:
+        print("WARNING: DashboardConsumer could not be imported")
+        DashboardConsumer = None
+
 # Combine all websocket URL patterns
 websocket_urlpatterns = [
     # Add session WebSocket patterns with highest priority for WebRTC signaling
-    re_path(r'^ws/session/(?P<room_code>\w+)/$', importlib.import_module('apps.learning_sessions.consumers').SessionConsumer.as_asgi()),
-    re_path(r'^ws/room/(?P<room_code>\w+)/$', importlib.import_module('apps.learning_sessions.consumers').SessionConsumer.as_asgi()),
+    # Use direct import instead of importlib for more reliable loading
+    re_path(r'^ws/session/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),
+    re_path(r'^ws/sessions/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),  # Add plural form 
+    re_path(r'^ws/room/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),
     
     # Include the rest of app-specific websocket URL patterns
     *session_urlpatterns,
     *notification_urlpatterns,
     
     # Add a debug pattern to catch all dashboard WebSocket requests
-    re_path(r'^ws/dashboard/(?P<user_id>.+)/$', importlib.import_module('apps.learning_sessions.dashboard_consumer').DashboardConsumer.as_asgi()),
+    re_path(r'^ws/dashboard/(?P<user_id>.+)/$', DashboardConsumer.as_asgi() if DashboardConsumer else ws_404_handler),
     
     # Add a debugging catch-all pattern for any other URLs
     re_path(r'^ws/.*$', ws_404_handler),
