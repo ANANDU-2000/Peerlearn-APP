@@ -711,6 +711,34 @@ document.addEventListener('alpine:init', () => {
         },
         
         /**
+         * Toggle between different video layouts (horizontal/vertical)
+         */
+        toggleLayout() {
+            const videoGrid = document.querySelector('.video-grid');
+            const mainVideo = document.querySelector('.main-video-wrapper');
+            const secondaryVideo = document.querySelector('.secondary-video-wrapper');
+            
+            // If currently in row layout (horizontal), switch to column
+            if (videoGrid.style.flexDirection === 'row' || getComputedStyle(videoGrid).flexDirection === 'row') {
+                videoGrid.style.flexDirection = 'column';
+                mainVideo.style.height = '70%';
+                secondaryVideo.style.height = '30%';
+                mainVideo.style.width = '100%';
+                secondaryVideo.style.width = '100%';
+                console.log('Switched to vertical layout');
+            } 
+            // If currently in column layout (vertical), switch to row
+            else {
+                videoGrid.style.flexDirection = 'row';
+                mainVideo.style.height = '100%';
+                secondaryVideo.style.height = '100%';
+                mainVideo.style.width = '75%';
+                secondaryVideo.style.width = '25%';
+                console.log('Switched to horizontal layout');
+            }
+        },
+        
+        /**
          * Send media status update
          */
         sendMediaStatus() {
