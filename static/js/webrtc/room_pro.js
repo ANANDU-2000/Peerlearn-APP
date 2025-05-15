@@ -1193,96 +1193,447 @@ document.addEventListener('alpine:init', () => {
         },
         
         /**
-         * Handle temporary connection loss with progressive recovery
+         * Handle temporary connection loss with progressive recovery and smart reconnection
          */
         handleConnectionLoss(stateType) {
-            console.log(`Handling connection ${stateType} event`);
+            console.log(`Handling connection ${stateType} event at ${new Date().toISOString()}`);
             
-            // Update UI to show reconnecting status
-            this.updateConnectionStatus(`Connection problem detected. Attempting to reconnect...`);
+            // Update UI to show reconnecting status with more reassuring message
+            this.updateConnectionStatus(`Reconnecting... Video connection temporarily interrupted.`);
+            this.playNotificationSound('alert');
+            
+            // Add a visible but non-intrusive indicator in the video area
+            const connectionIndicator = document.createElement('div');
+            connectionIndicator.className = 'connection-recovery-indicator';
+            connectionIndicator.innerHTML = `
+                <div class="flex items-center p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 text-sm rounded-md">
+                    <svg class="w-5 h-5 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Reconnecting... Please wait</span>
+                </div>
+            `;
+            
+            // Append to video container if it exists
+            const videoContainer = document.querySelector('.video-container');
+            if (videoContainer && !document.querySelector('.connection-recovery-indicator')) {
+                videoContainer.appendChild(connectionIndicator);
+                
+                // Set it to automatically remove after 15 seconds to avoid orphaned indicators
+                setTimeout(() => {
+                    if (connectionIndicator && connectionIndicator.parentNode) {
+                        connectionIndicator.parentNode.removeChild(connectionIndicator);
+                    }
+                }, 15000);
+            }
+            
+            // Store the timestamp of this connection loss
+            this.lastConnectionLossTime = Date.now();
             
             // Clear any existing reconnection timer
             if (this.reconnectionTimer) {
                 clearTimeout(this.reconnectionTimer);
             }
             
-            // Initialize failure counter if not exists
-            if (typeof this.connectionFailureCount === 'undefined') {
+            // Initialize connection metrics if not exists
+            if (typeof this.connectionLossCount === 'undefined') {
+                this.connectionLossCount = 0;
                 this.connectionFailureCount = 0;
+                this.connectionRecoveryTimes = [];
             }
             
-            // Try natural recovery first (WebRTC sometimes recovers on its own)
+            // Track connection loss events
+            this.connectionLossCount++;
+            console.log(`Connection loss count: ${this.connectionLossCount}`);
+            
+            // Try natural recovery first (WebRTC can often recover on its own)
+            // Use a shorter initial wait time for more responsive recovery
             this.reconnectionTimer = setTimeout(() => {
                 // Check if we've naturally recovered
                 if (this.peerConnection && 
                     (this.peerConnection.iceConnectionState === 'connected' || 
                      this.peerConnection.iceConnectionState === 'completed')) {
-                    console.log('Connection naturally recovered');
-                    this.updateConnectionStatus('Connection re-established');
-                    this.showSuccessMessage('Connection successfully restored!');
+                    // Calculate recovery time for analytics
+                    const recoveryTime = Date.now() - this.lastConnectionLossTime;
+                    this.connectionRecoveryTimes.push(recoveryTime);
+                    
+                    console.log(`Connection naturally recovered after ${recoveryTime}ms`);
+                    this.updateConnectionStatus('Connected');
+                    this.showSuccessMessage('Connection restored!');
+                    
+                    // Remove recovery indicator
+                    const indicator = document.querySelector('.connection-recovery-indicator');
+                    if (indicator && indicator.parentNode) {
+                        indicator.parentNode.removeChild(indicator);
+                    }
+                    
+                    // Play positive notification
+                    this.playNotificationSound('success');
                     return;
                 }
                 
-                // If we haven't recovered naturally, try ICE restart
-                console.log('Connection still disconnected after wait period, attempting ICE restart');
-                this.restartIce();
+                // If natural recovery didn't work, try ICE restart with adaptive timing
+                // Use exponential backoff based on number of recent disconnections
+                const backoffFactor = Math.min(this.connectionLossCount, 5);
+                console.log(`Connection still disconnected. Attempt ${this.connectionLossCount} with backoff factor ${backoffFactor}`);
                 
-            }, 3000); // Short wait for natural recovery
+                if (this.connectionLossCount <= 3) {
+                    // For initial disconnections, try standard ICE restart
+                    this.restartIce(false);
+                } else {
+                    // For persistent problems, try more aggressive recovery
+                    this.restartIce(true);
+                    
+                    // If we've had many disconnections, try optimizing media
+                    if (this.connectionLossCount >= 5) {
+                        this.optimizeMediaForPoorConnection();
+                    }
+                }
+                
+            }, 2000); // Slightly shorter initial wait for better UX
         },
         
         /**
-         * Handle more serious connection failures with incremental approach
+         * Optimize media settings for poor network connections
+         */
+        optimizeMediaForPoorConnection() {
+            console.log('Optimizing media for poor connection...');
+            
+            // Only proceed if we have a local stream
+            if (!this.localStream) return;
+            
+            try {
+                // Get video track to adjust
+                const videoTracks = this.localStream.getVideoTracks();
+                if (videoTracks.length > 0) {
+                    const videoTrack = videoTracks[0];
+                    
+                    // Check if we can access constraints API
+                    if (videoTrack.getConstraints && videoTrack.applyConstraints) {
+                        // Get current constraints
+                        const currentConstraints = videoTrack.getConstraints();
+                        console.log('Current video constraints:', currentConstraints);
+                        
+                        // Create optimized constraints for poor networks
+                        const optimizedConstraints = {
+                            width: { ideal: 640, max: 854 },  // Reduced resolution (480p)
+                            height: { ideal: 360, max: 480 },
+                            frameRate: { max: 15 }           // Lower framerate
+                        };
+                        
+                        // Apply optimized constraints
+                        videoTrack.applyConstraints(optimizedConstraints)
+                            .then(() => {
+                                console.log('Applied optimized video constraints:', optimizedConstraints);
+                                this.showStatusMessage('Optimized video for current network conditions');
+                            })
+                            .catch(err => {
+                                console.error('Error applying optimized constraints:', err);
+                            });
+                    }
+                }
+                
+                // Also adjust encoding parameters if using SDP munging
+                if (this.peerConnection && this.USER_ROLE === 'mentor') {
+                    // Next time we create an offer, will use lower bitrates
+                    this.useOptimizedBitrates = true;
+                }
+            } catch (err) {
+                console.error('Error optimizing media for poor connection:', err);
+            }
+        },
+        
+        /**
+         * Handle more serious connection failures with enhanced adaptive recovery
          */
         handleConnectionFailure(stateType) {
-            console.warn(`Handling connection ${stateType} event`);
+            console.warn(`Handling critical connection ${stateType} event at ${new Date().toISOString()}`);
             
             // Initialize or increment failure counter
             if (typeof this.connectionFailureCount === 'undefined') {
                 this.connectionFailureCount = 0;
+                this.lastFailureTime = 0;
             }
-            this.connectionFailureCount++;
             
-            // Show appropriate message based on failure count
-            if (this.connectionFailureCount === 1) {
-                this.showError('Connection issue detected. Attempting to reconnect...');
-            } else if (this.connectionFailureCount === 2) {
-                this.showError('Still having connection problems. Trying alternative approach...');
+            // Track frequency of failures - if too many in short time, try more radical recovery
+            const now = Date.now();
+            const timeSinceLastFailure = now - this.lastFailureTime;
+            this.lastFailureTime = now;
+            
+            // If failures are happening rapidly, increment counter more aggressively
+            if (timeSinceLastFailure < 10000 && this.connectionFailureCount > 0) {
+                this.connectionFailureCount += 2; // Count rapid failures more severely
+                console.warn(`Rapid connection failures detected (${timeSinceLastFailure}ms apart)`);
             } else {
-                this.showError('Connection issues persist. You may need to refresh the page if video doesn\'t reconnect shortly.');
+                this.connectionFailureCount++;
             }
             
-            // Update connection status
-            this.updateConnectionStatus(`Connection failed (Attempt ${this.connectionFailureCount}). Reconnecting...`);
+            // Show appropriate message based on failure count and add visual indicators
+            if (this.connectionFailureCount <= 2) {
+                this.showError('Connection interrupted. Attempting to reconnect...');
+            } else if (this.connectionFailureCount <= 4) {
+                this.showError('Network issues detected. Trying backup connection methods...');
+            } else {
+                this.showError('Persistent connection problems. Consider checking your internet connection.');
+                
+                // Add visual fallback content when video isn't working
+                this.showFallbackContent(true, 'Connection issues detected. Audio may still work.');
+            }
+            
+            // Play audio alert with appropriate severity
+            this.playNotificationSound(this.connectionFailureCount <= 2 ? 'alert' : 'error');
+            
+            // Update connection status with more details
+            this.updateConnectionStatus(`Reconnecting (Attempt ${this.connectionFailureCount}). ${this.getNetworkTroubleshootingTips()}`);
             
             // Clear any existing reconnection timer
             if (this.reconnectionTimer) {
                 clearTimeout(this.reconnectionTimer);
             }
             
-            // Implement progressive recovery strategy based on failure count
-            if (this.connectionFailureCount === 1) {
-                // First failure: try standard ICE restart
-                this.restartIce();
+            // Enhanced progressive recovery strategy with more granular steps
+            if (this.connectionFailureCount <= 2) {
+                // Initial failures: try standard ICE restart
+                this.restartIce(false);
                 
-            } else if (this.connectionFailureCount === 2) {
-                // Second failure: small delay then try ICE restart with new options
-                setTimeout(() => this.restartIce(true), 1000);
-                
-            } else if (this.connectionFailureCount === 3) {
-                // Third failure: longer delay then reinitialize peer connection completely
+            } else if (this.connectionFailureCount <= 4) {
+                // Multiple failures: try more aggressive ICE restart + transport policy changes
                 setTimeout(() => {
-                    console.log('Multiple failures, reinitializing connection...');
-                    this.initializePeerConnection();
+                    this.restartIce(true);
                     
-                    // If we're the mentor, create a new offer
-                    if (this.USER_ROLE === 'mentor') {
-                        setTimeout(() => this.createOffer(), 1000);
+                    // Also optimize media for poor conditions
+                    this.optimizeMediaForPoorConnection();
+                }, 1000);
+                
+            } else if (this.connectionFailureCount <= 6) {
+                // Persistent failures: complete teardown and reconnect
+                setTimeout(() => {
+                    console.log('Critical connection failures, rebuilding WebRTC pipeline...');
+                    
+                    // Close existing connection completely
+                    if (this.peerConnection) {
+                        this.peerConnection.onicecandidate = null;
+                        this.peerConnection.oniceconnectionstatechange = null;
+                        this.peerConnection.ontrack = null;
+                        this.peerConnection.close();
+                        this.peerConnection = null;
                     }
+                    
+                    // Try to restart the WebSocket connection first
+                    this.socket.close();
+                    setTimeout(() => {
+                        // Reinitialize WebSocket first
+                        this.initializeWebSocket();
+                        
+                        // Then rebuild the peer connection
+                        setTimeout(() => {
+                            this.initializePeerConnection();
+                            
+                            // If we're the mentor, create a new offer
+                            if (this.USER_ROLE === 'mentor') {
+                                setTimeout(() => this.createOffer(), 1000);
+                            }
+                        }, 1000);
+                    }, 1000);
                 }, 2000);
                 
             } else {
-                // Beyond three failures: suggest user action
-                this.showError('Unable to establish reliable connection. Please check your network and refresh the page.');
+                // Extreme measures for very persistent failures
+                this.showFallbackRecoveryUI();
+            }
+        },
+        
+        /**
+         * Show fallback content when video feed isn't working
+         */
+        showFallbackContent(show, message) {
+            // Add a fallback container for when video doesn't work
+            const remoteContainer = document.getElementById('remote-container');
+            if (!remoteContainer) return;
+            
+            let fallbackEl = document.getElementById('connection-fallback');
+            
+            if (show) {
+                if (!fallbackEl) {
+                    fallbackEl = document.createElement('div');
+                    fallbackEl.id = 'connection-fallback';
+                    fallbackEl.className = 'absolute inset-0 bg-gray-800 bg-opacity-90 flex flex-col items-center justify-center text-white p-4 rounded-lg z-10';
+                    fallbackEl.innerHTML = `
+                        <svg class="w-16 h-16 mb-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <p class="text-lg font-medium mb-2">Video Connection Issues</p>
+                        <p class="text-center mb-4">${message || 'Connection interrupted. Audio may still work.'}</p>
+                        <div class="flex space-x-2">
+                            <button id="fallback-retry" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white">
+                                Retry Connection
+                            </button>
+                            <button id="fallback-audio" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white">
+                                Audio Only Mode
+                            </button>
+                        </div>
+                    `;
+                    remoteContainer.appendChild(fallbackEl);
+                    
+                    // Add event listeners for the buttons
+                    document.getElementById('fallback-retry').addEventListener('click', () => {
+                        this.restartIce(true);
+                        this.showFallbackContent(false);
+                    });
+                    
+                    document.getElementById('fallback-audio').addEventListener('click', () => {
+                        this.switchToAudioOnlyMode();
+                        fallbackEl.querySelector('p:nth-child(3)').textContent = 'Switched to audio-only mode to conserve bandwidth';
+                    });
+                } else {
+                    fallbackEl.style.display = 'flex';
+                    if (message) {
+                        fallbackEl.querySelector('p:nth-child(3)').textContent = message;
+                    }
+                }
+            } else if (fallbackEl) {
+                fallbackEl.style.display = 'none';
+            }
+        },
+        
+        /**
+         * Switch to audio-only mode to preserve connection in poor networks
+         */
+        switchToAudioOnlyMode() {
+            console.log('Switching to audio-only mode to conserve bandwidth');
+            
+            if (this.localStream) {
+                // Disable video tracks but keep audio
+                this.localStream.getVideoTracks().forEach(track => {
+                    track.enabled = false;
+                });
+                
+                this.videoEnabled = false;
+                
+                // Update UI to reflect audio-only mode
+                const videoToggleBtn = document.getElementById('video-toggle');
+                if (videoToggleBtn) {
+                    videoToggleBtn.classList.add('disabled');
+                    videoToggleBtn.setAttribute('disabled', 'disabled');
+                }
+                
+                // Show appropriate indicator
+                this.showStatusMessage('Switched to audio-only mode due to poor connection');
+            }
+        },
+        
+        /**
+         * Show extended recovery UI for persistent connection issues
+         */
+        showFallbackRecoveryUI() {
+            this.showError('Connection could not be automatically restored');
+            
+            // Create a more comprehensive recovery UI
+            const mainContainer = document.querySelector('.main-container') || document.body;
+            
+            let recoveryUI = document.getElementById('extended-recovery-ui');
+            if (!recoveryUI) {
+                recoveryUI = document.createElement('div');
+                recoveryUI.id = 'extended-recovery-ui';
+                recoveryUI.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
+                recoveryUI.innerHTML = `
+                    <div class="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl">
+                        <div class="text-center mb-5">
+                            <svg class="w-16 h-16 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <h2 class="text-2xl font-bold mt-2">Connection Failed</h2>
+                            <p class="text-gray-600 mt-1">We're having trouble connecting you to this session</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                                <h3 class="font-medium">Troubleshooting Steps:</h3>
+                                <ul class="text-sm text-gray-600 mt-2 space-y-2">
+                                    <li class="flex items-start">
+                                        <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        Check your internet connection
+                                    </li>
+                                    <li class="flex items-start">
+                                        <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        Make sure your camera and microphone are working
+                                    </li>
+                                    <li class="flex items-start">
+                                        <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        Try using a different browser or device
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <div class="flex justify-center space-x-3">
+                                <button id="recovery-audio" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md">
+                                    Try Audio Only
+                                </button>
+                                <button id="recovery-retry" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                                    Try Again
+                                </button>
+                                <button id="recovery-reload" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-md">
+                                    Reload Page
+                                </button>
+                            </div>
+                            
+                            <p class="text-xs text-gray-500 text-center mt-4">
+                                If problems persist, try rejoining the session from your dashboard
+                            </p>
+                        </div>
+                    </div>
+                `;
+                
+                mainContainer.appendChild(recoveryUI);
+                
+                // Add event listeners for recovery options
+                document.getElementById('recovery-audio').addEventListener('click', () => {
+                    this.switchToAudioOnlyMode();
+                    this.restartIce(true);
+                    recoveryUI.remove();
+                });
+                
+                document.getElementById('recovery-retry').addEventListener('click', () => {
+                    // Full reconnection attempt
+                    if (this.peerConnection) {
+                        this.peerConnection.close();
+                        this.peerConnection = null;
+                    }
+                    
+                    this.initializePeerConnection();
+                    if (this.USER_ROLE === 'mentor') {
+                        setTimeout(() => this.createOffer(), 1000);
+                    }
+                    
+                    recoveryUI.remove();
+                });
+                
+                document.getElementById('recovery-reload').addEventListener('click', () => {
+                    window.location.reload();
+                });
+            } else {
+                recoveryUI.style.display = 'flex';
+            }
+        },
+        
+        /**
+         * Get helpful network troubleshooting tips based on connection state
+         */
+        getNetworkTroubleshootingTips() {
+            // Return different tips based on connection failure count
+            if (this.connectionFailureCount <= 2) {
+                return "Please wait...";
+            } else if (this.connectionFailureCount <= 4) {
+                return "Try moving closer to your router if possible.";
+            } else {
+                return "Check your internet connection and refresh if needed.";
             }
         },
         
@@ -1835,13 +2186,88 @@ document.addEventListener('alpine:init', () => {
         
         /**
          * Play a notification sound
+         * @param {string} type - Type of sound: 'alert', 'success', 'error', etc.
          */
-        playNotificationSound() {
-            const notificationSound = document.getElementById('notification-sound');
-            if (notificationSound) {
-                notificationSound.play().catch(error => {
-                    console.warn('Error playing notification sound:', error);
-                });
+        playNotificationSound(type = 'alert') {
+            try {
+                let soundUrl;
+                
+                // Select appropriate sound based on type
+                switch(type) {
+                    case 'success':
+                        soundUrl = '/static/sounds/success.mp3';
+                        break;
+                    case 'error':
+                        soundUrl = '/static/sounds/error.mp3';
+                        break;
+                    case 'alert':
+                    default:
+                        soundUrl = '/static/sounds/alert.mp3';
+                        break;
+                }
+                
+                // Try to play the sound
+                const audio = new Audio(soundUrl);
+                audio.volume = 0.5;  // Set moderate volume
+                
+                // Handle autoplay restrictions with user gesture check
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.warn('Browser prevented autoplay of notification sound:', error);
+                        // We'll just silently fail rather than showing an error to user
+                    });
+                }
+            } catch (err) {
+                console.warn('Could not play notification sound:', err);
+                // Fail silently
+            }
+        },
+        
+        /**
+         * Show an informational status message to the user
+         */
+        showStatusMessage(message) {
+            // Get or create status message container
+            let statusEl = document.getElementById('connection-status-message');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'connection-status-message';
+                statusEl.className = 'fixed bottom-4 left-4 z-50 text-sm px-4 py-2 rounded-lg transition-opacity duration-300';
+                document.body.appendChild(statusEl);
+            }
+            
+            // Update message and style based on content
+            if (!message) {
+                statusEl.textContent = '';
+                statusEl.classList.add('opacity-0');
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 300);
+                return;
+            }
+            
+            // Set message with appropriate styling
+            statusEl.textContent = message;
+            statusEl.classList.remove('hidden', 'opacity-0');
+            
+            // Style based on message content
+            if (message.includes('Reconnecting') || message.includes('interrupted')) {
+                statusEl.className = 'fixed bottom-4 left-4 z-50 text-sm px-4 py-2 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-200';
+            } else if (message.includes('Optimized') || message.includes('audio-only')) {
+                statusEl.className = 'fixed bottom-4 left-4 z-50 text-sm px-4 py-2 rounded-lg bg-blue-100 text-blue-800 border border-blue-200';
+            } else {
+                statusEl.className = 'fixed bottom-4 left-4 z-50 text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-800 border border-gray-200';
+            }
+            
+            // Auto-hide after 5 seconds unless it's an error message
+            if (!message.includes('error') && !message.includes('failed') && !message.includes('issues')) {
+                setTimeout(() => {
+                    statusEl.classList.add('opacity-0');
+                    setTimeout(() => {
+                        statusEl.classList.add('hidden');
+                    }, 300);
+                }, 5000);
             }
         },
         
