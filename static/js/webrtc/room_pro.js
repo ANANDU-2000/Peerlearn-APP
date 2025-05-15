@@ -310,8 +310,9 @@ document.addEventListener('alpine:init', () => {
                 // Request with ideal constraints first
                 this.localStream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        framerate: { ideal: 30, min: 15 },
                         facingMode: 'user'
                     },
                     audio: {
@@ -321,6 +322,14 @@ document.addEventListener('alpine:init', () => {
                     }
                 });
                 
+                // Ensure camera is actually ready by verifying track state
+                const videoTracks = this.localStream.getVideoTracks();
+                if (videoTracks.length > 0) {
+                    console.log(`Using video device: ${videoTracks[0].label}`);
+                    // Wait a moment for camera to stabilize
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
                 // Set up local video with the stream
                 setupLocalVideo(this.localStream);
                 
@@ -329,8 +338,19 @@ document.addEventListener('alpine:init', () => {
                 this.videoEnabled = true;
                 this.audioEnabled = true;
                 
-                // Initialize peer connection once we have the local stream
+                // Initialize peer connection IMMEDIATELY once we have the local stream
                 this.initializePeerConnection();
+                
+                // Create offer or answer faster to improve synchronization
+                if (this.USER_ROLE === 'mentor') {
+                    console.log('Creating offer immediately after getting media');
+                    if (!this.offerInProgress) {
+                        setTimeout(() => this.createOffer(), 500);
+                    }
+                } else if (this.receivedInitialOffer) {
+                    console.log('Creating answer immediately after getting media');
+                    setTimeout(() => this.createAnswer(), 500);
+                }
                 
                 console.log('Local stream initialized successfully with video and audio');
                 
@@ -348,7 +368,8 @@ document.addEventListener('alpine:init', () => {
                             video: false,
                             audio: {
                                 echoCancellation: true,
-                                noiseSuppression: true
+                                noiseSuppression: true,
+                                autoGainControl: true
                             }
                         });
                         
@@ -361,6 +382,17 @@ document.addEventListener('alpine:init', () => {
                         
                         // Initialize peer connection with audio only
                         this.initializePeerConnection();
+                        
+                        // Create offer or answer faster to improve synchronization even in audio-only mode
+                        if (this.USER_ROLE === 'mentor') {
+                            console.log('Creating audio-only offer immediately');
+                            if (!this.offerInProgress) {
+                                setTimeout(() => this.createOffer(), 500);
+                            }
+                        } else if (this.receivedInitialOffer) {
+                            console.log('Creating audio-only answer immediately');
+                            setTimeout(() => this.createAnswer(), 500);
+                        }
                         
                         console.log('Fallback to audio-only successful');
                         this.showSuccessMessage('Connected with audio only. Video is disabled.');

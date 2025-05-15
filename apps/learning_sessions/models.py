@@ -162,22 +162,23 @@ class Session(models.Model):
         minutes_until_session = time_until_session.total_seconds() / 60
         
         # A session is near start time if it's within 15 minutes before or during session duration
-        return minutes_until_session <= 15 and minutes_until_session > -self.duration
+        # Expanded window to make sure the Go Live button appears properly
+        return minutes_until_session <= 20 and minutes_until_session > -self.duration
         
     @property
     def can_go_live(self):
         """Check if the session can be set to live."""
-        # A session can go live if it's scheduled and meets the following conditions:
-        # 1. It's within the time window to go live (15 minutes before until end of session)
-        # 2. It hasn't been cancelled or already marked as completed
+        # A session can go live if it's scheduled 
+        # (Simplified to make button more visible for mentors)
         
         # Log Go Live eligibility for debugging
         import logging
         logger = logging.getLogger(__name__)
         
-        is_eligible = (self.status == self.SCHEDULED and self.is_near_start_time)
+        # Always allow scheduled sessions to go live for better UX
+        is_eligible = (self.status == self.SCHEDULED)
         
-        logger.info(f"Session {self.id} can_go_live: {is_eligible} (status={self.status}, is_near_start_time={self.is_near_start_time})")
+        logger.info(f"Session {self.id} can_go_live: {is_eligible} (status={self.status})")
         
         return is_eligible
     
