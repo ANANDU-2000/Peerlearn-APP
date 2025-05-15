@@ -251,8 +251,8 @@ class SessionsConsumer(AsyncJsonWebsocketConsumer):
                 'confirmed_bookings_count': session.booking_count,
                 'max_participants': session.max_participants,
                 'can_book': session.status == 'scheduled' and session.booking_count < session.max_participants,
-                'can_go_live': session.can_go_live(),
-                'can_edit': session.can_edit(),
+                'can_go_live': session.can_go_live,
+                'can_edit': session.status in ['draft', 'scheduled'],
                 'image_url': session.image.url if session.image else None,
             })
             
@@ -841,7 +841,7 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
                 'price': float(session.price) if session.price else 0,
                 'confirmed_bookings_count': session.bookings.filter(status='confirmed').count(),
-                'can_go_live': session.can_go_live(),
+                'can_go_live': session.can_go_live,
                 'learner_names': [b.learner.get_full_name() for b in session.bookings.filter(status='confirmed')],
             })
             formatted_recent_sessions.append(session_dict)
@@ -854,7 +854,7 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
                 'price': float(session.price) if session.price else 0,
                 'confirmed_bookings_count': session.bookings.filter(status='confirmed').count(),
-                'can_go_live': session.can_go_live(),
+                'can_go_live': session.can_go_live,
                 'countdown': session.get_time_until_start(),
                 'learner_names': [b.learner.get_full_name() for b in session.bookings.filter(status='confirmed')],
             })
@@ -1089,8 +1089,8 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'confirmed_bookings_count': session.booking_count,
                 'max_participants': session.max_participants,
                 'can_book': session.status == 'scheduled' and session.booking_count < session.max_participants,
-                'can_go_live': session.can_go_live(),
-                'can_edit': session.can_edit(),
+                'can_go_live': session.can_go_live,
+                'can_edit': session.status in ['draft', 'scheduled'],
                 'countdown': session.get_time_until_start(),
                 'image_url': session.image.url if session.image else None,
             })
