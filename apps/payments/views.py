@@ -185,11 +185,31 @@ def payment_success(request, payment_id):
                     booking.status = Booking.CONFIRMED
                     booking.save()
                     
-                    # Notify mentor
-                    Notification.objects.create(
-                        user=booking.session.mentor,
-                        message=f"New booking for '{booking.session.title}' has been confirmed!",
-                        link=f"/dashboard/mentor/"
+                    # Import the improved notification utility
+                    from apps.notifications.utils import send_notification_to_user, send_notification_to_multiple_users
+                    
+                    # Get more detailed session information for notifications
+                    session_title = booking.session.title
+                    session_date = booking.session.schedule.strftime('%b %d, %Y at %I:%M %p')
+                    learner_name = booking.learner.get_full_name() or booking.learner.username
+                    mentor_name = booking.session.mentor.get_full_name() or booking.session.mentor.username
+                    
+                    # Notify mentor with detailed information about the payment and booking
+                    send_notification_to_user(
+                        user_id=booking.session.mentor.id,
+                        title="Payment Received for Booking",
+                        message=f"{learner_name} has completed payment for your session '{session_title}' scheduled on {session_date}. The booking is now confirmed!",
+                        notification_type="success",
+                        reference_id=booking.id
+                    )
+                    
+                    # Also send a confirmation to the learner with session details
+                    send_notification_to_user(
+                        user_id=booking.learner.id,
+                        title="Payment Successful",
+                        message=f"Your payment for '{session_title}' with {mentor_name} is successful. The session is confirmed for {session_date}. We've sent you a calendar invite to your email.",
+                        notification_type="success",
+                        reference_id=booking.id
                     )
             
             messages.success(request, 'Payment successful! Your booking is confirmed.')

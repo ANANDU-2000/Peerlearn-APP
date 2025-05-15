@@ -457,11 +457,31 @@ def cancel_booking(request, booking_id):
         booking.cancellation_reason = reason
         booking.save()
         
-        # Notify the mentor
-        Notification.objects.create(
-            user=booking.session.mentor,
-            message=f"Booking for '{booking.session.title}' has been cancelled.",
-            link=f"/dashboard/mentor/"
+        # Import the improved notification utility
+        from apps.notifications.utils import send_notification_to_user
+        
+        # Get more detailed information for notifications
+        session_title = booking.session.title
+        session_date = booking.session.schedule.strftime('%b %d, %Y at %I:%M %p')
+        learner_name = request.user.get_full_name() or request.user.username
+        mentor_name = booking.session.mentor.get_full_name() or booking.session.mentor.username
+        
+        # Send a more detailed and actionable notification to the mentor
+        send_notification_to_user(
+            user_id=booking.session.mentor.id,
+            title="Session Booking Cancelled",
+            message=f"{learner_name} has cancelled their booking for '{session_title}' scheduled on {session_date}. Reason: {reason if reason else 'No reason provided'}",
+            notification_type="warning",
+            reference_id=booking.id
+        )
+        
+        # Also notify the learner with confirmation
+        send_notification_to_user(
+            user_id=request.user.id,
+            title="Cancellation Confirmed",
+            message=f"Your booking for '{session_title}' with {mentor_name} scheduled for {session_date} has been cancelled successfully.",
+            notification_type="info",
+            reference_id=booking.id
         )
         
         messages.success(request, 'Booking cancelled successfully.')
