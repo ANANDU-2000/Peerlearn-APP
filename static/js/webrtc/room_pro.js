@@ -241,14 +241,19 @@ document.addEventListener('alpine:init', () => {
          * Initialize the local media stream (camera & microphone) with enhanced error handling and fallbacks
          */
         async initializeLocalStream() {
+            // Show loading indicator to improve user experience while camera initializes
+            this.showStatusMessage('Initializing camera and microphone...');
+            
             const setupLocalVideo = (stream) => {
-                // Helper function to configure local video element
+                // Helper function to configure local video element with better error handling and retries
                 const configureLocalVideo = (attempts = 0) => {
                     const localVideo = document.getElementById('local-video');
                     if (!localVideo) {
                         console.error('Local video element not found');
-                        if (attempts < 3) {
-                            setTimeout(() => configureLocalVideo(attempts + 1), 500);
+                        if (attempts < 5) {  // Increased retry attempts
+                            setTimeout(() => configureLocalVideo(attempts + 1), 300);  // Faster retry
+                        } else {
+                            this.showError('Video element not found. Please refresh the page.');
                         }
                         return;
                     }
@@ -257,44 +262,71 @@ document.addEventListener('alpine:init', () => {
                         // Set the stream as source for video element
                         localVideo.srcObject = stream;
                         
-                        // Configure attributes for performance and mobile
+                        // Enhanced configuration for cross-browser compatibility
                         localVideo.setAttribute('autoplay', 'true');
                         localVideo.setAttribute('playsinline', 'true');
                         localVideo.setAttribute('muted', 'true');
+                        localVideo.setAttribute('disablePictureInPicture', 'true');  // Prevent PiP which can cause issues
                         
-                        // Make sure the local video is actually muted (important for browsers)
+                        // Force muted for local video (critical browser safety requirement)
                         localVideo.muted = true;
                         
-                        // Set up loaded metadata event for playback
+                        // Set up loaded metadata event for playback with better error handling
                         localVideo.onloadedmetadata = () => {
-                            console.log('Local video metadata loaded');
+                            console.log('Local video metadata loaded, height:', localVideo.videoHeight, 'width:', localVideo.videoWidth);
                             
-                            // Try to play the video
-                            localVideo.play()
-                                .then(() => {
-                                    console.log('Local video playing successfully');
-                                })
-                                .catch(error => {
-                                    console.error('Error playing local video:', error);
-                                    if (error.name === 'NotAllowedError') {
-                                        // Add click handler to allow play on interaction
-                                        localVideo.onclick = () => {
-                                            localVideo.play().catch(e => console.error('Play on click failed:', e));
-                                        };
-                                    }
-                                });
+                            // Improved play error handling with auto-recovery
+                            const attemptAutoPlay = (playAttempts = 0) => {
+                                localVideo.play()
+                                    .then(() => {
+                                        console.log('Local video playing successfully');
+                                        // Signal success to update UI indicators
+                                        this.isLocalStreamReady = true;
+                                        this.showStatusMessage('');  // Clear status message
+                                        
+                                        // Dispatch event that video is actually playing
+                                        document.dispatchEvent(new CustomEvent('localVideoPlaying'));
+                                    })
+                                    .catch(error => {
+                                        console.error('Error playing local video:', error);
+                                        if (playAttempts < 3) {
+                                            // Auto-retry play with delay
+                                            setTimeout(() => attemptAutoPlay(playAttempts + 1), 200);
+                                            return;
+                                        }
+                                        
+                                        if (error.name === 'NotAllowedError') {
+                                            // Show user-friendly error message and add click handler
+                                            this.showStatusMessage('Click the video to enable playback');
+                                            localVideo.onclick = () => {
+                                                localVideo.play()
+                                                    .then(() => {
+                                                        this.isLocalStreamReady = true;
+                                                        this.showStatusMessage('');
+                                                    })
+                                                    .catch(e => console.error('Play on click failed:', e));
+                                            };
+                                        }
+                                    });
+                            };
+                            
+                            // Start auto-play attempt
+                            attemptAutoPlay();
                         };
                         
-                        // Set up error handler
+                        // Enhanced error handler
                         localVideo.onerror = (event) => {
                             console.error('Local video element error:', event);
+                            this.showError('Video playback error. Please check your camera permissions.');
                         };
                         
                         console.log('Local video stream attached successfully');
                     } catch (err) {
                         console.error('Error attaching local stream to video element:', err);
-                        if (attempts < 3) {
-                            setTimeout(() => configureLocalVideo(attempts + 1), 500);
+                        if (attempts < 5) {
+                            setTimeout(() => configureLocalVideo(attempts + 1), 300);
+                        } else {
+                            this.showError('Could not display your camera. Please refresh and try again.');
                         }
                     }
                 };
@@ -303,49 +335,65 @@ document.addEventListener('alpine:init', () => {
                 configureLocalVideo();
             };
             
-            // Main media access logic
+            // Main media access logic with improved constraints and fallbacks
             try {
                 console.log('Requesting camera and microphone access...');
                 
-                // Request with ideal constraints first
-                this.localStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1280, min: 640 },
-                        height: { ideal: 720, min: 480 },
-                        framerate: { ideal: 30, min: 15 },
-                        facingMode: 'user'
-                    },
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
+                // Try with ideal constraints first
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280, min: 640 },
+                            height: { ideal: 720, min: 360 },
+                            framerate: { ideal: 30, min: 15 },
+                            facingMode: 'user'
+                        },
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                } catch (initialError) {
+                    console.warn('Failed to get media with ideal constraints, trying fallback:', initialError);
+                    
+                    // Fallback to minimal constraints
+                    this.localStream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: true
+                    });
+                }
                 
-                // Ensure camera is actually ready by verifying track state
+                // Verify camera is working and ready
                 const videoTracks = this.localStream.getVideoTracks();
                 if (videoTracks.length > 0) {
                     console.log(`Using video device: ${videoTracks[0].label}`);
-                    // Wait a moment for camera to stabilize
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Pre-warm camera - critical for synchronization
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Check if track is actually live
+                    if (!videoTracks[0].enabled || videoTracks[0].muted) {
+                        console.warn('Video track not fully enabled, attempting to fix');
+                        videoTracks[0].enabled = true;
+                    }
                 }
                 
                 // Set up local video with the stream
                 setupLocalVideo(this.localStream);
                 
-                // Update state
-                this.isLocalStreamReady = true;
+                // Update state variables
                 this.videoEnabled = true;
                 this.audioEnabled = true;
                 
-                // Initialize peer connection IMMEDIATELY once we have the local stream
+                // Initialize peer connection IMMEDIATELY once camera is ready
                 this.initializePeerConnection();
                 
-                // Create offer or answer faster to improve synchronization
+                // Speed up connection process by creating offer/answer sooner
                 if (this.USER_ROLE === 'mentor') {
-                    console.log('Creating offer immediately after getting media');
+                    console.log('Creating offer immediately after camera initialization');
                     if (!this.offerInProgress) {
-                        setTimeout(() => this.createOffer(), 500);
+                        setTimeout(() => this.createOffer(), 300);  // Reduced delay
                     }
                 } else if (this.receivedInitialOffer) {
                     console.log('Creating answer immediately after getting media');

@@ -1213,30 +1213,95 @@ def go_live_session(request, room_code):
     # Get the channel layer for WebSocket communications
     channel_layer = get_channel_layer()
     
-    # Notify all confirmed learners
-    for booking in session.bookings.filter(status=Booking.CONFIRMED):
+    # Import improved notification utility
+    from apps.notifications.utils import send_notification_to_user
+    import time
+    
+    # Get session details for notifications
+    session_title = session.title
+    mentor_name = session.mentor.get_full_name() or session.mentor.username
+    join_url = f"/sessions/{session.room_code}/join/?direct=true"
+    
+    # Get all confirmed bookings for this session
+    confirmed_bookings = session.bookings.filter(status=Booking.CONFIRMED)
+    booking_count = confirmed_bookings.count()
+    
+    # Log the notification attempt with clear count
+    logger.info(f"Sending 'Session is Live' notifications to {booking_count} learners for session {session.id}")
+    
+    # Notify all confirmed learners with improved notifications
+    for booking in confirmed_bookings:
         try:
-            # Create a notification in the database
+            learner = booking.learner
+            learner_id = learner.id
+            learner_name = learner.get_full_name() or learner.username
+            
+            # Create an urgent notification in the database with improved formatting and clearer call-to-action
             notification = Notification.objects.create(
-                user=booking.learner,
-                title="Session is Live",
-                message=f"Session '{session.title}' is now live! Join now.",
-                notification_type='session_live',
+                user=learner,
+                title="🔴 Your Session is Live Now!",
+                message=f"Your booked session '{session_title}' with {mentor_name} is now live! Click here to join immediately.",
+                notification_type='success',  # Changed to success type for better visibility
                 reference_id=session.id,
-                link=f"/sessions/{session.room_code}/join/?direct=true"
+                link=join_url
             )
             
-            # Send real-time WebSocket notification if channel layer is available
+            logger.info(f"Created database notification {notification.id} for learner {learner_id}")
+            
+            # For redundancy, also use the notification utility which handles WebSocket communication
+            send_notification_to_user(
+                user_id=learner_id,
+                title="🔴 Join Your Live Session Now",
+                message=f"Your session '{session_title}' with {mentor_name} has started! Join now to avoid missing any content.",
+                notification_type="success",
+                reference_id=session.id
+            )
+            
+            # Send real-time WebSocket notifications for immediate alerts (multiple channels for redundancy)
             if channel_layer:
                 try:
-                    # Send to user's notification group
+                    # 1. Send to user's notification group with improved formatting
                     async_to_sync(channel_layer.group_send)(
-                        f"notifications_{booking.learner.id}",
+                        f"notif_{learner_id}",  # Corrected group name format
+                        {
+                            "type": "notification_message",
+                            "notification": {  # Correct key name for improved compatibility
+                                "id": notification.id,
+                                "title": "🔴 Session Started - Join Now!",
+                                "message": notification.message,
+                                "link": notification.link,
+                                "created_at": notification.created_at.isoformat(),
+                                "read": False,
+                                "notification_type": "success"
+                            }
+                        }
+                    )
+                    
+                    # 2. Send to user's dashboard group with enhanced data
+                    async_to_sync(channel_layer.group_send)(
+                        f"dashboard_{learner_id}",
+                        {
+                            "type": "session_update",
+                            "message": {
+                                "session_id": session.id,
+                                "title": session_title,
+                                "mentor_name": mentor_name,
+                                "status": "live",
+                                "room_code": str(session.room_code),
+                                "join_url": join_url,
+                                "timestamp": int(time.time())  # Add timestamp for easier frontend handling
+                            }
+                        }
+                    )
+                    
+                    # 3. Also try the notifications group name format for maximum compatibility
+                    async_to_sync(channel_layer.group_send)(
+                        f"notifications_{learner_id}",
                         {
                             "type": "notification_message",
                             "message": {
                                 "id": notification.id,
-                                "title": "Session is Live",
+                                "title": "🔴 Session Started - Join Now!",
                                 "message": notification.message,
                                 "link": notification.link,
                                 "created_at": notification.created_at.isoformat(),
@@ -1245,24 +1310,12 @@ def go_live_session(request, room_code):
                         }
                     )
                     
-                    # Send to user's dashboard group
-                    async_to_sync(channel_layer.group_send)(
-                        f"dashboard_{booking.learner.id}",
-                        {
-                            "type": "session_update",
-                            "message": {
-                                "session_id": session.id,
-                                "status": "live",
-                                "room_code": str(session.room_code),
-                                "join_url": f"/sessions/{session.room_code}/join/?direct=true"
-                            }
-                        }
-                    )
-                    logger.info(f"Sent WebSocket notifications to learner {booking.learner.id}")
+                    logger.info(f"Successfully sent WebSocket notifications to learner {learner_id}")
                 except Exception as e:
-                    logger.error(f"Error sending WebSocket notification: {str(e)}")
+                    logger.error(f"Error sending WebSocket notification to learner {learner_id}: {str(e)}")
+                    # Continue despite WebSocket errors - we have the database notification as backup
         except Exception as e:
-            logger.error(f"Error creating notification: {str(e)}")
+            logger.error(f"Error processing notification for learner {booking.learner.id}: {str(e)}")
     
     messages.success(request, 'Session is now live. Joining room...')
     

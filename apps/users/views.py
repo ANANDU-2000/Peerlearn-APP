@@ -219,21 +219,22 @@ def get_top_mentors(user, limit=6):
         last_name__isnull=False
     ).filter(
         # Only include mentors who have at least one upcoming session
-        Q(sessions__schedule__gte=now, sessions__status='scheduled') |
-        Q(sessions__status='live')
+        # Use the correct related_name from Session model to CustomUser
+        Q(session__schedule__gte=now, session__status='scheduled') |
+        Q(session__status='live')
     ).distinct().annotate(
         # Calculate ratings properly
         avg_rating=Avg('ratings_received__rating'),
         rating_count=Count('ratings_received'),
-        # Count valid upcoming sessions
+        # Count valid upcoming sessions with correct related_name
         upcoming_sessions_count=Count(
-            'sessions',
-            filter=Q(sessions__schedule__gte=now) & Q(sessions__status='scheduled')
+            'session',
+            filter=Q(session__schedule__gte=now) & Q(session__status='scheduled')
         ),
-        # Count active sessions
+        # Count active sessions with correct related_name
         active_sessions_count=Count(
-            'sessions',
-            filter=Q(sessions__status='live')
+            'session',
+            filter=Q(session__status='live')
         )
     )
     
