@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Complete Payment - {{ booking.session.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .razorpay-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+    .session-info {
+        background-color: #f9fafb;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e5e7eb;
+    }
+    .payment-details {
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .payment-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .payment-card:hover {
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    .razorpay-payment-btn {
+        width: 100%;
+        padding: 0.75rem 1.5rem;
+        background-color: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 0.375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .razorpay-payment-btn:hover {
+        background-color: #1d4ed8;
+    }
+    .razorpay-payment-btn:disabled {
+        background-color: #9ca3af;
+        cursor: not-allowed;
+    }
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px dashed #e5e7eb;
+    }
+    .summary-item:last-child {
+        border-bottom: none;
+    }
+    .total-row {
+        font-weight: 700;
+        color: #1f2937;
+        border-top: 2px solid #e5e7eb;
+        padding-top: 0.75rem;
+        margin-top: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Complete Your Payment</h1>
+        
+        <div class="payment-details">
+            <!-- Session Info -->
+            <div class="session-info">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Session Details</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Session Title</p>
+                        <p class="text-lg font-medium text-gray-900">{{ booking.session.title }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Mentor</p>
+                        <p class="text-lg font-medium text-gray-900">{{ booking.session.mentor.get_full_name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Date & Time</p>
+                        <p class="text-lg font-medium text-gray-900">{{ booking.session.schedule|date:"M d, Y" }} at {{ booking.session.schedule|date:"h:i A" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Duration</p>
+                        <p class="text-lg font-medium text-gray-900">{{ booking.session.duration }} minutes</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Payment Card -->
+            <div class="payment-card">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Payment Summary</h2>
+                
+                <!-- Payment Summary -->
+                <div class="mb-6">
+                    <div class="summary-item">
+                        <span class="text-gray-600">Session Fee</span>
+                        <span class="text-gray-900">₹{{ booking.session.price }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="text-gray-600">Platform Fee</span>
+                        <span class="text-gray-900">₹0.00</span>
+                    </div>
+                    <div class="summary-item total-row">
+                        <span class="text-gray-800">Total Amount</span>
+                        <span class="text-blue-600">₹{{ booking.session.price }}</span>
+                    </div>
+                </div>
+                
+                <!-- Razorpay Button -->
+                <div class="razorpay-container">
+                    <form id="razorpay-form" action="{% url 'payment_success' payment_id=payment.id %}" method="POST">
+                        {% csrf_token %}
+                        <script
+                            src="https://checkout.razorpay.com/v1/checkout.js"
+                            data-key="{{ razorpay_key_id }}"
+                            data-amount="{{ amount }}"
+                            data-currency="{{ currency }}"
+                            data-order_id="{{ razorpay_order_id }}"
+                            data-buttontext="Pay Now ₹{{ booking.session.price }}"
+                            data-name="{{ name }}"
+                            data-description="{{ description }}"
+                            data-prefill.name="{{ prefill.name }}"
+                            data-prefill.email="{{ prefill.email }}"
+                            data-prefill.contact="{{ prefill.contact }}"
+                            data-theme.color="#2563EB"
+                        ></script>
+                        <input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+                        <input type="hidden" name="razorpay_order_id" id="razorpay_order_id">
+                        <input type="hidden" name="razorpay_signature" id="razorpay_signature">
+                    </form>
+                </div>
+                
+                <!-- Security Info -->
+                <div class="mt-6 text-center text-sm text-gray-500 flex justify-center items-center">
+                    <svg class="w-4 h-4 text-green-500 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Secure Payment via Razorpay
+                </div>
+            </div>
+            
+            <!-- Back Button -->
+            <div class="text-center">
+                <a href="{% url 'sessions:detail' pk=booking.session.id %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                    Go Back to Session
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Monitor Razorpay payment events
+    document.addEventListener('DOMContentLoaded', function() {
+        const razorpayForm = document.getElementById('razorpay-form');
+        if (razorpayForm) {
+            // Capture Razorpay payment success event
+            window.addEventListener('payment.success', function(e) {
+                const data = e.detail;
+                document.getElementById('razorpay_payment_id').value = data.razorpay_payment_id;
+                document.getElementById('razorpay_order_id').value = data.razorpay_order_id;
+                document.getElementById('razorpay_signature').value = data.razorpay_signature;
+                razorpayForm.submit();
+            });
+        }
+    });
+</script>
+{% endblock %}
