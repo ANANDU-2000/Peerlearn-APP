@@ -362,7 +362,7 @@ def learner_dashboard(request):
             logger.info(f"Found {recommended_sessions.count()} personalized recommendations")
     
     # If no personalized recommendations, get trending sessions with strict time filters
-    if not recommended_sessions:
+    if not recommended_sessions or recommended_sessions.count() == 0:
         logger.info("No personalized recommendations found, getting trending sessions")
         # Get trending sessions by number of bookings - ONLY future or live sessions
         status_filter = Q(status='scheduled') | Q(status='live')
@@ -381,6 +381,20 @@ def learner_dashboard(request):
         ).order_by('-booking_count', 'schedule')[:6]
         
         logger.info(f"Found {trending_sessions.count()} trending sessions")
+        
+    # If still no sessions found, just get ANY upcoming sessions as a final fallback
+    if (not recommended_sessions or recommended_sessions.count() == 0) and (not trending_sessions or trending_sessions.count() == 0):
+        logger.info("No trending sessions found either, getting ANY upcoming sessions as fallback")
+        from apps.users.models import CustomUser
+        fallback_sessions = Session.objects.filter(
+            Q(status='scheduled') | Q(status='live'),
+            schedule__gte=now,
+            mentor__role=CustomUser.MENTOR,
+            mentor__is_active=True
+        ).select_related('mentor').order_by('schedule')[:6]
+        
+        trending_sessions = fallback_sessions
+        logger.info(f"Found {fallback_sessions.count()} fallback sessions")
     
     # Mark sessions that are already booked by this learner
     booked_session_ids = Booking.objects.filter(

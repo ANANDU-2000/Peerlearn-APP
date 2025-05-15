@@ -133,22 +133,29 @@
                                     Details
                                 </a>
                                 
-                                {% if booking.session.status == 'live' %}
-                                <a href="{% url 'sessions:room' booking.session.room_code %}?direct=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-                                    Join Room
-                                </a>
-                                {% elif booking.session.status == 'scheduled' and booking.status == 'confirmed' %}
-                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true&auto_join=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-                                    Join Session
-                                </a>
-                                {% elif booking.status == 'confirmed' and booking.session.schedule|date:"Y-m-d" == now|date:"Y-m-d" %}
-                                <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-                                    Go Live
-                                </a>
-                                {% elif booking.status == 'confirmed' %}
-                                <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
-                                    Cancel
-                                </a>
+                                <!-- Always show Join Room button for confirmed bookings -->
+                                {% if booking.status == 'confirmed' %}
+                                    {% if booking.session.status == 'live' %}
+                                    <!-- If session is already live, show Join Room button -->
+                                    <a href="{% url 'sessions:room' booking.session.room_code %}?direct=true" class="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                        Join Room
+                                    </a>
+                                    {% else %}
+                                    <!-- If session is scheduled, show Join Early button -->
+                                    <a href="/sessions/{{ booking.session.room_code }}/join/?direct=true&auto_join=true" class="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                        Join Early
+                                    </a>
+                                    
+                                    <!-- Add cancel button as option -->
+                                    <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                                        Cancel
+                                    </a>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- For pending bookings, show cancel option -->
+                                    <a href="{% url 'sessions:cancel_booking' booking.id %}" class="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                                        Cancel
+                                    </a>
                                 {% endif %}
                             </div>
                         </div>

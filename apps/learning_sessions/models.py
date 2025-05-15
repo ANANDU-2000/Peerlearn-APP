@@ -178,7 +178,8 @@ class Session(models.Model):
         # Always allow scheduled sessions to go live for better UX
         is_eligible = (self.status == self.SCHEDULED)
         
-        logger.info(f"Session {self.id} can_go_live: {is_eligible} (status={self.status})")
+        # Don't log on every property access as it floods the logs
+        # logger.info(f"Session {self.id} can_go_live: {is_eligible} (status={self.status})")
         
         return is_eligible
     
