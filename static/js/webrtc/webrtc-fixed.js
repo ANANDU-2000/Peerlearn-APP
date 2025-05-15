@@ -975,11 +975,30 @@ document.addEventListener('alpine:init', () => {
         endSession() {
             console.log('Ending session');
             
-            // Send end session signal
+            // Send end session signal via WebSocket
             this.sendSignal({
                 type: 'session_ended',
                 user_id: this.userId,
                 user_name: this.userName
+            });
+            
+            // Also send API request to mark session as ended in database
+            fetch(`/api/sessions/${this.roomCode}/end/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCsrfToken()
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    console.log('Session marked as ended in database');
+                } else {
+                    console.error('Failed to mark session as ended in database');
+                }
+            })
+            .catch(error => {
+                console.error('Error ending session:', error);
             });
             
             // Show feedback after delay
