@@ -915,7 +915,7 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'mentor_id': session.mentor.id,
                 'schedule': session.schedule.isoformat() if session.schedule else None,
                 'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
-                'price': float(booking.price) if booking.price else 0,
+                'price': float(session.price) if session.price else 0,
                 'room_code': session.room_code,
             })
             formatted_recent_bookings.append(booking_dict)
@@ -932,7 +932,7 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'mentor_id': session.mentor.id,
                 'schedule': session.schedule.isoformat() if session.schedule else None,
                 'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
-                'price': float(booking.price) if booking.price else 0,
+                'price': float(session.price) if session.price else 0,
                 'countdown': session.get_time_until_start(),
                 'room_code': session.room_code,
             })
@@ -1086,7 +1086,7 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                         'id': booking.id,
                         'status': booking.status,
                         'created_at': booking.created_at.isoformat(),
-                        'price': float(booking.price) if booking.price else 0,
+                        'price': float(session.price) if session.price else 0,
                     }
                 except Booking.DoesNotExist:
                     session_dict['booking'] = None
