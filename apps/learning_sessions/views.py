@@ -393,20 +393,48 @@ def book_session(request, session_id):
                 status=Booking.CONFIRMED if session.is_free else Booking.PENDING
             )
             
+            # Get user's full name or username
+            learner_name = request.user.get_full_name() or request.user.username
+            
             if session.is_free:
                 # Free session - confirm immediately
                 messages.success(request, 'Session booked successfully!')
                 
-                # Notify the mentor
-                Notification.objects.create(
-                    user=session.mentor,
-                    message=f"{request.user.get_full_name() or request.user.username} has booked your session '{session.title}'",
-                    link=f"/dashboard/mentor/"
+                # Notify the mentor about the booking with detailed information
+                from apps.notifications.utils import send_notification_to_user
+                
+                # Create a notification with more context and a proper reference ID
+                send_notification_to_user(
+                    user_id=session.mentor.id,
+                    title="New Session Booking",
+                    message=f"{learner_name} has booked your session '{session.title}' scheduled for {session.schedule.strftime('%b %d, %Y at %I:%M %p')}",
+                    notification_type="success",
+                    reference_id=booking.id
+                )
+                
+                # Also send a confirmation to the learner
+                send_notification_to_user(
+                    user_id=request.user.id,
+                    title="Booking Confirmed",
+                    message=f"Your booking for '{session.title}' with {session.mentor.get_full_name()} has been confirmed. The session is scheduled for {session.schedule.strftime('%b %d, %Y at %I:%M %p')}",
+                    notification_type="success",
+                    reference_id=booking.id
                 )
                 
                 return redirect('sessions:detail', pk=session_id)
             else:
                 # Paid session - redirect to payment
+                # Add a pending notification for the booking
+                from apps.notifications.utils import send_notification_to_user
+                
+                send_notification_to_user(
+                    user_id=request.user.id,
+                    title="Complete Your Booking",
+                    message=f"Please complete payment to confirm your booking for '{session.title}' with {session.mentor.get_full_name()}",
+                    notification_type="info",
+                    reference_id=booking.id
+                )
+                
                 return redirect('payment_create', booking_id=booking.id)
     
     return render(request, 'sessions/booking_confirm.html', {
