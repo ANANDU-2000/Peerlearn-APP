@@ -4,6 +4,7 @@ Views for payment processing and tracking.
 
 import json
 import razorpay
+import logging
 from decimal import Decimal
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,6 +16,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 from .models import Payment, MentorPayout
 from apps.learning_sessions.models import Booking, Session
