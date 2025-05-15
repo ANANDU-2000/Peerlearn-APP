@@ -41,7 +41,11 @@ async def ws_404_handler(scope, receive, send):
 
 # Combine all websocket URL patterns
 websocket_urlpatterns = [
-    # Include app-specific websocket URL patterns
+    # Add session WebSocket patterns with highest priority for WebRTC signaling
+    re_path(r'^ws/session/(?P<room_code>\w+)/$', importlib.import_module('apps.learning_sessions.consumers').SessionConsumer.as_asgi()),
+    re_path(r'^ws/room/(?P<room_code>\w+)/$', importlib.import_module('apps.learning_sessions.consumers').SessionConsumer.as_asgi()),
+    
+    # Include the rest of app-specific websocket URL patterns
     *session_urlpatterns,
     *notification_urlpatterns,
     
