@@ -435,7 +435,7 @@ def book_session(request, session_id):
                     reference_id=booking.id
                 )
                 
-                return redirect('payment_create', booking_id=booking.id)
+                return redirect('payments:process', booking_id=booking.id)
     
     return render(request, 'sessions/booking_confirm.html', {
         'session': session

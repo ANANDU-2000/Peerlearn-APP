@@ -261,8 +261,8 @@ def get_top_mentors(user, limit=6):
     
     # If we don't have enough top rated mentors, include other active mentors
     if top_rated_count < limit:
-        # Get the IDs of mentors we already have
-        existing_ids = [mentor.id for mentor in top_rated]
+        # Get the IDs of mentors we already have - use a list of IDs instead of mentor objects
+        existing_ids = list(top_rated.values_list('id', flat=True))
         
         # How many more mentors we need
         additional_needed = limit - top_rated_count
