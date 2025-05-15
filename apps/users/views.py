@@ -198,40 +198,67 @@ def rate_mentor(request, pk):
 def get_top_mentors(user, limit=6):
     """Get top rated mentors for recommendation."""
     from apps.users.models import CustomUser
-    from django.db.models import Avg, Count, Q
+    from django.db.models import Avg, Count, Q, F, Case, When, Value, IntegerField
+    from apps.learning_sessions.models import Session
     import logging
+    from django.utils import timezone
     
     # Set up logger for debugging
     logger = logging.getLogger(__name__)
     
-    # First, get all mentors regardless of ratings
+    # Get current time to filter out mentors with no upcoming sessions
+    now = timezone.now()
+    
+    # First, get only valid mentors with proper profiles and upcoming sessions
+    # This ensures we only show mentors who are active and have sessions
     all_active_mentors = CustomUser.objects.filter(
         role=CustomUser.MENTOR,
-        is_active=True
-    ).annotate(
+        is_active=True,
+        # Ensure mentors have properly configured profiles
+        first_name__isnull=False,
+        last_name__isnull=False
+    ).filter(
+        # Only include mentors who have at least one upcoming session
+        Q(sessions__schedule__gte=now, sessions__status='scheduled') |
+        Q(sessions__status='live')
+    ).distinct().annotate(
+        # Calculate ratings properly
         avg_rating=Avg('ratings_received__rating'),
-        rating_count=Count('ratings_received')
+        rating_count=Count('ratings_received'),
+        # Count valid upcoming sessions
+        upcoming_sessions_count=Count(
+            'sessions',
+            filter=Q(sessions__schedule__gte=now) & Q(sessions__status='scheduled')
+        ),
+        # Count active sessions
+        active_sessions_count=Count(
+            'sessions',
+            filter=Q(sessions__status='live')
+        )
     )
     
-    # Log how many active mentors we have
+    # Log how many valid mentors we have
     mentor_count = all_active_mentors.count()
-    logger.info(f"Found {mentor_count} active mentors")
+    logger.info(f"Found {mentor_count} valid active mentors with upcoming/live sessions")
     
-    # If we have no active mentors at all, return an empty list
+    # If we have no valid mentors at all, return an empty list
     if mentor_count == 0:
         return []
     
-    # First try to get highly rated mentors
+    # First try to get well-rated mentors with at least one session
     top_rated = all_active_mentors.filter(
-        rating_count__gte=1,  # At least one rating
-        avg_rating__gte=4     # Average 4+ stars
-    ).order_by('-avg_rating')[:limit]
+        # Must have at least one rating and a good score
+        Q(rating_count__gte=1, avg_rating__gte=4) |
+        # OR at least have some upcoming or active sessions
+        Q(upcoming_sessions_count__gte=1) |
+        Q(active_sessions_count__gte=1)
+    ).order_by('-avg_rating', '-upcoming_sessions_count', '-active_sessions_count')[:limit]
     
     # Log how many top rated mentors we found
     top_rated_count = top_rated.count()
     logger.info(f"Found {top_rated_count} top rated mentors")
     
-    # If we don't have enough top rated mentors, include active mentors based on session count
+    # If we don't have enough top rated mentors, include other active mentors
     if top_rated_count < limit:
         # Get the IDs of mentors we already have
         existing_ids = [mentor.id for mentor in top_rated]
@@ -291,46 +318,66 @@ def learner_dashboard(request):
     if active_tab not in valid_tabs:
         active_tab = 'home'
     
-    # Get ML-based recommendations
+    # Get real ML-based recommendations (no fake data)
     from apps.learning_sessions.models import Session, Booking, SessionRequest
     from django.db.models import Q, Count, Avg, F, ExpressionWrapper, fields
     from django.utils import timezone
     import json
+    import logging
     
+    logger = logging.getLogger(__name__)
     now = timezone.now()
     
     # Recommended sessions based on the learner's interests and career goal
     recommended_sessions = []
     trending_sessions = []
     
-    # Try to fetch personalized recommendations
+    logger.info(f"Finding recommendations for user {request.user.id} with schedule after {now}")
+    
+    # Try to fetch personalized recommendations - strictly future sessions only
     if hasattr(request.user, 'interests') and request.user.interests:
         # Convert interests string to list if stored as JSON string
         user_interests = request.user.interests if isinstance(request.user.interests, list) else json.loads(request.user.interests or '[]')
         
         if user_interests:
-            # Get upcoming sessions related to user interests or career goals
-            time_filter = now - timezone.timedelta(hours=1)  # Include recently started sessions too
-            interest_filter = Q(topics__overlap=user_interests) | Q(title__icontains=request.user.career_goal) | Q(description__icontains=request.user.career_goal)
+            # Get ONLY future sessions or currently live sessions related to user interests
+            interest_filter = Q(topics__overlap=user_interests)
+            if hasattr(request.user, 'career_goal') and request.user.career_goal:
+                interest_filter = interest_filter | Q(title__icontains=request.user.career_goal) | Q(description__icontains=request.user.career_goal)
+            
             status_filter = Q(status='scheduled') | Q(status='live')
+            time_filter = Q(schedule__gte=now)
             
-            # Combined filter to avoid positional/keyword argument mixing
-            combined_filter = status_filter & Q(schedule__gte=time_filter) & interest_filter
+            # Combined filter with strict time enforcement
+            combined_filter = status_filter & time_filter & interest_filter
             
-            recommended_sessions = Session.objects.filter(combined_filter).distinct().order_by('schedule')[:6]
+            # Select only sessions with valid mentors (properly configured)
+            recommended_sessions = Session.objects.filter(combined_filter).filter(
+                mentor__role='mentor',
+                mentor__is_active=True
+            ).select_related('mentor').distinct().order_by('schedule')[:6]
+            
+            logger.info(f"Found {recommended_sessions.count()} personalized recommendations")
     
-    # If no personalized recommendations, get trending sessions
+    # If no personalized recommendations, get trending sessions with strict time filters
     if not recommended_sessions:
-        # Get trending sessions by number of bookings
-        time_filter = now - timezone.timedelta(hours=1)
+        logger.info("No personalized recommendations found, getting trending sessions")
+        # Get trending sessions by number of bookings - ONLY future or live sessions
         status_filter = Q(status='scheduled') | Q(status='live')
+        time_filter = Q(schedule__gte=now)
         
-        # Combined filter to avoid positional/keyword argument mixing
-        combined_filter = status_filter & Q(schedule__gte=time_filter)
+        # Combined filter with strict time enforcement
+        combined_filter = status_filter & time_filter
         
-        trending_sessions = Session.objects.filter(combined_filter).annotate(
-            booking_count=Count('bookings')
-        ).order_by('-booking_count')[:6]
+        # Get sessions with confirmed bookings and valid mentors only
+        trending_sessions = Session.objects.filter(combined_filter).filter(
+            mentor__role='mentor',
+            mentor__is_active=True
+        ).select_related('mentor').annotate(
+            booking_count=Count('bookings', filter=Q(bookings__status='confirmed'))
+        ).order_by('-booking_count', 'schedule')[:6]
+        
+        logger.info(f"Found {trending_sessions.count()} trending sessions")
     
     # Mark sessions that are already booked by this learner
     booked_session_ids = Booking.objects.filter(
