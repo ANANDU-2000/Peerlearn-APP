@@ -353,8 +353,9 @@ def learner_dashboard(request):
             combined_filter = status_filter & time_filter & interest_filter
             
             # Select only sessions with valid mentors (properly configured)
+            from apps.users.models import CustomUser
             recommended_sessions = Session.objects.filter(combined_filter).filter(
-                mentor__role='mentor',
+                mentor__role=CustomUser.MENTOR,
                 mentor__is_active=True
             ).select_related('mentor').distinct().order_by('schedule')[:6]
             
@@ -371,8 +372,9 @@ def learner_dashboard(request):
         combined_filter = status_filter & time_filter
         
         # Get sessions with confirmed bookings and valid mentors only
+        from apps.users.models import CustomUser
         trending_sessions = Session.objects.filter(combined_filter).filter(
-            mentor__role='mentor',
+            mentor__role=CustomUser.MENTOR,
             mentor__is_active=True
         ).select_related('mentor').annotate(
             booking_count=Count('bookings', filter=Q(bookings__status='confirmed'))
