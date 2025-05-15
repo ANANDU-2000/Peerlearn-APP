@@ -475,7 +475,269 @@
     function sessionManager() {
         return {
             isBusy: false,
+            wsConnection: null,
+            hasSessionWebSocket: false,
+            mentorId: document.querySelector('meta[name="user-id"]')?.getAttribute('content'),
             csrfToken: document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            
+            init() {
+                // Initialize the WebSocket connection
+                this.setupWebSocket();
+                
+                // Set up interval for countdown updates
+                this.setupCountdownUpdates();
+                
+                // Listen for document visibility changes to reconnect WebSocket if needed
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible' && !this.hasSessionWebSocket) {
+                        console.log('Document became visible, reconnecting WebSocket...');
+                        this.setupWebSocket();
+                    }
+                });
+            },
+            
+            setupWebSocket() {
+                if (!this.mentorId) {
+                    console.warn('No mentor ID found, cannot setup session WebSocket');
+                    return;
+                }
+                
+                // Close existing connection if any
+                if (this.wsConnection) {
+                    this.wsConnection.close();
+                }
+                
+                // Determine WebSocket protocol (ws or wss)
+                const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsUrl = `${protocol}//${window.location.host}/ws/sessions/`;
+                
+                console.log(`Connecting to session WebSocket at ${wsUrl}`);
+                this.wsConnection = new WebSocket(wsUrl);
+                
+                this.wsConnection.onopen = () => {
+                    console.log('Session WebSocket connected');
+                    this.hasSessionWebSocket = true;
+                    
+                    // Subscribe to mentor's sessions channel
+                    this.wsConnection.send(JSON.stringify({
+                        type: 'subscribe',
+                        channel: `sessions:${this.mentorId}`
+                    }));
+                    
+                    // Fetch initial session data
+                    this.wsConnection.send(JSON.stringify({
+                        type: 'fetch_sessions'
+                    }));
+                };
+                
+                this.wsConnection.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log('Session WebSocket message:', data);
+                    
+                    // Handle different event types
+                    switch (data.type) {
+                        case 'new_booking':
+                            this.handleNewBooking(data);
+                            break;
+                        case 'session.updated':
+                            this.handleSessionUpdated(data);
+                            break;
+                        case 'session.cancelled':
+                            this.handleSessionCancelled(data);
+                            break;
+                        case 'session.live':
+                            this.handleSessionLive(data);
+                            break;
+                        case 'learner.join':
+                        case 'learner.leave':
+                            this.handleLearnerActivity(data);
+                            break;
+                    }
+                };
+                
+                this.wsConnection.onclose = (event) => {
+                    console.log('Session WebSocket closed', event);
+                    this.hasSessionWebSocket = false;
+                    
+                    // Attempt to reconnect after a delay
+                    setTimeout(() => {
+                        if (document.visibilityState === 'visible') {
+                            console.log('Attempting to reconnect to session WebSocket...');
+                            this.setupWebSocket();
+                        }
+                    }, 5000);
+                };
+                
+                this.wsConnection.onerror = (error) => {
+                    console.error('Session WebSocket error:', error);
+                };
+            },
+            
+            setupCountdownUpdates() {
+                // Update all countdowns every second
+                setInterval(() => {
+                    document.querySelectorAll('[data-countdown]').forEach(el => {
+                        const sessionTime = new Date(el.dataset.sessionTime).getTime();
+                        const now = new Date().getTime();
+                        const diff = sessionTime - now;
+                        
+                        if (diff <= 0) {
+                            // Session time has passed
+                            if (el.dataset.countdownType === 'start') {
+                                // For session start countdown
+                                el.textContent = 'Started';
+                                el.parentElement.classList.add('text-red-500');
+                                
+                                // Enable Go Live button automatically if it exists
+                                const goLiveBtn = document.querySelector(`[data-session-id="${el.dataset.sessionId}"] .go-live-btn`);
+                                if (goLiveBtn) {
+                                    goLiveBtn.disabled = false;
+                                    goLiveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                                    goLiveBtn.classList.add('hover:bg-primary-700');
+                                }
+                            } else {
+                                // For other countdown types
+                                el.textContent = 'Ended';
+                            }
+                        } else {
+                            // Format and display the countdown
+                            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                            
+                            // Different formats based on how much time is left
+                            let countdownText = '';
+                            if (days > 0) {
+                                countdownText = `${days}d ${hours}h ${minutes}m`;
+                            } else if (hours > 0) {
+                                countdownText = `${hours}h ${minutes}m ${seconds}s`;
+                            } else {
+                                countdownText = `${minutes}m ${seconds}s`;
+                                
+                                // Within 15 minutes, enable Go Live button if it exists
+                                if (minutes < 15 && el.dataset.countdownType === 'start') {
+                                    const goLiveBtn = document.querySelector(`[data-session-id="${el.dataset.sessionId}"] .go-live-btn`);
+                                    if (goLiveBtn) {
+                                        goLiveBtn.disabled = false;
+                                        goLiveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                                        goLiveBtn.classList.add('hover:bg-primary-700');
+                                    }
+                                }
+                            }
+                            
+                            el.textContent = countdownText;
+                        }
+                    });
+                }, 1000);
+            },
+            
+            handleNewBooking(data) {
+                const sessionCard = document.querySelector(`[data-session-id="${data.session_id}"]`);
+                if (!sessionCard) return;
+                
+                // Update booking count
+                const bookingBadge = sessionCard.querySelector('.booking-badge');
+                if (bookingBadge) {
+                    const currentText = bookingBadge.textContent;
+                    const parts = currentText.split('/');
+                    if (parts.length === 2) {
+                        const newCount = parseInt(parts[0]) + 1;
+                        const maxCount = parseInt(parts[1]);
+                        bookingBadge.textContent = `${newCount} / ${maxCount} Booked`;
+                    }
+                }
+                
+                // Show notification
+                this.showToast(`New booking for "${data.session_title}"!`, 'success');
+                
+                // Enable 'Enter Room' button if this is the first booking
+                const enterRoomBtn = sessionCard.querySelector('.enter-room-btn');
+                if (enterRoomBtn && enterRoomBtn.disabled) {
+                    enterRoomBtn.disabled = false;
+                    enterRoomBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    enterRoomBtn.classList.add('hover:bg-primary-700');
+                }
+                
+                // Play notification sound
+                this.playNotificationSound('new-booking');
+            },
+            
+            handleSessionUpdated(data) {
+                // Show notification
+                this.showToast(`Session "${data.session_title}" has been updated`, 'info');
+                
+                // Reload the page to show updated session data
+                setTimeout(() => window.location.reload(), 2000);
+            },
+            
+            handleSessionCancelled(data) {
+                // Show notification
+                this.showToast(`Session "${data.session_title}" has been cancelled`, 'warning');
+                
+                // Reload the page to remove cancelled session
+                setTimeout(() => window.location.reload(), 2000);
+            },
+            
+            handleSessionLive(data) {
+                const sessionCard = document.querySelector(`[data-session-id="${data.session_id}"]`);
+                if (!sessionCard) return;
+                
+                // Update session status badge
+                const statusBadge = sessionCard.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = 'LIVE NOW';
+                    statusBadge.classList.remove('bg-gray-100', 'text-gray-800');
+                    statusBadge.classList.add('bg-red-100', 'text-red-800');
+                }
+                
+                // Enable Enter Room button, disable Go Live button
+                const enterRoomBtn = sessionCard.querySelector('.enter-room-btn');
+                const goLiveBtn = sessionCard.querySelector('.go-live-btn');
+                
+                if (enterRoomBtn) {
+                    enterRoomBtn.classList.remove('hidden');
+                    enterRoomBtn.disabled = false;
+                    enterRoomBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                
+                if (goLiveBtn) {
+                    goLiveBtn.classList.add('hidden');
+                }
+                
+                // Show notification
+                this.showToast(`Session "${data.session_title}" is now live!`, 'success');
+                
+                // Play notification sound
+                this.playNotificationSound('session-live');
+            },
+            
+            handleLearnerActivity(data) {
+                // Show a toast notification
+                const action = data.type === 'learner.join' ? 'joined' : 'left';
+                this.showToast(`${data.learner_name} has ${action} the session "${data.session_title}"`, 'info');
+                
+                // Play notification sound for joins only
+                if (data.type === 'learner.join') {
+                    this.playNotificationSound('learner-join');
+                }
+            },
+            
+            playNotificationSound(soundType) {
+                // Define sound URLs based on type
+                const sounds = {
+                    'new-booking': '/static/sounds/notification-booking.mp3',
+                    'session-live': '/static/sounds/notification-live.mp3',
+                    'learner-join': '/static/sounds/notification-join.mp3'
+                };
+                
+                const soundUrl = sounds[soundType] || '/static/sounds/notification.mp3';
+                
+                // Create and play audio element
+                const audio = new Audio(soundUrl);
+                audio.volume = 0.5; // Set volume to 50%
+                audio.play().catch(err => console.warn('Could not play notification sound:', err));
+            },
             
             /**
              * Format a countdown string for display
