@@ -209,7 +209,22 @@
 <script>
     function initNotifications() {
         // Initialize notification system
-        connectNotificationWebSocket();
+        if (window.DashboardNotifications) {
+            // Use the class-based system if available
+            console.debug('Using DashboardNotifications system');
+        } else {
+            console.debug('DashboardNotifications not available, falling back to manual initialization');
+            // Initialize Dashboard WebSocket if available
+            if (window.initDashboardWebSocket) {
+                // Get user ID from meta tag
+                const userIdMeta = document.querySelector('meta[name="user-id"]');
+                const userId = userIdMeta ? userIdMeta.getAttribute('content') : null;
+                
+                if (userId) {
+                    window.initDashboardWebSocket(userId);
+                }
+            }
+        }
     }
 </script>
 {% endif %}
