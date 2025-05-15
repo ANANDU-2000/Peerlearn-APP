@@ -9,6 +9,8 @@
         return;
     }
     
+    console.debug('Initializing Dashboard Notifications System');
+    
     /**
      * Dashboard Notifications System
      */
@@ -22,6 +24,7 @@
             this.notifications = [];
             this.notificationContainer = null;
             this.countBadges = [];
+            this.dropdownVisible = false;
             
             // Initialize when document is loaded
             document.addEventListener('DOMContentLoaded', () => {
@@ -33,24 +36,54 @@
          * Initialize the system
          */
         initialize() {
+            console.debug('Initializing notification system');
+            
             // Find user ID
             const userIdMeta = document.querySelector('meta[name="user-id"]');
-            if (!userIdMeta) return;
+            if (!userIdMeta) {
+                console.debug('User ID meta tag not found - likely on a public page without authentication');
+                return;
+            }
             
             this.userId = userIdMeta.getAttribute('content');
-            if (!this.userId) return;
+            if (!this.userId) {
+                console.debug('User ID not found in meta tag');
+                return;
+            }
+            
+            console.debug('User ID found:', this.userId);
             
             // Find notification elements
             this.notificationContainer = document.getElementById('notification-dropdown');
             this.countBadges = document.querySelectorAll('.notification-count');
             
-            // Add event listeners
+            // Setup notification bell toggle
+            const notificationBell = document.getElementById('notification-bell');
+            if (notificationBell) {
+                notificationBell.addEventListener('click', (event) => {
+                    console.debug('Notification bell clicked');
+                    this.toggleNotificationDropdown();
+                    event.preventDefault();
+                    event.stopPropagation();
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (event) => {
+                    if (this.dropdownVisible && !event.target.closest('#notification-dropdown') && !event.target.closest('#notification-bell')) {
+                        this.hideNotificationDropdown();
+                    }
+                });
+            }
+            
+            // Add event listeners for WebSocket updates
             document.addEventListener('dashboard:notification_update', (event) => {
+                console.debug('Received notification update:', event.detail);
                 this.handleNotificationUpdate(event.detail);
             });
             
             document.addEventListener('dashboard:dashboard_data', (event) => {
                 if (event.detail.notifications) {
+                    console.debug('Received dashboard data with notifications:', event.detail.notifications);
                     this.updateNotifications(event.detail.notifications);
                 }
             });
@@ -59,12 +92,14 @@
             document.addEventListener('click', (event) => {
                 if (event.target.closest('.mark-notification-read')) {
                     const notificationId = event.target.closest('.mark-notification-read').dataset.id;
+                    console.debug('Marking notification as read:', notificationId);
                     this.markAsRead(notificationId);
                     event.preventDefault();
                     event.stopPropagation();
                 }
                 
                 if (event.target.closest('#mark-all-read')) {
+                    console.debug('Marking all notifications as read');
                     this.markAllAsRead();
                     event.preventDefault();
                     event.stopPropagation();
@@ -73,6 +108,70 @@
             
             // Request browser notification permission
             this.requestNotificationPermission();
+            
+            // Initial load of notifications if we're in dashboard
+            this.loadInitialNotifications();
+        }
+        
+        /**
+         * Toggle notification dropdown visibility
+         */
+        toggleNotificationDropdown() {
+            if (this.dropdownVisible) {
+                this.hideNotificationDropdown();
+            } else {
+                this.showNotificationDropdown();
+            }
+        }
+        
+        /**
+         * Show notification dropdown
+         */
+        showNotificationDropdown() {
+            if (!this.notificationContainer) return;
+            
+            console.debug('Showing notification dropdown');
+            this.notificationContainer.classList.remove('hidden');
+            this.dropdownVisible = true;
+            
+            // Load latest notifications when showing dropdown
+            this.loadInitialNotifications();
+        }
+        
+        /**
+         * Hide notification dropdown
+         */
+        hideNotificationDropdown() {
+            if (!this.notificationContainer) return;
+            
+            console.debug('Hiding notification dropdown');
+            this.notificationContainer.classList.add('hidden');
+            this.dropdownVisible = false;
+        }
+        
+        /**
+         * Load initial notifications from API
+         */
+        loadInitialNotifications() {
+            if (!this.userId) return;
+            
+            console.debug('Loading initial notifications');
+            
+            // Try to get notifications from API if not already loaded
+            if (this.notifications.length === 0) {
+                fetch(`/api/notifications/`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to fetch notifications');
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.debug('Loaded notifications from API:', data);
+                        this.updateNotifications(data.results || data);
+                    })
+                    .catch(error => {
+                        console.error('Error loading notifications:', error);
+                    });
+            }
         }
         
         /**
