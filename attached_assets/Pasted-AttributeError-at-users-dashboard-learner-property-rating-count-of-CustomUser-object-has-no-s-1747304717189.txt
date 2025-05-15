@@ -1,0 +1,72 @@
+AttributeError at /users/dashboard/learner/
+property 'rating_count' of 'CustomUser' object has no setter
+Request Method:	GET
+Request URL:	http://fe6c2ab6-9cc3-4d2b-863d-f20666b8a8f8-00-3mse50bj99d1k.spock.replit.dev/users/dashboard/learner/
+Django Version:	5.2.1
+Exception Type:	AttributeError
+Exception Value:	
+property 'rating_count' of 'CustomUser' object has no setter
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/db/models/query.py, line 131, in __iter__
+Raised during:	apps.users.views.learner_dashboard
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.11.10
+Python Path:	
+['/home/runner/workspace',
+ '.',
+ '/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/dfg63lldbvcj207iyr9z0xw21d8ax02n-python3.11-pip-24.0/lib/python3.11/site-packages',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python311.zip',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11',
+ '/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages',
+ '/nix/store/wblvmd5y7izx0z10d1w7ga7zc4apjxmb-python3.11-setuptools-75.1.1/lib/python3.11/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/setuptools/_vendor']
+Server time:	Thu, 15 May 2025 10:25:15 +0000
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/exception.py, line 42, in inner
+                response = await get_response(request)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/core/handlers/base.py, line 253, in _get_response_async
+                response = await wrapped_callback(
+                                 …
+Local vars
+/home/runner/workspace/apps/users/views.py, line 515, in learner_dashboard
+    top_mentors = get_top_mentors(request.user, 6)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/apps/users/views.py, line 283, in get_top_mentors
+        top_rated = list(top_rated) + list(active_mentors)
+                         ^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/db/models/query.py, line 384, in __iter__
+        self._fetch_all()
+             ^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/db/models/query.py, line 1945, in _fetch_all
+            self._result_cache = list(self._iterable_class(self))
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/django/db/models/query.py, line 131, in __iter__
+                    setattr(obj, attr_name, row[col_pos])
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ …
+Local vars
+Request information
+USER
+learner111 (Learner)
+
+GET
+No GET data
+
+POST
+No POST data
+
+FILES
+No FILES data
+
+COOKIES
+Variable	Value
+csrftoken	
+'********************'

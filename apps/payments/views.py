@@ -95,7 +95,17 @@ def payment_create(request, booking_id):
         return redirect('sessions:detail', pk=booking.session.id)
     
     # Create Razorpay order
-    amount = int(booking.session.price * 100)  # Amount in paise
+    try:
+        # Ensure proper decimal handling (converting to paise)
+        decimal_price = booking.session.price
+        if isinstance(decimal_price, Decimal):
+            amount = int(decimal_price * 100)  # Amount in paise
+        else:
+            amount = int(float(decimal_price) * 100)  # Amount in paise
+    except Exception as conv_error:
+        # Fallback if conversion fails
+        logger.error(f"Price conversion error: {str(conv_error)}")
+        amount = max(100, int(float(str(booking.session.price).replace(',', '')) * 100))  # Minimum amount
     currency = 'INR'
     
     try:

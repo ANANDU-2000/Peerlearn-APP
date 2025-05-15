@@ -118,27 +118,69 @@ class CustomUser(AbstractUser):
             return '/admin/'
         return '/'
         
+    # Rating fields stored in the database
+    _rating_average = models.FloatField(default=0, db_column='rating_average')
+    _rating_count = models.IntegerField(default=0, db_column='rating_count')
+    
     @property
     def rating_average(self):
         """Calculate the average rating for this user."""
         # Only applies to mentors
         if not self.is_mentor:
             return 0
+        
+        if hasattr(self, 'avg_rating') and self.avg_rating is not None:
+            return self.avg_rating
             
+        # If we have the stored value and no annotation, use it
+        if self._rating_average > 0:
+            return self._rating_average
+            
+        # Otherwise calculate
         ratings = self.ratings_received.all()
         if not ratings.exists():
             return 0
             
         total_rating = sum(r.rating for r in ratings)
-        return int(total_rating / ratings.count())
+        avg_rating = int(total_rating / ratings.count())
+        
+        # Store for future use
+        self._rating_average = avg_rating
+        self.save(update_fields=['_rating_average'])
+        
+        return avg_rating
+    
+    @rating_average.setter
+    def rating_average(self, value):
+        """Setter for rating_average."""
+        self._rating_average = value
     
     @property
     def rating_count(self):
         """Get the number of ratings for this user."""
         if not self.is_mentor:
             return 0
+        
+        if hasattr(self, 'rating_count_annotated') and self.rating_count_annotated is not None:
+            return self.rating_count_annotated
             
-        return self.ratings_received.count()
+        # If we have the stored value and no annotation, use it
+        if self._rating_count > 0:
+            return self._rating_count
+        
+        # Otherwise calculate
+        count = self.ratings_received.count()
+        
+        # Store for future use
+        self._rating_count = count
+        self.save(update_fields=['_rating_count'])
+        
+        return count
+        
+    @rating_count.setter
+    def rating_count(self, value):
+        """Setter for rating_count."""
+        self._rating_count = value
 
 class UserRating(models.Model):
     """
