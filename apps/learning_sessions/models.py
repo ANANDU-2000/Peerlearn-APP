@@ -194,6 +194,37 @@ class Session(models.Model):
         from django.urls import reverse
         return reverse('sessions:room', kwargs={'room_code': self.room_code})
     
+    def get_time_until_start(self):
+        """Get the time remaining until session starts in a human-readable format."""
+        now = timezone.now()
+        if now > self.schedule:
+            if self.status == self.LIVE:
+                return 'LIVE'
+            elif now > self.schedule + timezone.timedelta(minutes=self.duration):
+                return 'Completed'
+            else:
+                return 'In Progress'
+        
+        # Calculate time difference
+        delta = self.schedule - now
+        
+        # Handle days
+        if delta.days > 0:
+            return f"{delta.days}d {delta.seconds // 3600}h"
+        
+        # Handle hours
+        hours = delta.seconds // 3600
+        if hours > 0:
+            return f"{hours}h {(delta.seconds % 3600) // 60}m"
+        
+        # Handle minutes
+        minutes = delta.seconds // 60
+        if minutes > 0:
+            return f"{minutes}m {delta.seconds % 60}s"
+        
+        # Handle seconds
+        return f"{delta.seconds}s"
+    
     def save(self, *args, **kwargs):
         """Override save to ensure room_code is set."""
         if not self.room_code:

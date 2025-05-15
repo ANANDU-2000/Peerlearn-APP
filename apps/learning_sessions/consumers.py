@@ -192,8 +192,8 @@ class SessionsConsumer(AsyncJsonWebsocketConsumer):
         if filters is None:
             filters = {}
             
-        # Get base queryset
-        queryset = Session.objects.filter(is_published=True)
+        # Get base queryset - only include scheduled and live sessions
+        queryset = Session.objects.filter(status__in=['scheduled', 'live'])
         
         # Apply status filter if provided
         status = filters.get('status')
