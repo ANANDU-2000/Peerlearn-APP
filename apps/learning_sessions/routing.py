@@ -8,9 +8,9 @@ from . import consumers
 
 websocket_urlpatterns = [
     # Session WebSocket routes - support all formats for maximum compatibility
-    re_path(r'^ws/session/(?P<room_code>\w+)/$', consumers.SessionConsumer.as_asgi()),
-    re_path(r'^ws/sessions/(?P<room_code>\w+)/$', consumers.SessionConsumer.as_asgi()),
-    re_path(r'^ws/room/(?P<room_code>\w+)/$', consumers.SessionConsumer.as_asgi()),  # Additional format
+    re_path(r'^ws/session/(?P<room_code>[\w\-]+)/$', consumers.SessionConsumer.as_asgi()),
+    re_path(r'^ws/sessions/(?P<room_code>[\w\-]+)/$', consumers.SessionConsumer.as_asgi()),
+    re_path(r'^ws/room/(?P<room_code>[\w\-]+)/$', consumers.SessionConsumer.as_asgi()),  # Additional format
     
     # General sessions WebSocket route for any session-related subscriptions
     re_path(r'^ws/sessions/$', consumers.SessionsConsumer.as_asgi()),

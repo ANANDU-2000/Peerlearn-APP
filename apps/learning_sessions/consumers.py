@@ -277,17 +277,28 @@ class SessionConsumer(AsyncWebsocketConsumer):
         """
         Called when the websocket is handshaking.
         """
-        self.room_code = self.scope['url_route']['kwargs']['room_code']
-        self.room_group_name = f'sessions:{self.room_code}'
-        
-        # Log connection attempt
-        logger.info(f"WebSocket connection attempt to room {self.room_code}")
-        
-        # Get the session and check permissions
-        session = await self.get_session()
-        if not session:
-            # Session doesn't exist
-            logger.warning(f"Session {self.room_code} not found")
+        try:
+            self.room_code = self.scope['url_route']['kwargs']['room_code']
+            # Create a simple alphanumeric group name
+            import hashlib
+            # Create a hash of the room code to ensure we get valid characters
+            hashed_code = hashlib.md5(self.room_code.encode()).hexdigest()[:8]
+            self.room_group_name = f'room_{hashed_code}'
+            
+            # Log connection attempt
+            logger.info(f"WebSocket connection attempt to room {self.room_code} with group {self.room_group_name}")
+            
+            # Get the session and check permissions
+            session = await self.get_session()
+            if not session:
+                # Session doesn't exist
+                logger.warning(f"Session {self.room_code} not found")
+                await self.close()
+                return
+        except Exception as e:
+            logger.error(f"Error in WebSocket connect: {str(e)}")
+            await self.close()
+            return
             await self.close()
             return
         
@@ -306,11 +317,17 @@ class SessionConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
+        # Join room group safely with error handling
+        try:
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            logger.info(f"Successfully added to group {self.room_group_name}")
+        except Exception as e:
+            logger.error(f"Error joining room group: {str(e)}")
+            await self.close()
+            return
         
         logger.info(f"User {user.id} ({user.username}) connected to room {self.room_code}")
         

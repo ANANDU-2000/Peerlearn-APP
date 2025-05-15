@@ -56,9 +56,9 @@ except ImportError:
 websocket_urlpatterns = [
     # Add session WebSocket patterns with highest priority for WebRTC signaling
     # Use direct import instead of importlib for more reliable loading
-    re_path(r'^ws/session/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),
-    re_path(r'^ws/sessions/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),  # Add plural form 
-    re_path(r'^ws/room/(?P<room_code>\w+)/$', SessionConsumer.as_asgi()),
+    re_path(r'^ws/session/(?P<room_code>[\w\-]+)/$', SessionConsumer.as_asgi()),
+    re_path(r'^ws/sessions/(?P<room_code>[\w\-]+)/$', SessionConsumer.as_asgi()),  # Add plural form 
+    re_path(r'^ws/room/(?P<room_code>[\w\-]+)/$', SessionConsumer.as_asgi()),
     
     # Include the rest of app-specific websocket URL patterns
     *session_urlpatterns,
