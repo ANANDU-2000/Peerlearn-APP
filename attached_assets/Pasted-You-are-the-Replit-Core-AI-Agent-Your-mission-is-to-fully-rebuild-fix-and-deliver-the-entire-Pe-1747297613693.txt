@@ -1,0 +1,94 @@
+You are the Replit Core AI Agent. Your mission is to fully *rebuild, fix, and deliver* the entire PeerLearn EdTech platform—covering every dashboard, subpage, real-time flow, and the WebRTC live-room—so that all core features work flawlessly end-to-end. Use Django+DRF+Channels+SQLite3+Redis+Celery+WebRTC+Razorpay+TailwindCSS+Alpine.js. This single prompt contains every requirement:
+
+---
+
+## 1. AUTH & ROLE ROUTING  
+- *Auth-Selector Modal* on protected CTAs (Book, Request, Go Live, Join).  
+- *Signup Wizards*: Learner (4 steps), Mentor (5 steps), Admin login.  
+- Post-login redirect by role: /dashboard/learner, /dashboard/mentor, /dashboard/admin.
+
+---
+
+## 2. MENTOR DASHBOARD  
+### Create Session  
+- Wizard with Title, Domain Tags (autosuggest + demand tips), Schedule (future only), Pricing toggle, Thumbnail preview, Description.  
+- “Publish Session ▶” → AJAX POST → save Session(room_code=UUID4,status=scheduled) → toast + redirect to My Sessions.
+
+### My Sessions (/dashboard/mentor/my-sessions)  
+- *Tabs*: Today | Upcoming | Past (filter real future/past only).  
+- *Cards* show: Title, local schedule, Alpine.js countdown or LIVE badge, “Booked (N)” badge (via WS new_booking), buttons:  
+  - *Go Live ▶* (enabled ≥15m before or on live)  
+  - *Enter Room ▶* (enabled on first booking or on live)  
+  - *Edit ✎* (until 5m before) → modal AJAX PUT + WS session.updated  
+  - *Cancel 🗑* (until start) → AJAX DELETE + WS session.cancelled  
+- *Real-Time WS*: subscribe to sessions:{mentor_id} & sessions:{session_id} for new_booking, session.live, learner.join/leave; update badges/toasts.  
+- *Persistent Buttons*: once enabled, remain until session end.
+
+### Earnings & Profile  
+- Live earnings chart + table + CSV export (WS notifications:{mentor_id} on payment)  
+- Inline profile edits via PATCH
+
+---
+
+## 3. LEARNER DASHBOARD  
+### Browse Sessions (/dashboard/learner/sessions)  
+- *Tabs*: Recommended (ML on interests+goal), Scheduled, Live Now  
+- *Search & Filters*: debounce, domain/mentor/title, category pills.  
+- *Cards* show: thumbnail, title, mentor, countdown or LIVE, price/free, actions:  
+  - *Book ▶* → free flow or Razorpay (create Booking+Payment + WS new_booking)  
+  - *Enter Room ▶* (on live or after booking for Learner)  
+
+### My Activity (/dashboard/learner/activity)  
+- *Sub-Tabs*: Requests (Status chips + Confirm▶), Bookings (Booked ✔ + Join ▶), All  
+- WS responses:{learner_id}, session.live → toasts + enable Join ▶
+
+### Notifications & Profile  
+- WS notifications:{learner_id} list + dismiss  
+- Inline profile edits + ML vector recalc
+
+---
+
+## 4. WEBRTC ROOM (/session/{room_code})  
+- *Auth Guard*: Mentor owner or confirmed Learner  
+- *Pre-Live Lobby*: list joined peers via WS learner.join; Mentor “Start Session ▶”  
+- *Signaling*: Channels consumer for SDP/ICE; STUN/TURN fallback; ICE restart on drop  
+- *Media*: getUserMedia({video:true,audio:true}); device & permission errors → audio-only fallback  
+- *UI*: Zoom-style two-panel (desktop) or stacked (mobile) + side/floating chat & whiteboard  
+- *Toolbar*: mute/unmute, camera toggle, screen-share, chat, whiteboard, End ▶  
+- *Timers*: Alpine.js for start countdown, elapsed timer; auto-end at end_time+10m → WS session.end → feedback  
+- *Rejoins*: automatic on page reload if within session window
+
+---
+
+## 5. ADMIN DASHBOARD  
+- Overview stats, Users (ban/unban), Sessions (cancel/extend), Payments (refund/retry), Feedback (respond/flag), all with WS live updates
+
+---
+
+## 6. ERROR HANDLING & EDGE CASES  
+- *Network/WS drops* → exponential backoff + toast “Reconnecting…”  
+- *Offline* → banner “Offline mode” + queue actions  
+- *Unauthorized* → redirect + toast  
+- *Form validation* → inline red❌/green✔ + modal retry  
+- *Razorpay failures* → retry modal + toast  
+- *Media errors* → fallback logic + toast
+
+---
+
+## 7. UI/UX & ACCESSIBILITY  
+- *TailwindCSS*: Inter font, primary blue theme, responsive grids, hover:scale, focus rings  
+- *Alpine.js*: state management, toasts, countdowns, modals  
+- *Responsive*: test at 320px/768px/1200px, no overflow, ≥44px tap targets  
+- *Accessibility*: aria-label, keyboard nav, color contrast
+
+---
+
+## 8. TESTING & QA  
+- *End-to-End*: Pytest + Playwright scripts for Mentor, Learner, Admin flows, including WebRTC media negotiation  
+- *Consumer Tests*: simulate WS events (new_booking, session.live, learner.join/leave)  
+- *Media Tests*: mock getUserMedia, STUN/TURN, reconnect  
+- *CI*: all tests green, flake8, black, isort
+
+---
+
+Generate *all* models, serializers, viewsets, Channels consumers, templates, static assets, and configuration so that PeerLearn runs with *zero broken features, **complete real-time* booking, *persistent Go Live/Enter Room* buttons, and *fully functional live video/audio teaching*.
