@@ -126,7 +126,7 @@
                 
                 <!-- Razorpay Button -->
                 <div class="razorpay-container">
-                    <form id="razorpay-form" action="{% url 'payment_success' payment_id=payment.id %}" method="POST">
+                    <form id="razorpay-form" action="{% url 'payments:payment_success' payment_id=payment.id %}" method="POST">
                         {% csrf_token %}
                         <script
                             src="https://checkout.razorpay.com/v1/checkout.js"
@@ -146,6 +146,18 @@
                         <input type="hidden" name="razorpay_order_id" id="razorpay_order_id">
                         <input type="hidden" name="razorpay_signature" id="razorpay_signature">
                     </form>
+                </div>
+                
+                <!-- Payment Processing Indicator (hidden by default) -->
+                <div id="payment-processing" class="hidden mt-4 text-center">
+                    <div class="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-white bg-indigo-500">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing your payment...
+                    </div>
+                    <p class="mt-2 text-sm text-gray-500">Please don't close this window</p>
                 </div>
                 
                 <!-- Security Info -->
@@ -173,14 +185,67 @@
     // Monitor Razorpay payment events
     document.addEventListener('DOMContentLoaded', function() {
         const razorpayForm = document.getElementById('razorpay-form');
+        const processingIndicator = document.getElementById('payment-processing');
+        
         if (razorpayForm) {
-            // Capture Razorpay payment success event
+            // Handle Razorpay checkout form submit
+            const rzpButtons = document.querySelectorAll('.razorpay-payment-button');
+            if (rzpButtons && rzpButtons.length > 0) {
+                console.log('Found Razorpay payment buttons, setting up handlers');
+                
+                // Add click event directly to the button
+                rzpButtons.forEach(function(button) {
+                    // Modify button style to match our design
+                    button.classList.add('w-full', 'py-3', 'px-4', 'bg-blue-600', 'hover:bg-blue-700',
+                                          'text-white', 'rounded-md', 'shadow-sm', 'transition',
+                                          'duration-200', 'font-medium');
+                });
+            }
+            
+            // Detect when Razorpay modal opens
+            if (typeof Razorpay !== 'undefined') {
+                const originalInit = Razorpay.prototype.init;
+                Razorpay.prototype.init = function() {
+                    console.log('Razorpay checkout opened');
+                    originalInit.apply(this, arguments);
+                };
+            }
+            
+            // Handle Razorpay payment callback
             window.addEventListener('payment.success', function(e) {
+                console.log('Payment success event received', e.detail);
+                
+                // Show processing indicator
+                if (processingIndicator) {
+                    processingIndicator.classList.remove('hidden');
+                }
+                
+                // Get payment data
                 const data = e.detail;
+                
+                // Set form values
                 document.getElementById('razorpay_payment_id').value = data.razorpay_payment_id;
                 document.getElementById('razorpay_order_id').value = data.razorpay_order_id;
                 document.getElementById('razorpay_signature').value = data.razorpay_signature;
-                razorpayForm.submit();
+                
+                // Disable buttons to prevent double submission
+                const allButtons = document.querySelectorAll('button, .razorpay-payment-button');
+                allButtons.forEach(function(button) {
+                    button.disabled = true;
+                    button.classList.add('opacity-50', 'cursor-not-allowed');
+                });
+                
+                // Submit the form after a short delay to ensure all fields are populated
+                setTimeout(function() {
+                    console.log('Submitting payment confirmation form');
+                    razorpayForm.submit();
+                }, 500);
+            });
+            
+            // Handle payment failures
+            window.addEventListener('payment.failed', function(e) {
+                console.error('Payment failed', e.detail.error);
+                alert('Payment failed: ' + e.detail.error.description);
             });
         }
     });

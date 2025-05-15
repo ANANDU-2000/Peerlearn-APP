@@ -169,11 +169,46 @@ def payment_success(request, payment_id):
     """View for successful payment callback."""
     payment = get_object_or_404(Payment, id=payment_id, booking__learner=request.user)
     
+    # Get payment details from form submission
+    razorpay_payment_id = request.POST.get('razorpay_payment_id')
+    razorpay_order_id = request.POST.get('razorpay_order_id')
+    razorpay_signature = request.POST.get('razorpay_signature')
+    
+    # Store payment details
+    payment.razorpay_payment_id = razorpay_payment_id
+    payment.razorpay_signature = razorpay_signature
+    payment.save()
+    
     # Verify the payment status
     try:
-        razorpay_payment = client.payment.fetch(payment.razorpay_payment_id)
+        # Verify Razorpay signature
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
         
-        if razorpay_payment['status'] == 'captured':
+        # First try to verify via Razorpay client
+        try:
+            client.utility.verify_payment_signature(params_dict)
+            payment_verified = True
+        except Exception as e:
+            print(f"Signature verification failed: {str(e)}")
+            payment_verified = False
+        
+        # Fetch payment details from Razorpay
+        try:
+            razorpay_payment = client.payment.fetch(razorpay_payment_id)
+            if razorpay_payment['status'] == 'captured' or payment_verified:
+                payment_succeeded = True
+            else:
+                payment_succeeded = False
+        except Exception as e:
+            print(f"Payment fetch failed: {str(e)}")
+            payment_succeeded = payment_verified  # Fall back to signature verification
+            
+        # Process successful payment
+        if payment_succeeded:
             # Payment successful, update status if not already updated by webhook
             if payment.status != Payment.PAID:
                 with transaction.atomic():
