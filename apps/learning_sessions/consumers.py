@@ -711,6 +711,15 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
                 'type': 'pong',
                 'timestamp': timezone.now().isoformat()
             })
+        elif message_type == 'fetch_sessions':
+            # Fetch sessions with filters
+            filters = content.get('filters', {})
+            
+            # If user is mentor, always filter by mentor
+            if self.scope['user'].is_mentor:
+                filters['mentor_id'] = self.user_id
+                
+            await self.fetch_sessions(filters)
         else:
             logger.warning(f"Unknown message type received: {message_type}")
     
@@ -718,13 +727,193 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
         """
         Fetch and send dashboard data to the client.
         """
-        # This will be implemented to fetch real-time data for the dashboard
-        # For now, just send a confirmation message
+        user_role = 'mentor' if self.scope['user'].is_mentor else 'learner'
+        
+        # Different data based on user role
+        if user_role == 'mentor':
+            data = await self.get_mentor_dashboard_data()
+        else:
+            data = await self.get_learner_dashboard_data()
+        
         await self.send_json({
             'type': 'dashboard_data',
-            'message': 'Dashboard data function called',
+            'user_role': user_role,
+            'data': data,
             'timestamp': timezone.now().isoformat()
         })
+        
+    @sync_to_async
+    def get_mentor_dashboard_data(self):
+        """
+        Get dashboard data for mentors.
+        """
+        from django.db.models import Count
+        from django.forms.models import model_to_dict
+        from .models import Session, SessionRequest
+        from apps.payments.models import Payment
+        
+        mentor = self.scope['user']
+        
+        # Get recent sessions
+        recent_sessions = Session.objects.filter(
+            mentor=mentor
+        ).order_by('-created_at')[:5]
+        
+        # Get upcoming sessions
+        upcoming_sessions = Session.objects.filter(
+            mentor=mentor, 
+            status='scheduled'
+        ).order_by('schedule')[:5]
+        
+        # Get session requests
+        session_requests = SessionRequest.objects.filter(
+            mentor=mentor,
+            status='pending'
+        ).order_by('-created_at')[:5]
+        
+        # Count metrics
+        total_sessions = Session.objects.filter(mentor=mentor).count()
+        active_sessions = Session.objects.filter(mentor=mentor, status__in=['scheduled', 'live']).count()
+        completed_sessions = Session.objects.filter(mentor=mentor, status='completed').count()
+        
+        # Count payments
+        total_earnings = Payment.objects.filter(
+            booking__session__mentor=mentor,
+            status='completed'
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        
+        # Format data
+        formatted_recent_sessions = []
+        for session in recent_sessions:
+            session_dict = model_to_dict(session, fields=['id', 'title', 'status', 'room_code'])
+            session_dict.update({
+                'schedule': session.schedule.isoformat() if session.schedule else None,
+                'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
+                'price': float(session.price) if session.price else 0,
+                'confirmed_bookings_count': session.bookings.filter(status='confirmed').count(),
+                'can_go_live': session.can_go_live(),
+                'learner_names': [b.learner.get_full_name() for b in session.bookings.filter(status='confirmed')],
+            })
+            formatted_recent_sessions.append(session_dict)
+        
+        formatted_upcoming_sessions = []
+        for session in upcoming_sessions:
+            session_dict = model_to_dict(session, fields=['id', 'title', 'status', 'room_code'])
+            session_dict.update({
+                'schedule': session.schedule.isoformat() if session.schedule else None,
+                'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
+                'price': float(session.price) if session.price else 0,
+                'confirmed_bookings_count': session.bookings.filter(status='confirmed').count(),
+                'can_go_live': session.can_go_live(),
+                'countdown': session.get_time_until_start(),
+                'learner_names': [b.learner.get_full_name() for b in session.bookings.filter(status='confirmed')],
+            })
+            formatted_upcoming_sessions.append(session_dict)
+        
+        formatted_requests = []
+        for request in session_requests:
+            request_dict = model_to_dict(request, fields=['id', 'title', 'description', 'status'])
+            request_dict.update({
+                'learner_name': request.learner.get_full_name(),
+                'learner_id': request.learner.id,
+                'created_at': request.created_at.isoformat(),
+                'created_at_formatted': request.created_at.strftime('%b %d, %Y'),
+            })
+            formatted_requests.append(request_dict)
+        
+        return {
+            'metrics': {
+                'total_sessions': total_sessions,
+                'active_sessions': active_sessions,
+                'completed_sessions': completed_sessions,
+                'pending_requests': session_requests.count(),
+                'total_earnings': float(total_earnings),
+            },
+            'recent_sessions': formatted_recent_sessions,
+            'upcoming_sessions': formatted_upcoming_sessions,
+            'session_requests': formatted_requests,
+        }
+        
+    @sync_to_async
+    def get_learner_dashboard_data(self):
+        """
+        Get dashboard data for learners.
+        """
+        from django.db.models import Count
+        from django.forms.models import model_to_dict
+        from .models import Session, Booking
+        
+        learner = self.scope['user']
+        
+        # Get recent bookings
+        recent_bookings = Booking.objects.filter(
+            learner=learner
+        ).order_by('-created_at')[:5]
+        
+        # Get upcoming bookings
+        upcoming_bookings = Booking.objects.filter(
+            learner=learner, 
+            status='confirmed',
+            session__status='scheduled'
+        ).order_by('session__schedule')[:5]
+        
+        # Count metrics
+        total_bookings = Booking.objects.filter(learner=learner).count()
+        upcoming_count = Booking.objects.filter(
+            learner=learner, 
+            status='confirmed',
+            session__status='scheduled'
+        ).count()
+        completed_count = Booking.objects.filter(
+            learner=learner, 
+            session__status='completed'
+        ).count()
+        
+        # Format bookings
+        formatted_recent_bookings = []
+        for booking in recent_bookings:
+            session = booking.session
+            booking_dict = model_to_dict(booking, fields=['id', 'status'])
+            booking_dict.update({
+                'session_id': session.id,
+                'session_title': session.title,
+                'session_status': session.status,
+                'mentor_name': session.mentor.get_full_name(),
+                'mentor_id': session.mentor.id,
+                'schedule': session.schedule.isoformat() if session.schedule else None,
+                'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
+                'price': float(booking.price) if booking.price else 0,
+                'room_code': session.room_code,
+            })
+            formatted_recent_bookings.append(booking_dict)
+        
+        formatted_upcoming_bookings = []
+        for booking in upcoming_bookings:
+            session = booking.session
+            booking_dict = model_to_dict(booking, fields=['id', 'status'])
+            booking_dict.update({
+                'session_id': session.id,
+                'session_title': session.title,
+                'session_status': session.status,
+                'mentor_name': session.mentor.get_full_name(),
+                'mentor_id': session.mentor.id,
+                'schedule': session.schedule.isoformat() if session.schedule else None,
+                'schedule_formatted': session.schedule.strftime('%b %d, %Y %I:%M %p') if session.schedule else None,
+                'price': float(booking.price) if booking.price else 0,
+                'countdown': session.get_time_until_start(),
+                'room_code': session.room_code,
+            })
+            formatted_upcoming_bookings.append(booking_dict)
+        
+        return {
+            'metrics': {
+                'total_bookings': total_bookings,
+                'upcoming_count': upcoming_count,
+                'completed_count': completed_count,
+            },
+            'recent_bookings': formatted_recent_bookings,
+            'upcoming_bookings': formatted_upcoming_bookings,
+        }
     
     # Channel layer message handlers
     async def session_update(self, event):
