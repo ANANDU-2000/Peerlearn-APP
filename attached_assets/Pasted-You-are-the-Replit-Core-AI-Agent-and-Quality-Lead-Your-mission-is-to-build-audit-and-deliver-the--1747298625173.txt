@@ -1,0 +1,102 @@
+You are the Replit Core AI Agent and Quality Lead. Your mission is to build, audit, and deliver the *entire PeerLearn platform—a one-to-one live teaching app—with **zero broken features* and *seamless real-time flows, using **Django+DRF, Channels, SQLite3, Redis, Celery, WebRTC, Razorpay, TailwindCSS, and Alpine.js*. Paste this single master prompt into Replit and run; it must generate a fully functional, production-ready codebase with complete UI/UX, backend logic, and testing:
+
+---
+
+## 1. AUTHENTICATION & ROUTING
+- *Auth-Selector* on any protected CTA (Book, Request, Go Live, Join)  
+- *Signup Wizards*: Learner (4 steps), Mentor (5 steps), Admin login (2FA)  
+- Role-based redirects: /dashboard/learner, /dashboard/mentor, /dashboard/admin  
+- Unauthenticated attempts redirect with toast “Please sign up or log in.”
+
+---
+
+## 2. MENTOR DASHBOARD
+### Create Session
+- 4-step wizard: Title (spell-check, char count), Domain Tags (autosuggest + demand stats), Schedule (future only), Pricing (free/paid toggle + INR bounds), Thumbnail (preview + size/type), Description (200-word limit)  
+- “Publish ▶” → AJAX POST /api/sessions/ → save Session(room_code=UUID4,status=scheduled) → toast “Session scheduled ✔” → redirect to My Sessions
+
+### My Sessions (/dashboard/mentor/my-sessions)
+- *Tabs*: Today | Upcoming | Past (filter future/live/past only; no duplicates)  
+- *Cards* display: Title, local schedule, Alpine.js countdown or LIVE badge, “Booked (N)” badge (initial + WS updates), buttons:
+  - *Go Live ▶* (enabled ≥15 min before or if status=live)  
+  - *Enter Room ▶* (enabled on first booking or on live)  
+  - *Edit ✎* (until 5 min before) → modal AJAX PUT + WS session.updated  
+  - *Cancel 🗑* (until start) → AJAX DELETE + WS session.cancelled  
+- *Real-Time WS*: subscribe to sessions:{mentor_id} & sessions:{session_id} for new_booking, session.live, learner.join/leave → update badges, lobby list, toasts  
+- Buttons persist once enabled until session end
+
+### Earnings & Profile
+- Earnings chart + table + CSV export; WS notifications:{mentor_id} on new payments  
+- Inline profile edits via PATCH /api/users/<id>/, recalc ML vectors, toast “Profile updated ✔”
+
+---
+
+## 3. LEARNER DASHBOARD
+### Browse Sessions (/dashboard/learner/sessions)
+- *Tabs*: Recommended (ML via /api/recommendations), Scheduled (future), Live Now (status=live)  
+- *Search & Filters*: debounce input, domain/title/mentor filters, category pills  
+- *Cards* include: thumbnail, title, mentor, countdown/LIVE, price/free badge, actions:
+  - *Book ▶* (free or Razorpay paid) → POST /api/bookings/ + /api/payments/ → WS new_booking → toast “Booked ✔” → enable Enter Room  
+  - *Enter Room ▶* (on live or after booking)
+
+### My Activity (/dashboard/learner/activity)
+- *Sub-Tabs*: Requests (status chips + Confirm▶/Cancel▶), Bookings (Booked ✔ + Join ▶), All  
+- WS channels responses:{learner_id}, sessions:{session_id} for real-time updates and toasts  
+- *Join ▶* flow: GET /api/sessions/{id}/authorize_join/ → redirect to /session/{room_code}/
+
+### Notifications & Profile
+- WS notifications:{learner_id} for toasts; list page + dismiss  
+- Profile edit via PATCH + ML vector recalc
+
+---
+
+## 4. WEBRTC ROOM (/session/{room_code})
+- *Auth Guard*: only mentor owner or confirmed learner; unauthorized → redirect + toast  
+- *Pre-Live Lobby*: AJAX GET session info; Alpine.js countdown; dynamic participant list via WS learner.join/leave; Mentor “Start Session ▶”; Learner “Waiting for Mentor…”  
+- *Signaling*: WS endpoint /ws/sessions/{room_code}/; Channels consumer for offer, answer, ice_candidate, session.live, session.end  
+- *Media*: robust getUserMedia({video:true,audio:true}) with permission/device error handling → fallback to audio-only + toast  
+- *UI Layout*:
+  - *Desktop*: grid-cols-3: video pane (col-span-2), sidebar (chat, whiteboard, participants)  
+  - *Mobile*: stacked full-screen video + bottom toolbar  
+- *Toolbar*: mute/unmute mic, toggle camera, share screen, open chat pane (WS chat:{room_code}), open whiteboard (WS whiteboard:{room_code}), End Session ▶  
+- *Timers*: countdown → elapsed via Alpine.js; auto-end at end_time+10min → WS session.end → feedback modals  
+- *Rejoin & Reconnect*: WS drop → exponential backoff + toast “Reconnecting…”; ICE restart on failure; auto-rejoin if within window
+
+---
+
+## 5. ADMIN DASHBOARD (/dashboard/admin)
+- *Overview*: total users, active sessions, revenue, pending requests  
+- *Users*: Learners/Mentors/Banned, search, ban/unban, view profile  
+- *Sessions*: Scheduled/Live/Completed, cancel/extend actions  
+- *Payments*: Pending/Completed/Failed, refund/retry  
+- *Feedback*: list, respond via email, flag/remove  
+- WS live feeds for new signups, bookings, payments; 2FA login
+
+---
+
+## 6. ERROR HANDLING & EDGE CASES
+- Form validation (red❌/green✔), inline messages, retry modals  
+- Network/WS drops → skeleton loader >1s, spinner >3s, banner “Offline mode” + queue actions  
+- Unauthorized/time-conflict clicks → disabled + tooltip + toast  
+- Razorpay failures → retry modal + toast  
+- Media errors → fallback + toast
+
+---
+
+## 7. UI/UX & ACCESSIBILITY
+- *TailwindCSS*: Inter font, primary #1E3A8A, spacing (p-6, gap-4), hover:scale-105, focus:ring-2 focus:ring-primary  
+- *Alpine.js*: state, toasts, countdown, modals  
+- *Responsive*: test at 320/768/1200px; no overflow  
+- *Accessibility*: aria-label, keyboard navigation, ≥44×44px tap targets, color contrast ≥4.5:1
+
+---
+
+## 8. TESTING & QA
+- *End-to-End*: Pytest + Playwright simulating Mentor & Learner journeys including WebRTC negotiation and media streams  
+- *Consumer Tests*: simulate WS events (new_booking, session.live, learner.join/leave) → assert UI updates  
+- *Media Tests*: mock getUserMedia success/failure, STUN/TURN connectivity, reconnect logic  
+- *CI*: all tests green, flake8, black, isort
+
+---
+
+Paste this prompt into Replit Core AI Agent to generate a *fully functional, **real-time, **one-to-one live teaching platform—complete with booking, scheduling, payments, notifications, persistent Go Live/Enter Room buttons, and a **Zoom-like WebRTC room—without any manual fixes*.

@@ -77,6 +77,23 @@ class SessionsConsumer(AsyncJsonWebsocketConsumer):
         if message_type == 'get_sessions':
             # Handle request for sessions list
             await self.send_sessions_list()
+            
+        elif message_type == 'fetch_sessions':
+            # Handle request for sessions list with optional filters
+            filters = content.get('filters', {})
+            await self.fetch_sessions(filters)
+            
+        elif message_type == 'subscribe':
+            # Handle subscription to specific session channel
+            channel = content.get('channel')
+            if channel:
+                await self.subscribe_to_channel(channel)
+                
+        elif message_type == 'unsubscribe':
+            # Handle unsubscription from specific session channel
+            channel = content.get('channel')
+            if channel:
+                await self.unsubscribe_from_channel(channel)
     
     async def send_sessions_list(self):
         """
@@ -88,6 +105,160 @@ class SessionsConsumer(AsyncJsonWebsocketConsumer):
             'message': 'Sessions list would be sent here',
             'sessions': [] # Empty list for now, would be filled with actual sessions
         })
+        
+    async def fetch_sessions(self, filters=None):
+        """
+        Fetch and send sessions list with optional filters.
+        """
+        sessions = await self.get_filtered_sessions(filters)
+        
+        await self.send_json({
+            'type': 'sessions_data',
+            'sessions': sessions
+        })
+        
+    async def subscribe_to_channel(self, channel):
+        """
+        Subscribe to a specific channel for receiving updates.
+        """
+        if not hasattr(self, 'subscribed_channels'):
+            self.subscribed_channels = set()
+            
+        # Validate channel format (e.g., "sessions:123")
+        if not channel.startswith(('sessions:', 'session:')):
+            logger.warning(f"Invalid channel format: {channel}")
+            await self.send_json({
+                'type': 'error',
+                'message': 'Invalid channel format'
+            })
+            return
+            
+        logger.info(f"Subscribing to channel: {channel}")
+        
+        # Add to the specific group
+        await self.channel_layer.group_add(
+            channel,
+            self.channel_name
+        )
+        
+        # Add to our tracked subscriptions
+        self.subscribed_channels.add(channel)
+        
+        # Acknowledge subscription
+        await self.send_json({
+            'type': 'subscription_success',
+            'channel': channel,
+            'message': f'Subscribed to {channel}'
+        })
+        
+    async def unsubscribe_from_channel(self, channel):
+        """
+        Unsubscribe from a specific channel.
+        """
+        if not hasattr(self, 'subscribed_channels') or channel not in self.subscribed_channels:
+            await self.send_json({
+                'type': 'error',
+                'message': f'Not subscribed to {channel}'
+            })
+            return
+            
+        logger.info(f"Unsubscribing from channel: {channel}")
+        
+        # Remove from the specific group
+        await self.channel_layer.group_discard(
+            channel,
+            self.channel_name
+        )
+        
+        # Remove from our tracked subscriptions
+        self.subscribed_channels.remove(channel)
+        
+        # Acknowledge unsubscription
+        await self.send_json({
+            'type': 'unsubscription_success',
+            'channel': channel,
+            'message': f'Unsubscribed from {channel}'
+        })
+        
+    @sync_to_async
+    def get_filtered_sessions(self, filters=None):
+        """
+        Get sessions with the given filters.
+        """
+        from django.forms.models import model_to_dict
+        from django.db.models import Count, Q
+        from datetime import datetime, timedelta
+        
+        if filters is None:
+            filters = {}
+            
+        # Get base queryset
+        queryset = Session.objects.filter(is_published=True)
+        
+        # Apply status filter if provided
+        status = filters.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        # Apply date filters if provided
+        date_filter = filters.get('date')
+        if date_filter == 'today':
+            today = datetime.now().date()
+            queryset = queryset.filter(
+                schedule__date=today
+            )
+        elif date_filter == 'upcoming':
+            now = datetime.now()
+            queryset = queryset.filter(
+                schedule__gt=now,
+                status='scheduled'
+            )
+        elif date_filter == 'past':
+            now = datetime.now()
+            queryset = queryset.filter(
+                Q(schedule__lt=now) | Q(status='completed')
+            )
+            
+        # Apply mentor filter if provided
+        mentor_id = filters.get('mentor_id')
+        if mentor_id:
+            queryset = queryset.filter(mentor_id=mentor_id)
+            
+        # Count bookings
+        queryset = queryset.annotate(
+            booking_count=Count('bookings', filter=Q(bookings__status='confirmed'))
+        )
+        
+        # Limit results
+        limit = int(filters.get('limit', 20))
+        queryset = queryset.order_by('-schedule')[:limit]
+        
+        # Convert to dicts for JSON serialization
+        result = []
+        for session in queryset:
+            session_dict = model_to_dict(
+                session, 
+                fields=['id', 'title', 'description', 'status', 'room_code']
+            )
+            
+            # Add additional computed fields
+            session_dict.update({
+                'mentor_name': session.mentor.get_full_name() or session.mentor.username,
+                'mentor_id': session.mentor.id,
+                'schedule': session.schedule.isoformat() if session.schedule else None,
+                'duration': session.duration,
+                'price': float(session.price) if session.price else 0,
+                'confirmed_bookings_count': session.booking_count,
+                'max_participants': session.max_participants,
+                'can_book': session.status == 'scheduled' and session.booking_count < session.max_participants,
+                'can_go_live': session.can_go_live(),
+                'can_edit': session.can_edit(),
+                'image_url': session.image.url if session.image else None,
+            })
+            
+            result.append(session_dict)
+            
+        return result
     
     async def session_update(self, event):
         """
@@ -465,6 +636,13 @@ class DashboardConsumer(AsyncJsonWebsocketConsumer):
     Consumer for dashboard real-time updates.
     This handles updates for sessions, requests, and other dashboard content.
     """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = None
+        self.user_id = None
+        self.group_name = None
+        self.subscribed_channels = set()
     
     async def connect(self):
         """
