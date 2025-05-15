@@ -1,0 +1,93 @@
+You are the Replit Core AI Agent. Fix and rebuild *every dashboard, **browse page, **booking flow, and **WebRTC room* in PeerLearn so that all real-time, one-to-one live teaching features work flawlessly—no broken buttons, no fake data, no past sessions showing, no UI glitches. Deliver a complete Django+DRF+Channels+SQLite3+Redis+Celery+WebRTC+Razorpay+TailwindCSS+Alpine.js codebase.
+
+────────────────────────────────────────────────────────────────
+1. GLOBAL DATA INTEGRITY & ROUTING
+────────────────────────────────────────────────────────────────
+• Enforce UTC→local timezone conversion.  
+• Sessions query filters: only future or live (no past) everywhere.  
+• Role-guard middleware: redirect learners→learner dash, mentors→mentor dash, admins→admin dash.  
+• CSRF + WS auth tokens on all AJAX/WS.  
+
+────────────────────────────────────────────────────────────────
+2. LEARNER DASHBOARD FIXES
+────────────────────────────────────────────────────────────────
+A) *Recommendations Tab*  
+  - GET /api/recommendations must return ML-driven sessions matching learner.interests+goal (only future/live).  
+  - Carousel displays real session cards (thumb, title, mentor, countdown or LIVE badge, price/free).  
+  - WS sessions:{id} updates attendee count.  
+
+B) *Sessions Browse Tab* (new)  
+  - Tabs: Recommended | Scheduled | Live Now  
+  - Search input filters by title/domain/mentor name with debounce and proper horizontal layout (no letter-by-line).  
+  - Category pills filter grid correctly (only matching).  
+
+C) *Activity → Bookings Sub-tab*  
+  - After booking, card shows “Booked ✔” + *Enter Room ▶* (not “Go Live”).  
+  - *Enter Room ▶* enabled as soon as booking confirmed.  
+  - Clicking it → GET /api/sessions/{id}/authorize_join/ → redirect /session/{room_code}/.  
+
+D) *Join Flow & Notifications*  
+  - On mentor.go_live, WS session.live → toasts “Session is live—Join now!” & enable Join ▶.  
+  - WS learner.join → toasts “You joined the room.”  
+
+E) *Payment Flow*  
+  - Razorpay modal must open and complete; on success create Payment+Booking; WS→mentor; update DB.  
+  - Errors → retry modal + toast.  
+
+────────────────────────────────────────────────────────────────
+3. MENTOR DASHBOARD FIXES
+────────────────────────────────────────────────────────────────
+A) *My Sessions Tab*  
+  - Tabs: Today, Upcoming, Past (filter on schedule).  
+  - Cards: title, schedule, countdown (Alpine.js), “Booked (N)”, buttons: Go Live ▶, Enter Room ▶, Edit ✎, Cancel 🗑.  
+  - *Enter Room ▶* enabled on N≥1 booking or status=live; *Go Live ▶* enabled at T–15m.  
+
+B) *Real-Time Booking & Lobby*  
+  - On booking, backend broadcasts WS new_booking on sessions:{session_id} → update badge + enable Enter Room ▶ + toast “Alice booked ‘X’”.  
+  - On learner.join in room lobby → toasts “Alice is waiting” + update attendee list.  
+
+C) *Go Live & Enter Room*  
+  - Go Live ▶ → POST /api/sessions/{id}/go_live/ → status=live + WS session.live → redirect to WebRTC room.  
+  - Enter Room ▶ → authorize_join flow.  
+
+D) *Edit & Cancel*  
+  - Edit opens modal; save via PUT /api/sessions/{id}/ → WS session.updated + toast.  
+  - Cancel via DELETE /api/sessions/{id}/cancel/ → status=cancelled + WS session.cancelled + toast.  
+
+────────────────────────────────────────────────────────────────
+4. WEBRTC ROOM RENOVATION
+────────────────────────────────────────────────────────────────
+Route /session/{room_code}:
+• *Layout*: Zoom-style two-panel (mentor left, learner right on web; stacked on mobile).  
+• *Lobby*: show title, countdown, list of joined learners, Mentor “Start Session ▶” button.  
+• *Signaling*: Channels consumer for SDP/ICE, STUN/TURN fallback.  
+• *Media*: getUserMedia({video:true,audio:true}); handle permission/device errors; fallback audio.  
+• *Toolbar*: mute/unmute, camera toggle, screen-share, chat pane, whiteboard pane, End Session ▶.  
+• *Timers*: elapsed timer, auto-end at scheduled end_time + 10m.  
+• *Reconnection*: WS + ICE auto-retry/backoff + toasts.  
+• *End & Feedback*: broadcast session.end, show rating modal for learner, resource upload for mentor; save to DB; toast.
+
+────────────────────────────────────────────────────────────────
+5. ADMIN DASHBOARD
+────────────────────────────────────────────────────────────────
+• Manage Users/Sessions/Payments/Feedback with real-time stats via WS.  
+• Ban/unban, refund actions, 2FA login.  
+• Overview cards auto-refresh, charts via Celery analytics.
+
+────────────────────────────────────────────────────────────────
+6. UI/UX POLISH & RESPONSIVENESS
+────────────────────────────────────────────────────────────────
+• *Tailwind*: consistent Inter font, primary blue, hover:scale, focus rings.  
+• *Alpine.js*: countdown, toasts, form validation, sheet transitions.  
+• *Desktop/Mobile*: responsive grids, swipeable carousels, bottom nav ≥44px targets, slide-up modals.  
+• *Skeleton/Sprite*: loaders for >1s, spinners for >3s, offline banner.
+
+────────────────────────────────────────────────────────────────
+7. ERROR HANDLING & TESTING
+────────────────────────────────────────────────────────────────
+• Inline validation (red❌/green✔), retry modals on fail.  
+• WS disconnect → exponential backoff + toast.  
+• CSRF & sanitization.  
+• Pytest coverage for all REST endpoints & consumers; flake8, black, isort.
+
+Deliver a complete, fully-functional PeerLearn project addressing every issue above, with real-time one-on-one video & audio live teaching—and no broken features.
