@@ -932,7 +932,7 @@ document.addEventListener('alpine:init', () => {
             console.log('Feedback submitted:', this.rating, this.feedbackText);
             
             // Send feedback to server
-            fetch('/api/sessions/feedback/', {
+            fetch(`/sessions/${this.roomCode}/feedback/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
