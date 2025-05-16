@@ -1,13 +1,9 @@
-"""
-ASGI config for peerlearn project.
-"""
-
 import os
 import django
 
-# Set the Django settings module
+from channels.routing import get_default_application  # or import your custom routing if needed
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'peerlearn.settings')
 django.setup()
 
-# Import ASGI application
-from peerlearn.routing import application
+from peerlearn.routing import application  # ❗ This line should NOT have a `?`
