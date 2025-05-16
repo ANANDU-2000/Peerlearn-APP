@@ -55,8 +55,11 @@ urlpatterns = [
     # WebRTC and room status API endpoints
     path('api/sessions/<uuid:room_code>/status/', api_views.update_session_status, name='update_session_status'),
     path('api/sessions/<str:room_code>/status/', api_views.update_session_status, name='update_session_status_str'),
+<<<<<<< HEAD
     
     # End session API endpoint
     path('api/sessions/<uuid:room_code>/end/', api_views.end_session, name='end_session_api'),
     path('api/sessions/<str:room_code>/end/', api_views.end_session, name='end_session_str_api'),
+=======
+>>>>>>> 75adc86c7564c69ceda84cbdd8be5b82ca9268f4
 ]
