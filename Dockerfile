@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy Django project (inside app/)
-COPY ./app /app
+COPY . .
 
 # Set environment variables (adjust your settings module if needed)
 ENV DJANGO_SETTINGS_MODULE=peerlearn.settings
