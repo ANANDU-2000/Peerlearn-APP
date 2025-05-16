@@ -78,14 +78,11 @@ django-rich==1.7.0
 django-cleanup==8.0.0
 
 # WebRTC and Media Processing
-<<<<<<< HEAD
-aiortc==1.5.0
-av==10.0.0
 =======
 aiortc==1.5.0  # Python WebRTC implementation
 av>=9.0.0,<11.0.0
  # For media processing
->>>>>>> 75adc86c7564c69ceda84cbdd8be5b82ca9268f4
+
 
 # Search
 django-haystack==3.2.1
