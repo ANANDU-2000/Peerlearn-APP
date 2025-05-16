@@ -1,29 +1,25 @@
+# Use official Python base image
 FROM python:3.11-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=peerlearn.settings
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-# Set work directory
+# Set working directory inside container
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies (optional, helpful for psycopg2 etc.)
+RUN apt-get update && apt-get install -y build-essential libpq-dev
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy project
-COPY . .
+# Copy Django project (inside app/)
+COPY ./app /app
 
-# Expose port
-EXPOSE 5000
+# Set environment variables (adjust your settings module if needed)
+ENV DJANGO_SETTINGS_MODULE=peerlearn.settings
 
-# Command to run on container start
-CMD ["python", "-m", "daphne", "-b", "0.0.0.0", "-p", "5000", "peerlearn.asgi:application"]
+# Run migrations, collect static files, and start app
+CMD ["bash", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn peerlearn.wsgi:application --bind 0.0.0.0:$PORT"]
