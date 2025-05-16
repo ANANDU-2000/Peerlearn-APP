@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-peerlearn-default-key-chan
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['https://peerlearn-app-2.onrender.com/']
 
 # Application definition
 INSTALLED_APPS = [
@@ -160,8 +160,8 @@ LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 
 # Razorpay settings
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '')
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
+RAZORPAY_KEY_ID = os.getenv('rzp_test_OBy2Cmthx7Kq2U', '')
+RAZORPAY_KEY_SECRET = os.getenv('2lZY4hGIgyf7D3qBop3LZeUy','')
 
 # Celery settings
 CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0"
@@ -179,8 +179,10 @@ TURN_CREDENTIAL = os.getenv('TURN_CREDENTIAL', '')
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
+    'https://peerlearn-app-2.onrender.com/',
     'https://*.replit.dev',
     'https://*.replit.app',
     'http://localhost:5000',
     'http://127.0.0.1:5000',
 ]
+
