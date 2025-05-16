@@ -34,9 +34,11 @@
                     <div class="h-56 bg-gradient-to-r from-primary-600 to-blue-500">
                         <div class="h-full w-full flex items-center justify-center text-white">
                             <div class="text-center">
-                                <div class="text-6xl font-bold mb-2">
-                                    {% for topic in session.topics %}
-                                        {% if forloop.first %}{{ topic|first|upper }}{{ topic|slice:"1:2"|upper }}{% endif %}
+                               <div class="text-6xl font-bold mb-2">
+                                        {% for topic in session.topics %}
+                                        {% if forloop.first %}
+                                            {{ topic|upper }}
+                                        {% endif %}
                                     {% endfor %}
                                 </div>
                             </div>
