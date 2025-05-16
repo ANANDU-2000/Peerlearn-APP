@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: peerlearn-app
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: daphne peerlearn.asgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: peerlearn.settings
+      - key: DEBUG
+        value: true
+      - key: SECRET_KEY
+        value: your-very-secret-key
+      - key: REDIS_HOST
+        value: your-redis-name.redis.render.com
+      - key: REDIS_PORT
+        value: 6379
+    staticPublishPath: staticfiles
+    autoDeploy: true
+
+  - type: redis
+    name: peerlearn-redis
+    plan: free
